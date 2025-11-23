@@ -5,6 +5,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  TouchableOpacity,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
@@ -49,14 +50,25 @@ const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ navigation }) => 
           hostAvatar="https://i.pravatar.cc/150?img=6"
         />
         <LocationCard
-          locationName="Mandalay On The Hudson"
+          location="Mandalay On The Hudson"
           address="123 Main St, San Francisco, CA"
         />
         <DescriptionBlock text="Just a casual hangout. Bring your own drinks. Emojis and casual conversational tone. 🎉" />
-        <GuestList guests={guests} total={32} />
         <PhotoAlbum />
-        <ActivityFeed />
+        <GuestList guests={guests} total={32} />
+        <ActivityFeed groupId="123" />
       </ScrollView>
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity style={styles.button}>
+            <Text style={styles.buttonText}>Share</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.button}>
+            <Text style={styles.buttonText}>Add to Calendar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.button}>
+            <Text style={styles.buttonText}>Get Tickets</Text>
+        </TouchableOpacity>
+      </View>
       <FloatingRSVPBar />
     </View>
   );
@@ -77,6 +89,21 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 20,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 10,
+    backgroundColor: '#000',
+  },
+  button: {
+    backgroundColor: '#6c63ff',
+    padding: 10,
+    borderRadius: 20,
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
 });
 

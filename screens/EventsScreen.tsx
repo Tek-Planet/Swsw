@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, StatusBar, FlatList, TouchableOpacity } from 'r
 import { AppHeader } from '../components/Header';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 // Mock data for events
 const events = [
@@ -36,6 +37,12 @@ const EventsScreen: React.FC<EventsScreenProps> = ({ navigation }) => {
         keyExtractor={item => item.id}
         contentContainerStyle={styles.listContainer}
       />
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => navigation.navigate('CreateEvent')}
+      >
+        <Ionicons name="add" size={30} color="white" />
+      </TouchableOpacity>
     </View>
   );
 };
@@ -72,6 +79,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#aaa',
     marginTop: 5,
+  },
+  fab: {
+    position: 'absolute',
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    right: 20,
+    bottom: 20,
+    backgroundColor: '#6c63ff',
+    borderRadius: 28,
+    elevation: 8,
   },
 });
 

@@ -4,7 +4,6 @@ import { View, Text, StyleSheet, Image } from 'react-native';
 
 interface ActivityCardProps {
   activity: {
-    id: string;
     user: string;
     avatar: string;
     action: string;
@@ -16,10 +15,9 @@ const ActivityCard: React.FC<ActivityCardProps> = ({ activity }) => {
   return (
     <View style={styles.card}>
       <Image source={{ uri: activity.avatar }} style={styles.avatar} />
-      <View style={styles.activityInfo}>
-        <Text style={styles.activityText}>
-          <Text style={styles.user}>{activity.user}</Text>
-          {` ${activity.action}`}
+      <View style={styles.content}>
+        <Text style={styles.text}>
+          <Text style={styles.user}>{activity.user}</Text> {activity.action}
         </Text>
         <Text style={styles.timestamp}>{activity.timestamp}</Text>
       </View>
@@ -31,10 +29,9 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#3a3a3a',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 10,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#444',
   },
   avatar: {
     width: 40,
@@ -42,20 +39,20 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginRight: 15,
   },
-  activityInfo: {
+  content: {
     flex: 1,
   },
-  activityText: {
-    color: 'white',
-    fontSize: 16,
+  text: {
+    color: '#eee',
+    fontSize: 14,
   },
   user: {
     fontWeight: 'bold',
   },
   timestamp: {
-    color: '#aaa',
-    fontSize: 14,
-    marginTop: 5,
+    color: '#999',
+    fontSize: 12,
+    marginTop: 4,
   },
 });
 

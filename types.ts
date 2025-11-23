@@ -6,4 +6,5 @@ export type RootStackParamList = {
     Profile: undefined;
     Events: undefined;
     EventDetail: { eventId: string };
+    CreateEvent: undefined;
   };

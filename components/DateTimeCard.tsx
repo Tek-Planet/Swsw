@@ -3,18 +3,18 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 
-interface LocationCardProps {
-  location: string;
-  address: string;
+interface DateTimeCardProps {
+  date: string;
+  time: string;
 }
 
-const LocationCard: React.FC<LocationCardProps> = ({ location, address }) => {
+const DateTimeCard: React.FC<DateTimeCardProps> = ({ date, time }) => {
   return (
     <View style={styles.card}>
-      <Icon name="location-outline" size={24} color="#fff" />
+      <Icon name="calendar-outline" size={24} color="#fff" />
       <View style={styles.textContainer}>
-        <Text style={styles.location}>{location}</Text>
-        <Text style={styles.address}>{address}</Text>
+        <Text style={styles.date}>{date}</Text>
+        <Text style={styles.time}>{time}</Text>
       </View>
     </View>
   );
@@ -31,15 +31,15 @@ const styles = StyleSheet.create({
   textContainer: {
     marginLeft: 15,
   },
-  location: {
+  date: {
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
   },
-  address: {
+  time: {
     color: '#ccc',
     marginTop: 5,
   },
 });
 
-export default LocationCard;
+export default DateTimeCard;

@@ -9,6 +9,8 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import {Ionicons as Icon} from '@react-native-vector-icons/ionicons';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList } from '../types';
 
 const budsData = [
   {
@@ -21,8 +23,10 @@ const budsData = [
   // Add more bud groups here
 ];
 
+type BudsHomePageNavigationProp = StackNavigationProp<RootStackParamList, 'GroupDetail'>;
+
 const BudsHomePage: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<BudsHomePageNavigationProp>();
 
   const renderGroupCard = ({ item }: any) => (
     <TouchableOpacity onPress={() => navigation.navigate('GroupDetail', { groupId: item.id })}>

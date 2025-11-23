@@ -2,7 +2,7 @@
 import React from 'react';
 import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { View, TouchableOpacity, StyleSheet, Text } from 'react-native';
-import { Ionicons as Icon } from '@react-native-vector-icons/ionicons';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 import BudsHomePage from '../screens/BudsHomePage';
 import HomeScreen from '../screens/HomeScreen';
@@ -53,7 +53,7 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
               onPress={onPress}
               style={styles.tabItem}
             >
-              <Icon name={iconName} size={25} color={isFocused ? '#6c63ff' : '#fff'} />
+              <Ionicons name={iconName as any} size={25} color={isFocused ? '#6c63ff' : '#fff'} />
               <Text style={{ color: isFocused ? '#6c63ff' : '#fff', fontSize: 12 }}>
                 {label as string}
               </Text>

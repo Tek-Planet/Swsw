@@ -2,13 +2,17 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { RootStackParamList } from '../types';
+import { StackNavigationProp } from '@react-navigation/stack';
 
 interface EventCardProps {
   event: any;
 }
 
+type NavigationProps = StackNavigationProp<RootStackParamList, 'EventDetail'>;
+
 const EventCard: React.FC<EventCardProps> = ({ event }) => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProps>();
 
   const renderEventContent = () => {
     if (event.time) { // Upcoming Event
