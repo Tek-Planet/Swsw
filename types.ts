@@ -1,5 +1,6 @@
 
 export type RootStackParamList = {
-  Home: undefined;
-  EventDetail: { eventId: string };
-};
+    Home: undefined;
+    Buds: undefined;
+    GroupDetail: { groupId: string };
+  };

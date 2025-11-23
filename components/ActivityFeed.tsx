@@ -1,74 +1,45 @@
 
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList } from 'react-native';
+import ActivityCard from './ActivityCard';
 
-const ActivityFeed = () => {
+interface ActivityFeedProps {
+  groupId: string;
+}
+
+const activities = [
+  { id: '1', user: 'Alice', avatar: 'https://i.pravatar.cc/150?img=4', action: 'added a new expense \'Groceries\'', timestamp: '2 hours ago' },
+  { id: '2', user: 'Bob', avatar: 'https://i.pravatar.cc/150?img=5', action: 'updated the event poll', timestamp: 'Yesterday' },
+  { id: '3', user: 'Charlie', avatar: 'https://i.pravatar.cc/150?img=6', action: 'joined the group', timestamp: '3 days ago' },
+];
+
+const ActivityFeed: React.FC<ActivityFeedProps> = ({ groupId }) => {
+  const renderActivity = ({ item }: any) => <ActivityCard activity={item} />;
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Activity (3)</Text>
-      <View style={styles.post}>
-        <Image source={{ uri: 'https://i.pravatar.cc/150?img=7' }} style={styles.avatar} />
-        <View style={styles.postContent}>
-          <Text style={styles.postText}>
-            <Text style={styles.bold}>Abir B</Text> rsvped Going 😌
-          </Text>
-          <Text style={styles.timestamp}>2 hours ago</Text>
-          <TouchableOpacity>
-            <Text style={styles.reply}>Reply</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-      <TouchableOpacity>
-        <Text style={styles.loadMore}>Load more</Text>
-      </TouchableOpacity>
+      <Text style={styles.title}>Activity Feed</Text>
+      <FlatList
+        data={activities}
+        renderItem={renderActivity}
+        keyExtractor={(item) => item.id}
+      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
+    padding: 20,
+    backgroundColor: '#2a2a2a',
+    borderRadius: 15,
+    marginHorizontal:20
   },
   title: {
     color: 'white',
     fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  post: {
-    flexDirection: 'row',
-    marginBottom: 16,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 12,
-  },
-  postContent: {
-    flex: 1,
-  },
-  postText: {
-    color: 'white',
-    fontSize: 16,
-  },
-  bold: {
-    fontWeight: 'bold',
-  },
-  timestamp: {
-    color: 'gray',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  reply: {
-    color: '#6c63ff',
-    marginTop: 8,
-  },
-  loadMore: {
-    color: '#6c63ff',
-    textAlign: 'center',
-    fontSize: 16,
-    marginTop: 16,
+    marginBottom: 10,
   },
 });
 
