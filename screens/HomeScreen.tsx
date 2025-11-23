@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   StatusBar,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Ionicons';
+import { Ionicons as Icon } from "@react-native-vector-icons/ionicons";
 import { TopNavBar, Header } from '../components/Header';
 
 const HomeScreen = ({ navigation }) => {

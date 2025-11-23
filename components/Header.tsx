@@ -5,16 +5,11 @@ import {
   Text,
   View,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Ionicons';
+import { Ionicons as Icon } from "@react-native-vector-icons/ionicons";
 
 export const TopNavBar = () => (
-    <View style={styles.topNavBar}>
-      <Text style={styles.time}>2:57</Text>
-      <View style={styles.topNavIcons}>
-        <Icon name="cellular" size={20} color="#fff" style={styles.navIcon} />
-        <Icon name="wifi" size={20} color="#fff" style={styles.navIcon} />
-        <Icon name="battery-full" size={20} color="#fff" style={styles.navIcon} />
-      </View>
+    <View >
+      
     </View>
   );
   
@@ -36,25 +31,10 @@ export const AppHeader = ({title}) => (
 )
 
 const styles = StyleSheet.create({
-    topNavBar: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingTop: 10,
-      },
-      time: {
-        color: '#fff',
-        fontSize: 16,
-      },
-      topNavIcons: {
-        flexDirection: 'row',
-      },
-      navIcon: {
-        marginLeft: 15,
-      },
+   
       header: {
         padding: 20,
+        marginTop:10
       },
       greeting: {
         color: '#fff',
