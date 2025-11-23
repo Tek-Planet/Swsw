@@ -9,10 +9,14 @@ import {
   TouchableOpacity,
   StatusBar,
 } from 'react-native';
-import { Ionicons as Icon } from "@react-native-vector-icons/ionicons";
+import Icon from '@react-native-vector-icons/ionicons';
 import { TopNavBar, Header } from '../components/Header';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../types';
 
-const HomeScreen = ({ navigation }) => {
+type HomeScreenProps = NativeStackScreenProps<RootStackParamList, 'Home'>;
+
+const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
@@ -28,7 +32,11 @@ const HomeScreen = ({ navigation }) => {
   );
 };
 
-const UpcomingEvents = ({ navigation }) => (
+type EventSectionProps = {
+    navigation: HomeScreenProps['navigation'];
+};
+
+const UpcomingEvents: React.FC<EventSectionProps> = ({ navigation }) => (
   <View style={styles.section}>
     <Text style={styles.sectionTitle}>Upcoming</Text>
     <TouchableOpacity onPress={() => navigation.navigate('EventDetail', { eventId: '1' })}>
@@ -47,7 +55,7 @@ const UpcomingEvents = ({ navigation }) => (
   </View>
 );
 
-const RecommendedEvents = ({ navigation }) => (
+const RecommendedEvents: React.FC<EventSectionProps> = ({ navigation }) => (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Recommended</Text>
       <ScrollView horizontal contentContainerStyle={styles.horizontalScroll}>
@@ -71,7 +79,7 @@ const RecommendedEvents = ({ navigation }) => (
     </View>
   );
 
-  const TrendingEvents = ({ navigation }) => (
+  const TrendingEvents: React.FC<EventSectionProps> = ({ navigation }) => (
     <View style={styles.section}>
         <Text style={styles.sectionTitle}>Trending in NYC</Text>
         <TouchableOpacity onPress={() => navigation.navigate('EventDetail', { eventId: '4' })}>
@@ -92,7 +100,7 @@ const RecommendedEvents = ({ navigation }) => (
     </View>
   );
 
-const FloatingActionButton = () => (
+const FloatingActionButton: React.FC = () => (
   <TouchableOpacity style={styles.fab}>
     <Icon name="add" size={30} color="#fff" />
   </TouchableOpacity>

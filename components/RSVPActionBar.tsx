@@ -2,8 +2,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 
-const RSVPActionBar = () => {
-  const [rsvpStatus, setRsvpStatus] = useState('Going');
+const RSVPActionBar: React.FC = () => {
+  const [rsvpStatus, setRsvpStatus] = useState<'Going' | 'Not Going'>('Going');
 
   const handleRsvp = () => {
     // In a real app, you'd handle RSVP logic here

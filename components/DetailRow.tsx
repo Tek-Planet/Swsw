@@ -1,9 +1,15 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Ionicons as Icon } from "@react-native-vector-icons/ionicons";
+import Icon from 'react-native-vector-icons/Ionicons';
 
-const DetailRow = ({ icon, label, value }) => {
+interface DetailRowProps {
+  icon: string;
+  label: string;
+  value: string;
+}
+
+const DetailRow: React.FC<DetailRowProps> = ({ icon, label, value }) => {
   return (
     <View style={styles.container}>
       <Icon name={icon} size={24} color="#fff" />

@@ -1,21 +1,29 @@
 
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { View, TouchableOpacity, StyleSheet, Text } from 'react-native';
-import { Ionicons as Icon } from "@react-native-vector-icons/ionicons";
+import Icon from '@react-native-vector-icons/ionicons';
 
 import HomeScreen from './screens/HomeScreen';
 import EventsScreen from './screens/EventsScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
 import EventDetailScreen from './screens/EventDetailScreen';
+import { RootStackParamList } from './types';
 
 const Tab = createBottomTabNavigator();
-const Stack = createStackNavigator();
+const Stack = createStackNavigator<RootStackParamList>();
 
-const CustomTabBar = ({ state, descriptors, navigation }) => {
+const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigation }) => {
+  const iconMap: { [key: string]: [string, string] } = {
+    Home: ['home', 'home-outline'],
+    Events: ['calendar', 'calendar-outline'],
+    Profile: ['person', 'person-outline'],
+    Notifications: ['notifications', 'notifications-outline'],
+  };
+
   return (
     <View style={styles.tabBar}>
       {state.routes.map((route, index) => {
@@ -32,6 +40,7 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
           const event = navigation.emit({
             type: 'tabPress',
             target: route.key,
+            canPreventDefault: true,
           });
 
           if (!isFocused && !event.defaultPrevented) {
@@ -39,16 +48,8 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
           }
         };
 
-        let iconName;
-        if (route.name === 'Home') {
-          iconName = isFocused ? 'home' : 'home-outline';
-        } else if (route.name === 'Events') {
-          iconName = isFocused ? 'calendar' : 'calendar-outline';
-        } else if (route.name === 'Profile') {
-          iconName = isFocused ? 'person' : 'person-outline';
-        } else if (route.name === 'Notifications') {
-          iconName = isFocused ? 'notifications' : 'notifications-outline';
-        }
+        const [focusedIcon, unfocusedIcon] = iconMap[route.name] || ['help-circle', 'help-circle-outline'];
+        const iconName = isFocused ? focusedIcon : unfocusedIcon;
 
         return (
           <TouchableOpacity
@@ -58,7 +59,7 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
           >
             <Icon name={iconName} size={25} color={isFocused ? '#6c63ff' : '#fff'} />
             <Text style={{ color: isFocused ? '#6c63ff' : '#fff', fontSize: 12 }}>
-              {label}
+              {label as string}
             </Text>
           </TouchableOpacity>
         );
@@ -67,7 +68,7 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
   );
 }
 
-const HomeTabs = () => {
+const HomeTabs: React.FC = () => {
     return (
         <Tab.Navigator tabBar={(props) => <CustomTabBar {...props} />}>
             <Tab.Screen name="Home" component={HomeScreen} options={{ headerShown: false }}/>
@@ -79,11 +80,11 @@ const HomeTabs = () => {
 }
 
 
-const App = () => {
+const App: React.FC = () => {
   return (
     <NavigationContainer>
         <Stack.Navigator>
-            <Stack.Screen name="HomeTabs" component={HomeTabs} options={{ headerShown: false }}/>
+            <Stack.Screen name="Home" component={HomeTabs} options={{ headerShown: false }}/>
             <Stack.Screen name="EventDetail" component={EventDetailScreen} options={{ headerShown: false }}/>
         </Stack.Navigator>
     </NavigationContainer>

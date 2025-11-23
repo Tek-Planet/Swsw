@@ -2,6 +2,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, StatusBar, FlatList, TouchableOpacity } from 'react-native';
 import { AppHeader } from '../components/Header';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../types';
 
 // Mock data for events
 const events = [
@@ -11,8 +13,10 @@ const events = [
   { id: '4', title: 'Movie Night', date: 'Wednesday, Dec 6' },
 ];
 
-const EventsScreen = ({ navigation }) => {
-  const renderEvent = ({ item }) => (
+type EventsScreenProps = NativeStackScreenProps<RootStackParamList, 'Events'>;
+
+const EventsScreen: React.FC<EventsScreenProps> = ({ navigation }) => {
+  const renderEvent = ({ item }: { item: typeof events[0] }) => (
     <TouchableOpacity 
       style={styles.eventCard}
       onPress={() => navigation.navigate('EventDetail', { eventId: item.id })}

@@ -5,15 +5,15 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Ionicons as Icon } from "@react-native-vector-icons/ionicons";
+import Icon from '@react-native-vector-icons/ionicons';
 
-export const TopNavBar = () => (
-    <View >
+export const TopNavBar: React.FC = () => (
+    <View>
       
     </View>
   );
   
-export const Header = () => (
+export const Header: React.FC = () => (
     <View style={styles.header}>
       <Text style={styles.greeting}>It's time to dance, Anushka</Text>
       <View style={styles.headerActions}>
@@ -24,7 +24,11 @@ export const Header = () => (
     </View>
   );
 
-export const AppHeader = ({title}) => (
+interface AppHeaderProps {
+    title: string;
+}
+
+export const AppHeader: React.FC<AppHeaderProps> = ({title}) => (
     <View style={styles.appHeader}>
         <Text style={styles.appHeaderTitle}>{title}</Text>
     </View>

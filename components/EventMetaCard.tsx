@@ -1,9 +1,15 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Ionicons as Icon } from "@react-native-vector-icons/ionicons";
+import Icon from 'react-native-vector-icons/Ionicons';
 
-const EventMetaCard = ({ date, time, icon }) => {
+interface EventMetaCardProps {
+  date: string;
+  time: string;
+  icon: string;
+}
+
+const EventMetaCard: React.FC<EventMetaCardProps> = ({ date, time, icon }) => {
   return (
     <View style={styles.card}>
       <Icon name={icon} size={24} color="#fff" />

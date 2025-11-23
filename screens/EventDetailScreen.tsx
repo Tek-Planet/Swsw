@@ -7,15 +7,19 @@ import {
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
-import TopNavBar from '../components/TopNavBar';
+import {  AppHeader } from '../components/Header';
 import EventHeroCard from '../components/EventHeroCard';
 import EventMetaCard from '../components/EventMetaCard';
 import HostInfo from '../components/HostInfo';
 import RSVPActionBar from '../components/RSVPActionBar';
 import DetailRow from '../components/DetailRow';
 import PeopleRow from '../components/PeopleRow';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../types';
 
-const EventDetailScreen = ({ navigation }) => {
+type EventDetailScreenProps = NativeStackScreenProps<RootStackParamList, 'EventDetail'>;
+
+const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ navigation }) => {
   const people = [
     { id: '1', avatar: 'https://i.pravatar.cc/150?img=1' },
     { id: '2', avatar: 'https://i.pravatar.cc/150?img=2' },
@@ -26,7 +30,7 @@ const EventDetailScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <TopNavBar title="Event Details" onBackPress={() => navigation.goBack()} />
+      <AppHeader title="Event Details" />
       <ScrollView>
         <View style={styles.headerSection}>
           <Text style={styles.casualTitle}>umm Saturday?</Text>
@@ -69,7 +73,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a1a',
   },
   headerSection: {
-    paddingTop: 80, // space for the TopNavBar
+    paddingTop: 20, // space for the TopNavBar
     marginBottom: 20,
   },
   casualTitle: {

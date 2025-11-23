@@ -2,7 +2,11 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
-const EventHeroCard = ({ eventName }) => {
+interface EventHeroCardProps {
+  eventName: string;
+}
+
+const EventHeroCard: React.FC<EventHeroCardProps> = ({ eventName }) => {
   return (
     <View style={styles.card}>
       <Text style={styles.eventName}>{eventName}</Text>

@@ -1,9 +1,14 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
-import { Ionicons as Icon } from "@react-native-vector-icons/ionicons";
+import Icon from 'react-native-vector-icons/Ionicons';
 
-const HostInfo = ({ hostName, hostAvatar }) => {
+interface HostInfoProps {
+  hostName: string;
+  hostAvatar: string;
+}
+
+const HostInfo: React.FC<HostInfoProps> = ({ hostName, hostAvatar }) => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Hosted by</Text>

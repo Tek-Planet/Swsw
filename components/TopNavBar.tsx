@@ -1,9 +1,14 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Ionicons as Icon } from "@react-native-vector-icons/ionicons";
+import  Icon  from "@react-native-vector-icons/ionicons";
 
-const TopNavBar = ({ title, onBackPress }) => {
+interface TopNavBarProps {
+  title: string;
+  onBackPress: () => void;
+}
+
+const TopNavBar: React.FC<TopNavBarProps> = ({ title, onBackPress }) => {
   return (
     <View style={styles.container}>
       <TouchableOpacity onPress={onBackPress}>

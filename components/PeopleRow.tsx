@@ -2,7 +2,16 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, FlatList } from 'react-native';
 
-const PeopleRow = ({ people }) => {
+interface Person {
+  id: string;
+  avatar: string;
+}
+
+interface PeopleRowProps {
+  people: Person[];
+}
+
+const PeopleRow: React.FC<PeopleRowProps> = ({ people }) => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Who's Going</Text>
