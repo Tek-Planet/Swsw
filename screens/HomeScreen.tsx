@@ -12,75 +12,83 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import { TopNavBar, Header } from '../components/Header';
 
-const HomeScreen = () => {
+const HomeScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       <TopNavBar />
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
         <Header />
-        <UpcomingEvents />
-        <RecommendedEvents />
-        <TrendingEvents />
+        <UpcomingEvents navigation={navigation} />
+        <RecommendedEvents navigation={navigation} />
+        <TrendingEvents navigation={navigation} />
       </ScrollView>
       <FloatingActionButton />
     </View>
   );
 };
 
-const UpcomingEvents = () => (
+const UpcomingEvents = ({ navigation }) => (
   <View style={styles.section}>
     <Text style={styles.sectionTitle}>Upcoming</Text>
-    <View style={styles.eventCard}>
-      <View style={styles.eventDetails}>
-        <Text style={styles.eventTime}>Next Sat: 7 pm</Text>
-        <Text style={styles.eventName}>hang</Text>
-        <Text style={styles.eventHost}>hosted by Abir B</Text>
-      </View>
-      <TouchableOpacity style={styles.goingButton}>
-        <Text style={styles.goingButtonText}>GOING</Text>
-      </TouchableOpacity>
-    </View>
+    <TouchableOpacity onPress={() => navigation.navigate('EventDetail', { eventId: '1' })}>
+        <View style={styles.eventCard}>
+        <View style={styles.eventDetails}>
+            <Text style={styles.eventTime}>Next Sat: 7 pm</Text>
+            <Text style={styles.eventName}>hang</Text>
+            <Text style={styles.eventHost}>hosted by Abir B</Text>
+        </View>
+        <TouchableOpacity style={styles.goingButton}>
+            <Text style={styles.goingButtonText}>GOING</Text>
+        </TouchableOpacity>
+        </View>
+    </TouchableOpacity>
     <Text style={styles.suggestionText}>umm Saturday?</Text>
   </View>
 );
 
-const RecommendedEvents = () => (
+const RecommendedEvents = ({ navigation }) => (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Recommended</Text>
       <ScrollView horizontal contentContainerStyle={styles.horizontalScroll}>
-        <View style={styles.recommendedEventCard}>
-          <Image source={{uri: 'https://images.unsplash.com/photo-1597159282583-034a3e9d0c64?w=200&h=200&fit=crop'}} style={styles.recommendedEventImage} />
-          <Text style={styles.recommendedEventTitle}>Monsteras and Mimosas: Sprout Social</Text>
-          <Text style={styles.recommendedEventHost}>hosted by You</Text>
-          <Text style={styles.status}>Finding a time...</Text>
-        </View>
-        <View style={styles.recommendedEventCard}>
-        <Image source={{uri: 'https://images.unsplash.com/photo-1597159282583-034a3e9d0c64?w=200&h=200&fit=crop'}} style={styles.recommendedEventImage} />
-          <Text style={styles.recommendedEventTitle}>Monsteras and Mimosas: Sprout Social</Text>
-          <Text style={styles.recommendedEventHost}>hosted by You</Text>
-          <Text style={styles.status}>Finding a time...</Text>
-        </View>
+        <TouchableOpacity onPress={() => navigation.navigate('EventDetail', { eventId: '2' })}>
+            <View style={styles.recommendedEventCard}>
+            <Image source={{uri: 'https://images.unsplash.com/photo-1597159282583-034a3e9d0c64?w=200&h=200&fit=crop'}} style={styles.recommendedEventImage} />
+            <Text style={styles.recommendedEventTitle}>Monsteras and Mimosas: Sprout Social</Text>
+            <Text style={styles.recommendedEventHost}>hosted by You</Text>
+            <Text style={styles.status}>Finding a time...</Text>
+            </View>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.navigate('EventDetail', { eventId: '3' })}>
+            <View style={styles.recommendedEventCard}>
+            <Image source={{uri: 'https://images.unsplash.com/photo-1597159282583-034a3e9d0c64?w=200&h=200&fit=crop'}} style={styles.recommendedEventImage} />
+            <Text style={styles.recommendedEventTitle}>Monsteras and Mimosas: Sprout Social</Text>
+            <Text style={styles.recommendedEventHost}>hosted by You</Text>
+            <Text style={styles.status}>Finding a time...</Text>
+            </View>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
 
-  const TrendingEvents = () => (
+  const TrendingEvents = ({ navigation }) => (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Trending in NYC</Text>
-      <View style={styles.trendingEventCard}>
-        <View style={styles.trendingEventHeader}>
-          <Text style={styles.trendingEventTitle}>It’s in the Cage</Text>
-          <TouchableOpacity>
-            <Text style={styles.joinButton}>Join</Text>
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.trendingEventSubtitle}>Public events you can crash</Text>
-        <Image source={{uri: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&h=200&fit=crop'}} style={styles.trendingEventImage} />
-        <View style={styles.attendees}>
-          <Text style={styles.attendeeText}>Olivia (ned) is going</Text>
-        </View>
-      </View>
+        <Text style={styles.sectionTitle}>Trending in NYC</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('EventDetail', { eventId: '4' })}>
+            <View style={styles.trendingEventCard}>
+                <View style={styles.trendingEventHeader}>
+                <Text style={styles.trendingEventTitle}>It’s in the Cage</Text>
+                <TouchableOpacity>
+                    <Text style={styles.joinButton}>Join</Text>
+                </TouchableOpacity>
+                </View>
+                <Text style={styles.trendingEventSubtitle}>Public events you can crash</Text>
+                <Image source={{uri: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&h=200&fit=crop'}} style={styles.trendingEventImage} />
+                <View style={styles.attendees}>
+                <Text style={styles.attendeeText}>Olivia (ned) is going</Text>
+                </View>
+            </View>
+        </TouchableOpacity>
     </View>
   );
 

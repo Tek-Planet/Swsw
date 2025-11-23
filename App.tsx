@@ -1,21 +1,19 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import {
-  View,
-  TouchableOpacity,
-  StyleSheet,
-  Text
-} from 'react-native';
+import { createStackNavigator } from '@react-navigation/stack';
+import { View, TouchableOpacity, StyleSheet, Text } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 
 import HomeScreen from './screens/HomeScreen';
 import EventsScreen from './screens/EventsScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
+import EventDetailScreen from './screens/EventDetailScreen';
 
 const Tab = createBottomTabNavigator();
+const Stack = createStackNavigator();
 
 const CustomTabBar = ({ state, descriptors, navigation }) => {
   return (
@@ -69,15 +67,25 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
   );
 }
 
+const HomeTabs = () => {
+    return (
+        <Tab.Navigator tabBar={(props) => <CustomTabBar {...props} />}>
+            <Tab.Screen name="Home" component={HomeScreen} options={{ headerShown: false }}/>
+            <Tab.Screen name="Events" component={EventsScreen} options={{ headerShown: false }}/>
+            <Tab.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }}/>
+            <Tab.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }}/>
+        </Tab.Navigator>
+    );
+}
+
+
 const App = () => {
   return (
     <NavigationContainer>
-      <Tab.Navigator tabBar={(props) => <CustomTabBar {...props} />}>
-        <Tab.Screen name="Home" component={HomeScreen} />
-        <Tab.Screen name="Events" component={EventsScreen} />
-        <Tab.Screen name="Profile" component={ProfileScreen} />
-        <Tab.Screen name="Notifications" component={NotificationsScreen} />
-      </Tab.Navigator>
+        <Stack.Navigator>
+            <Stack.Screen name="HomeTabs" component={HomeTabs} options={{ headerShown: false }}/>
+            <Stack.Screen name="EventDetail" component={EventDetailScreen} options={{ headerShown: false }}/>
+        </Stack.Navigator>
     </NavigationContainer>
   );
 };
