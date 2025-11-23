@@ -5,22 +5,25 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
 } from 'react-native';
-import {  AppHeader } from '../components/Header';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../types';
+
+import StickyTopBar from '../components/StickyTopBar';
 import EventHeroCard from '../components/EventHeroCard';
 import EventMetaCard from '../components/EventMetaCard';
 import HostInfo from '../components/HostInfo';
-import RSVPActionBar from '../components/RSVPActionBar';
-import DetailRow from '../components/DetailRow';
-import PeopleRow from '../components/PeopleRow';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../types';
+import LocationCard from '../components/LocationCard';
+import DescriptionBlock from '../components/DescriptionBlock';
+import GuestList from '../components/GuestList';
+import PhotoAlbum from '../components/PhotoAlbum';
+import ActivityFeed from '../components/ActivityFeed';
+import FloatingRSVPBar from '../components/FloatingRSVPBar';
 
 type EventDetailScreenProps = NativeStackScreenProps<RootStackParamList, 'EventDetail'>;
 
 const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ navigation }) => {
-  const people = [
+  const guests = [
     { id: '1', avatar: 'https://i.pravatar.cc/150?img=1' },
     { id: '2', avatar: 'https://i.pravatar.cc/150?img=2' },
     { id: '3', avatar: 'https://i.pravatar.cc/150?img=3' },
@@ -30,7 +33,7 @@ const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ navigation }) => 
 
   return (
     <View style={styles.container}>
-      <AppHeader title="Event Details" />
+      <StickyTopBar />
       <ScrollView>
         <View style={styles.headerSection}>
           <Text style={styles.casualTitle}>umm Saturday?</Text>
@@ -45,24 +48,16 @@ const EventDetailScreen: React.FC<EventDetailScreenProps> = ({ navigation }) => 
           hostName="Abir B"
           hostAvatar="https://i.pravatar.cc/150?img=6"
         />
-        <RSVPActionBar />
-        <View style={styles.additionalDetails}>
-          <DetailRow
-            icon="location-outline"
-            label="Location"
-            value="123 Main St, San Francisco, CA"
-          />
-          <DetailRow
-            icon="document-text-outline"
-            label="Description"
-            value="Just a casual hangout. Bring your own drinks."
-          />
-          <PeopleRow people={people} />
-        </View>
+        <LocationCard
+          locationName="Mandalay On The Hudson"
+          address="123 Main St, San Francisco, CA"
+        />
+        <DescriptionBlock text="Just a casual hangout. Bring your own drinks. Emojis and casual conversational tone. 🎉" />
+        <GuestList guests={guests} total={32} />
+        <PhotoAlbum />
+        <ActivityFeed />
       </ScrollView>
-      <TouchableOpacity style={styles.floatingActionButton}>
-        <Text style={styles.floatingActionButtonText}>Share</Text>
-      </TouchableOpacity>
+      <FloatingRSVPBar />
     </View>
   );
 };
@@ -73,7 +68,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a1a',
   },
   headerSection: {
-    paddingTop: 20, // space for the TopNavBar
+    paddingTop: 80, // space for the TopNavBar
     marginBottom: 20,
   },
   casualTitle: {
@@ -82,32 +77,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 20,
-  },
-  additionalDetails: {
-    marginTop: 20,
-    marginHorizontal: 20,
-  },
-  floatingActionButton: {
-    position: 'absolute',
-    bottom: 100, // above the bottom nav bar
-    right: 20,
-    backgroundColor: '#6c63ff',
-    borderRadius: 30,
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 5,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 10,
-  },
-  floatingActionButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
 });
 
