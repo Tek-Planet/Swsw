@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
-import Icon from 'react-native-vector-icons/Ionicons';
+import {Ionicons as Icon} from '@react-native-vector-icons/ionicons';
 
 interface HostInfoProps {
   hostName: string;

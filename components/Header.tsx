@@ -5,7 +5,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import Icon from '@react-native-vector-icons/ionicons';
+import {Ionicons as Icon} from '@react-native-vector-icons/ionicons';
 
 export const TopNavBar: React.FC = () => (
     <View>

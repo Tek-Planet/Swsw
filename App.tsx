@@ -4,7 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { View, TouchableOpacity, StyleSheet, Text } from 'react-native';
-import Icon from '@react-native-vector-icons/ionicons';
+import {Ionicons as Icon} from '@react-native-vector-icons/ionicons';
 
 import HomeScreen from './screens/HomeScreen';
 import EventsScreen from './screens/EventsScreen';

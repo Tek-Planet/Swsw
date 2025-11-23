@@ -1,10 +1,10 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import Icon from 'react-native-vector-icons/Ionicons';
+import {Ionicons as Icon} from '@react-native-vector-icons/ionicons';
 
 interface DetailRowProps {
-  icon: string;
+  icon: any;
   label: string;
   value: string;
 }
