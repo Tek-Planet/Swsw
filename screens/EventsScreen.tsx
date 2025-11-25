@@ -4,7 +4,7 @@ import { View, Text, StyleSheet, StatusBar, FlatList, TouchableOpacity } from 'r
 import { AppHeader } from '../components/Header';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
-import Ionicons from 'react-native-vector-icons/Ionicons';
+import {Ionicons } from '@react-native-vector-icons/ionicons';
 
 // Mock data for events
 const events = [

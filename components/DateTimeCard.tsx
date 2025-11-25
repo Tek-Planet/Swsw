@@ -1,8 +1,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import Icon from 'react-native-vector-icons/Ionicons';
-
+import {Ionicons as Icon} from '@react-native-vector-icons/ionicons';
 interface DateTimeCardProps {
   date: string;
   time: string;
