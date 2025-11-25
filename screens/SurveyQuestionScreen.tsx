@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import SurveyContainer from '../components/survey/SurveyContainer';
+import { AppHeader } from '../components/Header';
 import SurveyQuestionCard from '../components/survey/SurveyQuestionCard';
 import SurveySingleChoice from '../components/survey/SurveySingleChoice';
 import SurveyMultiChoice from '../components/survey/SurveyMultiChoice';
@@ -62,6 +63,8 @@ const SurveyQuestionScreen = () => {
   const handleBack = () => {
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex(currentQuestionIndex - 1);
+    } else {
+        navigation.goBack();
     }
   };
 
@@ -73,25 +76,28 @@ const SurveyQuestionScreen = () => {
 
   return (
     <SurveyContainer>
+        <AppHeader title="Event Survey" />
       <SurveyProgressIndicator
         current={currentQuestionIndex + 1}
         total={surveyData.length}
       />
       <AnimatedSlideContainer ref={animatedSlideRef}>
         <SurveyQuestionCard question={{text: currentQuestion.question}} onAnswer={() => {}} />
-        {currentQuestion.type === 'single' ? (
-          <SurveySingleChoice
-            options={currentQuestion.options}
-            onSelect={(option: string) => handleAnswer(currentQuestion.id, option)}
-            selectedOption={answers[currentQuestion.id] as string}
-          />
-        ) : (
-          <SurveyMultiChoice
-            options={currentQuestion.options}
-            onSelect={(selectedOptions: string[]) => handleAnswer(currentQuestion.id, selectedOptions)}
-            selectedOptions={(answers[currentQuestion.id] as string[]) || []}
-          />
-        )}
+        <View style={styles.optionsContainer}>
+          {currentQuestion.type === 'single' ? (
+            <SurveySingleChoice
+              options={currentQuestion.options}
+              onSelect={(option: string) => handleAnswer(currentQuestion.id, option)}
+              selectedOption={answers[currentQuestion.id] as string}
+            />
+          ) : (
+            <SurveyMultiChoice
+              options={currentQuestion.options}
+              onSelect={(selectedOptions: string[]) => handleAnswer(currentQuestion.id, selectedOptions)}
+              selectedOptions={(answers[current.id] as string[]) || []}
+            />
+          )}
+        </View>
       </AnimatedSlideContainer>
       <SurveyNavigationBar
         onNext={handleNext}
@@ -101,5 +107,13 @@ const SurveyQuestionScreen = () => {
     </SurveyContainer>
   );
 };
+
+const styles = StyleSheet.create({
+  optionsContainer: {
+    alignItems: 'center',
+    width: '100%',
+    paddingHorizontal: 20,
+  },
+});
 
 export default SurveyQuestionScreen;

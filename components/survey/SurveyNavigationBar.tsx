@@ -38,7 +38,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#333',
     borderRadius: 20,
     paddingVertical: 12,
-    paddingHorizontal: 30,
+    alignItems: 'center',
+    flex: 0.48,
   },
   primaryButton: {
     backgroundColor: '#6c63ff',
