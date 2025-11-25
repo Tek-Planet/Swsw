@@ -35,7 +35,8 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     padding: 20,
     alignItems: 'center',
-    marginVertical: 20,
+    marginTop: 45,
+    marginBottom:20,
     width: '100%',
   },
   questionText: {

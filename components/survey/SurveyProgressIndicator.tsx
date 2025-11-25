@@ -18,7 +18,7 @@ const SurveyProgressIndicator: React.FC<SurveyProgressIndicatorProps> = ({ total
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: 60,
+    top: 80,
     alignSelf: 'center',
   },
   text: {

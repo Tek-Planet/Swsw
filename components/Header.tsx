@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
         fontSize:16
       },
       appHeader: {
-        padding: 20,
+        paddingVertical: 10,
         backgroundColor: '#1a1a1a',
         alignItems: 'center'
       },

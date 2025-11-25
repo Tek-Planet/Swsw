@@ -27,12 +27,14 @@ const SurveyNavigationBar: React.FC<SurveyNavigationBarProps> = ({ onNext, onBac
 
 const styles = StyleSheet.create({
   container: {
+   
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
     position: 'absolute',
     bottom: 50,
+    alignSelf:"center"
   },
   button: {
     backgroundColor: '#333',
