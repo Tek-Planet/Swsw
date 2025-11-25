@@ -1,5 +1,5 @@
 import React from 'react';
-import {  FlatList } from 'react-native';
+import { View, FlatList } from 'react-native';
 import ProfileMiniCard from './ProfileMiniCard';
 
 interface RecommendationListProps {
@@ -12,13 +12,15 @@ interface RecommendationListProps {
 }
 
 const RecommendationList: React.FC<RecommendationListProps> = ({ recommendations }) => (
-  <FlatList
-    data={recommendations}
-    renderItem={({ item }) => <ProfileMiniCard user={item} />}
-    keyExtractor={(item) => item.id}
-    horizontal
-    showsHorizontalScrollIndicator={false}
-  />
+  <View>
+    <FlatList
+      data={recommendations}
+      renderItem={({ item }) => <ProfileMiniCard user={item} />}
+      keyExtractor={(item) => item.id}
+      horizontal
+      showsHorizontalScrollIndicator={false}
+    />
+  </View>
 );
 
 export default RecommendationList;
