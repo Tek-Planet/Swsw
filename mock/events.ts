@@ -2,10 +2,19 @@
 export const upcomingEvents = [
   {
     id: '1',
+    image: 'https://images.unsplash.com/photo-1597159282583-034a3e9d0c64?w=200&h=200&fit=crop',
     time: 'Next Sat: 7 pm',
     name: 'hang',
     host: 'hosted by Abir B',
     suggestion: 'umm Saturday?',
+  },
+
+  {
+    id: '2',
+    image: 'https://images.unsplash.com/photo-1597159282583-034a3e9d0c64?w=200&h=200&fit=crop',
+    title: 'Monsteras and Mimosas: Sprout Social',
+    host: 'hosted by You',
+    status: 'Finding a time...',
   },
 ];
 

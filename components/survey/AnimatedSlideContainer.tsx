@@ -1,8 +1,14 @@
-import React, { useRef } from 'react';
-import { Animated,  } from 'react-native';
+import React, { useRef, useImperativeHandle, forwardRef } from 'react';
+import { Animated, StyleSheet, useWindowDimensions } from 'react-native';
 
-const AnimatedSlideContainer = ({ children }: { children: React.ReactNode }) => {
+interface AnimatedSlideContainerRef {
+  slideIn: () => void;
+  slideOut: () => void;
+}
+
+const AnimatedSlideContainer = forwardRef<AnimatedSlideContainerRef, { children: React.ReactNode }>(({ children }, ref) => {
   const slideAnim = useRef(new Animated.Value(0)).current;
+  const { width } = useWindowDimensions();
 
   const slideIn = () => {
     Animated.timing(slideAnim, {
@@ -20,22 +26,37 @@ const AnimatedSlideContainer = ({ children }: { children: React.ReactNode }) => 
     }).start();
   };
 
+  useImperativeHandle(ref, () => ({
+    slideIn,
+    slideOut,
+  }));
+
   return (
     <Animated.View
-      style={{
-        transform: [
-          {
-            translateX: slideAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [300, 0],
-            }),
-          },
-        ],
-      }}
+      style={[
+        styles.container,
+        {
+          transform: [
+            {
+              translateX: slideAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [width, 0],
+              }),
+            },
+          ],
+        },
+      ]}
     >
       {children}
     </Animated.View>
   );
-};
+});
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    width: '100%',
+  },
+});
 
 export default AnimatedSlideContainer;

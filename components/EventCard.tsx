@@ -22,6 +22,7 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
     if (event.time) { // Upcoming Event
       return (
         <View style={styles.eventCard}>
+          <Image source={{ uri: event.image }} style={styles.upcomingEventImage} />
           <View style={styles.eventDetails}>
             <Text style={styles.eventTime}>{event.time}</Text>
             <Text style={styles.eventName}>{event.name}</Text>
@@ -97,6 +98,12 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.2,
         shadowRadius: 5,
       },
+      upcomingEventImage: {
+        width: '100%',
+        height: 150,
+        borderRadius: 10,
+        marginBottom: 15,
+    },
       eventDetails: {
         flexDirection: 'row',
         justifyContent: 'space-between',
