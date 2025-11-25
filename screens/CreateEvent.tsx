@@ -6,7 +6,7 @@ import TextInput from '../components/TextInput';
 import ToggleButtons from '../components/ToggleButtons';
 import DateTimePicker from '../components/DateTimePicker';
 import TicketTierList from '../components/TicketTierList';
-import Button from '../components/Button';
+import { PrimaryButton } from '../components/Button';
 
 const CreateEvent: React.FC = () => {
   return (
@@ -18,7 +18,7 @@ const CreateEvent: React.FC = () => {
       <DateTimePicker label="Start Date & Time" />
       <DateTimePicker label="End Date & Time" />
       <TicketTierList />
-      <Button title="Create Event" onPress={() => {}} style={{ marginTop: 20 }} />
+      <PrimaryButton title="Create Event" onPress={() => {}} />
     </ScrollView>
   );
 };

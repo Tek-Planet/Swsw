@@ -1,17 +1,21 @@
 
 import React from 'react';
-import { View, Text, StyleSheet, StatusBar } from 'react-native';
-import { AppHeader } from '../components/Header';
+import { ScrollView, StyleSheet } from 'react-native';
+import ProfileHeader from '../components/profile/ProfileHeader';
+import MySelfies from '../components/profile/MySelfies';
+import ProfileDetails from '../components/profile/ProfileDetails';
+import LinkedAccounts from '../components/profile/LinkedAccounts';
+import ProfileSettings from '../components/profile/ProfileSettings';
 
 const ProfileScreen = () => {
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
-      <AppHeader title="Profile"/>
-      <View style={styles.content}>
-        <Text style={styles.text}>Profile Screen</Text>
-      </View>
-    </View>
+    <ScrollView style={styles.container}>
+      <ProfileHeader />
+      <MySelfies />
+      <ProfileDetails />
+      <LinkedAccounts />
+      <ProfileSettings />
+    </ScrollView>
   );
 };
 
@@ -19,15 +23,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  text: {
-    fontSize: 24,
-    color: '#fff',
   },
 });
 

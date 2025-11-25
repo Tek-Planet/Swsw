@@ -1,10 +1,12 @@
-
 export type RootStackParamList = {
-    Home: undefined;
-    Buds: undefined;
-    GroupDetail: { groupId: string };
-    Profile: undefined;
-    Events: undefined;
-    EventDetail: { eventId: string };
-    CreateEvent: undefined;
-  };
+  Home: undefined;
+  EventDetail: { eventId: string };
+  EnhanceGridSurveyScreen: undefined;
+  SurveyQuestionScreen: { questionId: number };
+  SurveyResultsScreen: undefined;
+  GroupDetail: { groupId: string };
+  CreateEvent: undefined;
+  Buds: undefined;
+  Events: undefined;
+  Profile: undefined;
+};

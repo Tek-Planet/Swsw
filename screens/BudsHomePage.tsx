@@ -8,11 +8,19 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import {Ionicons as Icon} from '@react-native-vector-icons/ionicons';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../types';
 
-const budsData = [
+interface Bud {
+    id: string;
+    name: string;
+    members: number;
+    nextEvent: string;
+    expenses: number;
+}
+
+const budsData: Bud[] = [
   {
     id: '1',
     name: 'YOLO crew',
@@ -28,7 +36,7 @@ type BudsHomePageNavigationProp = StackNavigationProp<RootStackParamList, 'Group
 const BudsHomePage: React.FC = () => {
   const navigation = useNavigation<BudsHomePageNavigationProp>();
 
-  const renderGroupCard = ({ item }: any) => (
+  const renderGroupCard = ({ item }: { item: Bud }) => (
     <TouchableOpacity onPress={() => navigation.navigate('GroupDetail', { groupId: item.id })}>
         <View style={styles.groupCard}>
             <Text style={styles.groupName}>{item.name}</Text>
@@ -48,7 +56,7 @@ const BudsHomePage: React.FC = () => {
           keyExtractor={(item) => item.id}
         />
         <TouchableOpacity style={styles.newGroupButton}>
-          <Icon name="add" size={30} color="white" />
+          <Ionicons name="add" size={30} color="white" />
         </TouchableOpacity>
       </View>
     );

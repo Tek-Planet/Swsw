@@ -2,7 +2,7 @@
 import React from 'react';
 import { View, ScrollView, StyleSheet, Image, Text } from 'react-native';
 import EventCardSmall from '../components/EventCardSmall';
-import Button from '../components/Button';
+import { SecondaryButton } from '../components/Button';
 import SectionTitle from '../components/SectionTitle';
 
 const Profile: React.FC = () => {
@@ -40,7 +40,7 @@ const Profile: React.FC = () => {
             <Text style={styles.statLabel}>Following</Text>
           </View>
         </View>
-        <Button title="Edit Profile" onPress={() => {}} />
+        <SecondaryButton title="Edit Profile" onPress={() => {}} />
       </View>
 
       <SectionTitle title="Upcoming Events" />

@@ -1,9 +1,9 @@
-
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { RootStackParamList } from '../types';
 import { StackNavigationProp } from '@react-navigation/stack';
+import EnhanceGridButton from './EnhanceGridButton';
 
 interface EventCardProps {
   event: any;
@@ -13,6 +13,10 @@ type NavigationProps = StackNavigationProp<RootStackParamList, 'EventDetail'>;
 
 const EventCard: React.FC<EventCardProps> = ({ event }) => {
   const navigation = useNavigation<NavigationProps>();
+
+  const handleEnhanceGridPress = () => {
+    navigation.navigate('EnhanceGridSurveyScreen');
+  };
 
   const renderEventContent = () => {
     if (event.time) { // Upcoming Event
@@ -26,6 +30,9 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
           <TouchableOpacity style={styles.goingButton}>
             <Text style={styles.goingButtonText}>GOING</Text>
           </TouchableOpacity>
+          <View style={styles.divider} />
+          <EnhanceGridButton onPress={handleEnhanceGridPress} />
+          <Text style={styles.helperText}>Find new people to meet at this event.</Text>
         </View>
       );
     } else if (event.status) { // Recommended Event
@@ -35,6 +42,9 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
           <Text style={styles.recommendedEventTitle}>{event.title}</Text>
           <Text style={styles.recommendedEventHost}>{event.host}</Text>
           <Text style={styles.status}>{event.status}</Text>
+          <View style={styles.divider} />
+          <EnhanceGridButton onPress={handleEnhanceGridPress} />
+          <Text style={styles.helperText}>Find new people to meet at this event.</Text>
         </View>
       );
     } else { // Trending Event
@@ -51,6 +61,9 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
           <View style={styles.attendees}>
             <Text style={styles.attendeeText}>{event.attendees}</Text>
           </View>
+          <View style={styles.divider} />
+          <EnhanceGridButton onPress={handleEnhanceGridPress} />
+          <Text style={styles.helperText}>Find new people to meet at this event.</Text>
         </View>
       );
     }
@@ -64,19 +77,31 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
 };
 
 const styles = StyleSheet.create({
+    divider: {
+        height: 1,
+        backgroundColor: '#444',
+        marginVertical: 15,
+      },
+    helperText: {
+        color: '#aaa',
+        fontSize: 12,
+        textAlign: 'center',
+        marginTop: 5,
+    },
     eventCard: {
         backgroundColor: '#1a1a1a',
         borderRadius: 15,
         padding: 20,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
         shadowColor: '#fff',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.2,
         shadowRadius: 5,
       },
-      eventDetails: {},
+      eventDetails: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+      },
       eventTime: {
         color: '#aaa',
         fontSize: 14,

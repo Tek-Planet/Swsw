@@ -6,7 +6,7 @@ import DateTimeCard from '../components/DateTimeCard';
 import LocationCard from '../components/LocationCard';
 import TicketTierSelector from '../components/TicketTierSelector';
 import Gallery from '../components/Gallery';
-import Button from '../components/Button';
+import { PrimaryButton } from '../components/Button';
 import SectionTitle from '../components/SectionTitle';
 
 const EventDetails: React.FC = () => {
@@ -41,7 +41,7 @@ const EventDetails: React.FC = () => {
         <Gallery images={event.gallery} />
         <SectionTitle title="Get Your Tickets" />
         <TicketTierSelector tiers={event.ticketTiers} onSelect={() => {}} />
-        <Button title="Buy Tickets" onPress={() => {}} style={{ marginTop: 20 }} />
+        <PrimaryButton title="Buy Tickets" onPress={() => {}} />
       </View>
     </ScrollView>
   );
