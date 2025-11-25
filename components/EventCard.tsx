@@ -24,13 +24,13 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
         <View style={styles.eventCard}>
           <Image source={{ uri: event.image }} style={styles.upcomingEventImage} />
           <View style={styles.eventDetails}>
-            <Text style={styles.eventTime}>{event.time}</Text>
-            <Text style={styles.eventName}>{event.name}</Text>
-            <Text style={styles.eventHost}>{event.host}</Text>
+            <View>
+              <Text style={styles.eventTime}>{event.time}</Text>
+              <Text style={styles.eventName}>{event.name}</Text>
+              <Text style={styles.eventHost}>{event.host}</Text>
+            </View>
+            <Text style={styles.goingStatus}>✓ GOING</Text>
           </View>
-          <TouchableOpacity style={styles.goingButton}>
-            <Text style={styles.goingButtonText}>GOING</Text>
-          </TouchableOpacity>
           <View style={styles.divider} />
           <EnhanceGridButton onPress={handleEnhanceGridPress} />
           <Text style={styles.helperText}>Find new people to meet at this event.</Text>
@@ -123,15 +123,10 @@ const styles = StyleSheet.create({
         color: '#aaa',
         fontSize: 14,
       },
-      goingButton: {
-        backgroundColor: '#6c63ff',
-        borderRadius: 20,
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-      },
-      goingButtonText: {
-        color: '#fff',
+      goingStatus: {
+        color: '#28a745',
         fontWeight: 'bold',
+        fontSize: 16,
       },
       recommendedEventCard: {
         backgroundColor: '#1a1a1a',
