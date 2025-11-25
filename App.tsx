@@ -8,6 +8,8 @@ import EventDetailScreen from './screens/EventDetailScreen';
 import CreateEvent from './screens/CreateEvent';
 import { RootStackParamList } from './types';
 import EnhanceGridSurveyScreen from './screens/EnhanceGridSurveyScreen';
+import SurveyQuestionScreen from './screens/SurveyQuestionScreen';
+import SurveyResultsScreen from './screens/SurveyResultsScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -20,7 +22,8 @@ const App: React.FC = () => {
         <Stack.Screen name="EventDetail" component={EventDetailScreen} />
         <Stack.Screen name="CreateEvent" component={CreateEvent} />
         <Stack.Screen name="EnhanceGridSurveyScreen" component={EnhanceGridSurveyScreen} />
-        
+        <Stack.Screen name="SurveyQuestionScreen" component={SurveyQuestionScreen} />
+        <Stack.Screen name="SurveyResultsScreen" component={SurveyResultsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
