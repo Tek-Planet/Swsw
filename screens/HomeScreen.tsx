@@ -32,9 +32,11 @@ const HomeScreen: React.FC = () => {
 const UpcomingEvents: React.FC = () => (
   <View style={styles.section}>
     <Text style={styles.sectionTitle}>Upcoming</Text>
-    {upcomingEvents.map(event => (
-      <EventCard key={event.id} event={event} />
-    ))}
+    <ScrollView horizontal contentContainerStyle={styles.horizontalScroll}>
+      {upcomingEvents.map(event => (
+        <EventCard key={event.id} event={event} />
+      ))}
+    </ScrollView>
   </View>
 );
 
@@ -73,7 +75,8 @@ const styles = StyleSheet.create({
         paddingBottom: 80, // To avoid being hidden by the FAB
       },
       section: {
-        padding: 20,
+        paddingHorizontal: 20,
+        paddingVertical: 10,
       },
       sectionTitle: {
         color: '#fff',

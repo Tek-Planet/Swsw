@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View } from 'react-native';
 import SurveyContainer from '../components/survey/SurveyContainer';
 import SurveyQuestionCard from '../components/survey/SurveyQuestionCard';
@@ -12,7 +12,6 @@ import { RootStackParamList } from '../types';
 import { StackNavigationProp } from '@react-navigation/stack';
 
 type NavigationProps = StackNavigationProp<RootStackParamList, 'SurveyQuestionScreen'>;
-
 
 const surveyData = [
     {
@@ -35,10 +34,22 @@ const surveyData = [
     },
   ];
 
+interface AnimatedSlideContainerRef {
+  slideIn: () => void;
+  slideOut: () => void;
+}
+
 const SurveyQuestionScreen = () => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<{[key: number]: string | string[]}>({});
   const navigation = useNavigation<NavigationProps>();
+  const animatedSlideRef = useRef<AnimatedSlideContainerRef>(null);
+
+  useEffect(() => {
+    if (animatedSlideRef.current) {
+      animatedSlideRef.current.slideIn();
+    }
+  }, [currentQuestionIndex]);
 
   const handleNext = () => {
     if (currentQuestionIndex < surveyData.length - 1) {
@@ -66,8 +77,8 @@ const SurveyQuestionScreen = () => {
         current={currentQuestionIndex + 1}
         total={surveyData.length}
       />
-      <AnimatedSlideContainer>
-        <SurveyQuestionCard question={currentQuestion.question} onAnswer={() => {}} />
+      <AnimatedSlideContainer ref={animatedSlideRef}>
+        <SurveyQuestionCard question={{text: currentQuestion.question}} onAnswer={() => {}} />
         {currentQuestion.type === 'single' ? (
           <SurveySingleChoice
             options={currentQuestion.options}

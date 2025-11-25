@@ -21,14 +21,12 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
   const renderEventContent = () => {
     if (event.time) { // Upcoming Event
       return (
-        <View style={styles.eventCard}>
-          <Image source={{ uri: event.image }} style={styles.upcomingEventImage} />
-          <View style={styles.eventDetails}>
-            <View>
-              <Text style={styles.eventTime}>{event.time}</Text>
-              <Text style={styles.eventName}>{event.name}</Text>
-              <Text style={styles.eventHost}>{event.host}</Text>
-            </View>
+        <View style={styles.recommendedEventCard}>
+          <Image source={{ uri: event.image }} style={styles.recommendedEventImage} />
+          <Text style={styles.recommendedEventTitle}>{event.name}</Text>
+          <Text style={styles.recommendedEventHost}>{event.host}</Text>
+          <View style={styles.upcomingEventDetails}>
+            <Text style={styles.eventTime}>{event.time}</Text>
             <Text style={styles.goingStatus}>✓ GOING</Text>
           </View>
           <View style={styles.divider} />
@@ -89,74 +87,50 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: 5,
     },
-    eventCard: {
-        backgroundColor: '#1a1a1a',
-        borderRadius: 15,
-        padding: 20,
-        shadowColor: '#fff',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 5,
-      },
-      upcomingEventImage: {
-        width: '100%',
-        height: 150,
-        borderRadius: 10,
-        marginBottom: 15,
+    eventTime: {
+        color: '#aaa',
+        fontSize: 14,
     },
-      eventDetails: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-      },
-      eventTime: {
-        color: '#aaa',
-        fontSize: 14,
-      },
-      eventName: {
-        color: '#fff',
-        fontSize: 22,
-        fontWeight: 'bold',
-        marginVertical: 5,
-      },
-      eventHost: {
-        color: '#aaa',
-        fontSize: 14,
-      },
-      goingStatus: {
+    goingStatus: {
         color: '#28a745',
         fontWeight: 'bold',
         fontSize: 16,
-      },
-      recommendedEventCard: {
+    },
+    upcomingEventDetails: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 10,
+    },
+    recommendedEventCard: {
         backgroundColor: '#1a1a1a',
         borderRadius: 15,
         padding: 15,
         marginRight: 15,
         width: 250,
-      },
-      recommendedEventImage: {
+    },
+    recommendedEventImage: {
         width: '100%',
         height: 120,
         borderRadius: 10,
-      },
-      recommendedEventTitle: {
+    },
+    recommendedEventTitle: {
         color: '#fff',
         fontSize: 16,
         fontWeight: 'bold',
         marginTop: 10,
-      },
-      recommendedEventHost: {
+    },
+    recommendedEventHost: {
         color: '#aaa',
         fontSize: 14,
         marginTop: 5,
-      },
-      status: {
+    },
+    status: {
         color: '#6c63ff',
         fontSize: 14,
         marginTop: 10,
-      },
-      trendingEventCard: {
+    },
+    trendingEventCard: {
         backgroundColor: '#1a1a1a',
         borderRadius: 15,
         padding: 20,
@@ -164,37 +138,37 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.2,
         shadowRadius: 5,
-      },
-      trendingEventHeader: {
+    },
+    trendingEventHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-      },
-      trendingEventTitle: {
+    },
+    trendingEventTitle: {
         color: '#fff',
         fontSize: 18,
         fontWeight: 'bold',
-      },
-      joinButton: {
+    },
+    joinButton: {
         color: '#6c63ff',
         fontWeight: 'bold',
-      },
-      trendingEventSubtitle: {
+    },
+    trendingEventSubtitle: {
         color: '#aaa',
         fontSize: 14,
         marginVertical: 10,
-      },
-      trendingEventImage: {
+    },
+    trendingEventImage: {
         width: '100%',
         height: 150,
         borderRadius: 10,
-      },
-      attendees: {
+    },
+    attendees: {
         marginTop: 10,
-      },
-      attendeeText: {
+    },
+    attendeeText: {
         color: '#fff',
-      },
+    },
 });
 
 export default EventCard;
