@@ -7,6 +7,7 @@ import GroupDetailScreen from './screens/GroupDetailScreen';
 import EventDetailScreen from './screens/EventDetailScreen';
 import CreateEvent from './screens/CreateEvent';
 import { RootStackParamList } from './types';
+import EnhanceGridSurveyScreen from './screens/EnhanceGridSurveyScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -18,6 +19,8 @@ const App: React.FC = () => {
         <Stack.Screen name="GroupDetail" component={GroupDetailScreen} />
         <Stack.Screen name="EventDetail" component={EventDetailScreen} />
         <Stack.Screen name="CreateEvent" component={CreateEvent} />
+        <Stack.Screen name="EnhanceGridSurveyScreen" component={EnhanceGridSurveyScreen} />
+        
       </Stack.Navigator>
     </NavigationContainer>
   );

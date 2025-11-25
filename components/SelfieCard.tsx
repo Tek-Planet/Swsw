@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
-import Ionicons from 'react-native-vector-icons/Ionicons';
+import {Ionicons } from '@react-native-vector-icons/ionicons';
 
 interface SelfieCardProps {
   imageUrl: string;
