@@ -28,11 +28,11 @@ const recommendations = [
   },
 ];
 
-const SurveyResultsScreen = () => (
+const SurveyResultsScreen = ({navigation}) => (
   <SurveyContainer>
     <Text style={styles.title}>Your Event Matches</Text>
     <RecommendationList recommendations={recommendations} />
-    <CTAButton title="Explore More People" onPress={() => {}} />
+    <CTAButton title="Explore More People" onPress={() => {navigation.navigate('Home')}} />
   </SurveyContainer>
 );
 

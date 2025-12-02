@@ -24,7 +24,7 @@ const HomeScreen: React.FC = () => {
         <RecommendedEvents />
         <TrendingEvents />
       </ScrollView>
-      <FloatingActionButton />
+      {/* <FloatingActionButton /> */}
     </View>
   );
 };

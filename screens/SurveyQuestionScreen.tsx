@@ -94,7 +94,7 @@ const SurveyQuestionScreen = () => {
             <SurveyMultiChoice
               options={currentQuestion.options}
               onSelect={(selectedOptions: string[]) => handleAnswer(currentQuestion.id, selectedOptions)}
-              selectedOptions={(answers[current.id] as string[]) || []}
+              selectedOptions={(answers[currentQuestion.id] as string[]) || []}
             />
           )}
         </View>
