@@ -8,9 +8,12 @@ import { albums as allAlbums, Album } from '../data/gallery';
 
 const GalleryScreen: React.FC = ({ route }) => {
   const navigation = useNavigation();
-  const { albumId } = route.params;
+  const { albumId } = route.params || {};
 
-  const initialAlbum = useMemo(() => allAlbums.find(album => album.id === albumId), [albumId]);
+  const initialAlbum = useMemo(() => {
+    return albumId ? allAlbums.find(album => album.id === albumId) : allAlbums[0];
+  }, [albumId]);
+
   const [currentAlbum, setCurrentAlbum] = useState<Album>(initialAlbum);
 
   const handleAlbumChange = (album: Album) => {
@@ -19,11 +22,13 @@ const GalleryScreen: React.FC = ({ route }) => {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-        <Ionicons name="arrow-back" size={24} color="white" />
-      </TouchableOpacity>
+      {navigation.canGoBack() && (
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color="white" />
+        </TouchableOpacity>
+      )}
       <SwipeableAlbumCarousel albums={allAlbums} onAlbumChange={handleAlbumChange} />
-      <AlbumPhotosSection photos={currentAlbum.photos} />
+      {currentAlbum && <AlbumPhotosSection photos={currentAlbum.photos} />}
     </View>
   );
 };

@@ -8,10 +8,10 @@ interface AlbumHeroCardProps {
 
 const AlbumHeroCard: React.FC<AlbumHeroCardProps> = ({ album }) => {
   return (
-    <ImageBackground source={{ uri: album.coverPhoto }} style={styles.heroCard}>
+    <ImageBackground source={{ uri: album.thumbnail }} style={styles.heroCard}>
       <View style={styles.overlay} />
       <Text style={styles.title}>{album.title}</Text>
-      <Text style={styles.description}>{album.description}</Text>
+      <Text style={styles.description}>{`${album.attendees} attendees • ${album.chats} chats`}</Text>
     </ImageBackground>
   );
 };

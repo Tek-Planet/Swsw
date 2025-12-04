@@ -7,6 +7,7 @@ import BudsHomePage from '../screens/BudsHomePage';
 import HomeScreen from '../screens/HomeScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import EventsScreen from '../screens/EventsScreen';
+import GalleryScreen from '../screens/GalleryScreen';
 import { RootStackParamList } from '../types';
 
 const Tab = createBottomTabNavigator<RootStackParamList>();
@@ -16,6 +17,7 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
       Home: ['home', 'home-outline'],
       Buds: ['people', 'people-outline'],
       Events: ['calendar', 'calendar-outline'],
+      Gallery: ['images', 'images-outline'],
       Profile: ['person', 'person-outline'],
     };
   
@@ -69,6 +71,7 @@ const BottomTabNavigator: React.FC = () => {
         <Tab.Screen name="Home" component={HomeScreen} options={{ headerShown: false }}/>
         <Tab.Screen name="Buds" component={BudsHomePage} options={{ headerShown: false }}/>
         <Tab.Screen name="Events" component={EventsScreen} options={{ headerShown: false }}/>
+        <Tab.Screen name="Gallery" component={GalleryScreen} options={{ headerShown: false }}/>
         <Tab.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }}/>
     </Tab.Navigator>
   );
