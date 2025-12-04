@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { useNavigation } from '@react-navigation/native';
 import SwipeableAlbumCarousel from '../components/gallery/SwipeableAlbumCarousel';
 import AlbumPhotosSection from '../components/gallery/AlbumPhotosSection';
