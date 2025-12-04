@@ -12,6 +12,8 @@ import {Ionicons as Icon} from '@react-native-vector-icons/ionicons';
 import { TopNavBar, Header } from '../components/Header';
 import EventCard from '../components/EventCard';
 import { upcomingEvents, recommendedEvents, trendingEvents } from '../mock/events';
+import AlbumPreviewCard from '../components/gallery/AlbumPreviewCard';
+import { albums } from '../data/gallery';
 
 const HomeScreen: React.FC = () => {
   return (
@@ -22,12 +24,20 @@ const HomeScreen: React.FC = () => {
         <Header />
         <UpcomingEvents />
         <RecommendedEvents />
+        <YourAlbums />
         <TrendingEvents />
       </ScrollView>
       {/* <FloatingActionButton /> */}
     </View>
   );
 };
+
+const YourAlbums: React.FC = () => (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Your Albums</Text>
+      <AlbumPreviewCard album={albums[0]} />
+    </View>
+  );
 
 const UpcomingEvents: React.FC = () => (
   <View style={styles.section}>
