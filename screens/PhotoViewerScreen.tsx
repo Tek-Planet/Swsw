@@ -3,7 +3,7 @@ import React from 'react';
 import { View, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { RouteProp, useNavigation } from '@react-navigation/native';
 import { RootStackParamList } from '../types';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 type PhotoViewerScreenRouteProp = RouteProp<RootStackParamList, 'PhotoViewer'>;
 
