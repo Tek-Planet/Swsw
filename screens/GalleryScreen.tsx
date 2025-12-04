@@ -1,9 +1,10 @@
+
 import React, { useState, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import SwipeableAlbumCarousel from '../components/gallery/SwipeableAlbumCarousel';
-import AlbumPhotosSection from '../components/gallery/AlbumPhotosSection';
+import AlbumPhotoGrid from '../components/gallery/AlbumPhotoGrid'; 
 import { albums as allAlbums, Album } from '../data/gallery';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../types';
@@ -32,7 +33,7 @@ const GalleryScreen: React.FC<{ route: GalleryScreenRouteProp }> = ({ route }) =
         </TouchableOpacity>
       )}
       <SwipeableAlbumCarousel albums={allAlbums} onAlbumChange={handleAlbumChange} />
-      {currentAlbum && <AlbumPhotosSection photos={currentAlbum.photos} />}
+      {currentAlbum && <AlbumPhotoGrid photos={currentAlbum.photos} />}
     </View>
   );
 };

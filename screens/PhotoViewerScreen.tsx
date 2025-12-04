@@ -1,9 +1,9 @@
+
 import React from 'react';
 import { View, Image, StyleSheet, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import { RouteProp } from '@react-navigation/native';
+import { RouteProp, useNavigation } from '@react-navigation/native';
 import { RootStackParamList } from '../types';
+import { Ionicons } from '@expo/vector-icons';
 
 type PhotoViewerScreenRouteProp = RouteProp<RootStackParamList, 'PhotoViewer'>;
 
@@ -13,10 +13,10 @@ const PhotoViewerScreen: React.FC<{ route: PhotoViewerScreenRouteProp }> = ({ ro
 
   return (
     <View style={styles.container}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={24} color="white" />
+        </TouchableOpacity>
       <Image source={{ uri: photoUrl }} style={styles.photo} resizeMode="contain" />
-      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-        <Ionicons name="arrow-back" size={24} color="white" />
-      </TouchableOpacity>
     </View>
   );
 };
@@ -32,12 +32,12 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  backButton: {
-    position: 'absolute',
-    top: 40,
-    left: 20,
-    zIndex: 1,
-  },
+    backButton: {
+        position: 'absolute',
+        top: 40,
+        left: 20,
+        zIndex: 1,
+    },
 });
 
 export default PhotoViewerScreen;
