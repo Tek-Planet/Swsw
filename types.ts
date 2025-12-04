@@ -9,4 +9,6 @@ export type RootStackParamList = {
   Buds: undefined;
   Events: undefined;
   Profile: undefined;
+  Gallery: { albumId: string };
+  PhotoViewer: { photoUrl: string };
 };
