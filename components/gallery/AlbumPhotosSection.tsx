@@ -1,9 +1,10 @@
 import React from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import PhotoTile from './PhotoTile';
+import { Photo } from '../../data/gallery';
 
 interface AlbumPhotosSectionProps {
-  photos: string[];
+  photos: Photo[];
 }
 
 const AlbumPhotosSection: React.FC<AlbumPhotosSectionProps> = ({ photos }) => {
@@ -11,8 +12,8 @@ const AlbumPhotosSection: React.FC<AlbumPhotosSectionProps> = ({ photos }) => {
     <View style={styles.container}>
       <Text style={styles.title}>Photos</Text>
       <View style={styles.grid}>
-        {photos.map((photoUrl, index) => (
-          <PhotoTile key={index} photoUrl={photoUrl} />
+        {photos.map((photo, index) => (
+          <PhotoTile key={index} photoUrl={photo.url} />
         ))}
       </View>
     </View>

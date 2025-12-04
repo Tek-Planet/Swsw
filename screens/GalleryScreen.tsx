@@ -5,8 +5,12 @@ import { useNavigation } from '@react-navigation/native';
 import SwipeableAlbumCarousel from '../components/gallery/SwipeableAlbumCarousel';
 import AlbumPhotosSection from '../components/gallery/AlbumPhotosSection';
 import { albums as allAlbums, Album } from '../data/gallery';
+import { RouteProp } from '@react-navigation/native';
+import { RootStackParamList } from '../types';
 
-const GalleryScreen: React.FC = ({ route }) => {
+type GalleryScreenRouteProp = RouteProp<RootStackParamList, 'Gallery'>;
+
+const GalleryScreen: React.FC<{ route: GalleryScreenRouteProp }> = ({ route }) => {
   const navigation = useNavigation();
   const { albumId } = route.params || {};
 
@@ -14,7 +18,7 @@ const GalleryScreen: React.FC = ({ route }) => {
     return albumId ? allAlbums.find(album => album.id === albumId) : allAlbums[0];
   }, [albumId]);
 
-  const [currentAlbum, setCurrentAlbum] = useState<Album>(initialAlbum);
+  const [currentAlbum, setCurrentAlbum] = useState<Album | undefined>(initialAlbum);
 
   const handleAlbumChange = (album: Album) => {
     setCurrentAlbum(album);

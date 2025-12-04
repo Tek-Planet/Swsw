@@ -9,7 +9,7 @@ interface SwipeableAlbumCarouselProps {
 }
 
 const SwipeableAlbumCarousel: React.FC<SwipeableAlbumCarouselProps> = ({ albums, onAlbumChange }) => {
-  const onViewableItemsChanged = ({ viewableItems }) => {
+  const onViewableItemsChanged = ({ viewableItems }: { viewableItems: Array<{ item: Album }> }) => {
     if (viewableItems.length > 0) {
       onAlbumChange(viewableItems[0].item);
     }

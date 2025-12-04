@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import {Ionicons } from '@react-native-vector-icons/ionicons';
+import Ionicons from '@react-native-vector-icons/ionicons';
 
 interface SocialLinkItemProps {
   platform: string;
@@ -12,9 +12,26 @@ interface SocialLinkItemProps {
 }
 
 const SocialLinkItem: React.FC<SocialLinkItemProps> = ({ platform, username, isConnected, onConnect, onDisconnect }) => {
+  let iconName: React.ComponentProps<typeof Ionicons>['name'] = 'link';
+
+  switch (platform.toLowerCase()) {
+    case 'facebook':
+      iconName = 'logo-facebook';
+      break;
+    case 'twitter':
+      iconName = 'logo-twitter';
+      break;
+    case 'instagram':
+      iconName = 'logo-instagram';
+      break;
+    case 'linkedin':
+      iconName = 'logo-linkedin';
+      break;
+  }
+
   return (
     <View style={styles.container}>
-      <Ionicons name={`logo-${platform.toLowerCase()}`} size={30} color="#fff" />
+      <Ionicons name={iconName} size={30} color="#fff" />
       <View style={styles.info}>
         <Text style={styles.platform}>{platform}</Text>
         {isConnected && <Text style={styles.username}>{username}</Text>}

@@ -3,6 +3,13 @@ import { View, Text, StyleSheet } from 'react-native';
 import SurveyContainer from '../components/survey/SurveyContainer';
 import RecommendationList from '../components/recommendations/RecommendationList';
 import CTAButton from '../components/recommendations/CTAButton';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList } from '../types';
+
+type SurveyResultsScreenNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  'SurveyResultsScreen'
+>;
 
 const recommendations = [
   {
@@ -28,7 +35,7 @@ const recommendations = [
   },
 ];
 
-const SurveyResultsScreen = ({navigation}) => (
+const SurveyResultsScreen: React.FC<{ navigation: SurveyResultsScreenNavigationProp }> = ({navigation}) => (
   <SurveyContainer>
     <Text style={styles.title}>Your Event Matches</Text>
     <RecommendationList recommendations={recommendations} />

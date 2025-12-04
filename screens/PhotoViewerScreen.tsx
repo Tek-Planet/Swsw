@@ -2,8 +2,12 @@ import React from 'react';
 import { View, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { RouteProp } from '@react-navigation/native';
+import { RootStackParamList } from '../types';
 
-const PhotoViewerScreen: React.FC = ({ route }) => {
+type PhotoViewerScreenRouteProp = RouteProp<RootStackParamList, 'PhotoViewer'>;
+
+const PhotoViewerScreen: React.FC<{ route: PhotoViewerScreenRouteProp }> = ({ route }) => {
   const navigation = useNavigation();
   const { photoUrl } = route.params;
 
