@@ -10,6 +10,8 @@ import { RootStackParamList } from './types';
 import EnhanceGridSurveyScreen from './screens/EnhanceGridSurveyScreen';
 import SurveyQuestionScreen from './screens/SurveyQuestionScreen';
 import SurveyResultsScreen from './screens/SurveyResultsScreen';
+import GalleryScreen from './screens/GalleryScreen';
+import PhotoViewerScreen from './screens/PhotoViewerScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -24,6 +26,8 @@ const App: React.FC = () => {
         <Stack.Screen name="EnhanceGridSurveyScreen" component={EnhanceGridSurveyScreen} />
         <Stack.Screen name="SurveyQuestionScreen" component={SurveyQuestionScreen} />
         <Stack.Screen name="SurveyResultsScreen" component={SurveyResultsScreen} />
+        <Stack.Screen name="Gallery" component={GalleryScreen} />
+        <Stack.Screen name="PhotoViewer" component={PhotoViewerScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
