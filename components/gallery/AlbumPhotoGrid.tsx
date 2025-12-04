@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { View, StyleSheet, FlatList, Image, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, FlatList, Image, TouchableOpacity, Dimensions } from 'react-native';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { Photo } from '../../data/gallery';
 import { RootStackParamList } from '../../types';
@@ -8,6 +8,12 @@ import { RootStackParamList } from '../../types';
 interface AlbumPhotosSectionProps {
   photos: Photo[];
 }
+
+const { width } = Dimensions.get('window');
+const numColumns = 2;
+const gridPadding = 10;
+const itemMargin = 5;
+const photoSize = (width - gridPadding * 2 - itemMargin * 2 * numColumns) / numColumns;
 
 const AlbumPhotoGrid: React.FC<AlbumPhotosSectionProps> = ({ photos }) => {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
@@ -21,10 +27,11 @@ const AlbumPhotoGrid: React.FC<AlbumPhotosSectionProps> = ({ photos }) => {
   return (
     <View style={styles.container}>
       <FlatList
+        style={{ flex: 1 }}
         data={photos}
         renderItem={renderPhoto}
         keyExtractor={(item) => item.id}
-        numColumns={2}
+        numColumns={numColumns}
         contentContainerStyle={styles.gridContainer}
       />
     </View>
@@ -37,13 +44,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
   },
   gridContainer: {
-    padding: 10,
+    padding: gridPadding,
   },
   photo: {
-    flex: 1,
-    aspectRatio: 1,
+    width: photoSize,
+    height: photoSize,
     borderRadius: 10,
-    margin: 5,
+    margin: itemMargin,
   },
 });
 

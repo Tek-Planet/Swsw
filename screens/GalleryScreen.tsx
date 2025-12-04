@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
@@ -15,15 +15,17 @@ const GalleryScreen: React.FC<{ route: GalleryScreenRouteProp }> = ({ route }) =
   const navigation = useNavigation();
   const { albumId } = route.params || {};
 
-  const initialAlbum = useMemo(() => {
-    return albumId ? allAlbums.find(album => album.id === albumId) : allAlbums[0];
+  const { initialAlbum, initialAlbumIndex } = useMemo(() => {
+    const albumIndex = albumId ? allAlbums.findIndex(album => album.id === albumId) : 0;
+    const album = allAlbums[albumIndex] || allAlbums[0];
+    return { initialAlbum: album, initialAlbumIndex: albumIndex };
   }, [albumId]);
 
   const [currentAlbum, setCurrentAlbum] = useState<Album | undefined>(initialAlbum);
 
-  const handleAlbumChange = (album: Album) => {
+  const handleAlbumChange = useCallback((album: Album) => {
     setCurrentAlbum(album);
-  };
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -32,8 +34,12 @@ const GalleryScreen: React.FC<{ route: GalleryScreenRouteProp }> = ({ route }) =
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
       )}
-      <SwipeableAlbumCarousel albums={allAlbums} onAlbumChange={handleAlbumChange} />
-      {currentAlbum && <AlbumPhotoGrid photos={currentAlbum.photos} />}
+      <SwipeableAlbumCarousel 
+        albums={allAlbums} 
+        onAlbumChange={handleAlbumChange} 
+        initialAlbumIndex={initialAlbumIndex}
+      />
+      {currentAlbum && <AlbumPhotoGrid key={currentAlbum.id} photos={currentAlbum.photos} />}
     </View>
   );
 };

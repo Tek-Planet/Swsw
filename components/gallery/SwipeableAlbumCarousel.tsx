@@ -1,6 +1,6 @@
 
-import React, { useRef, useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, Dimensions, Animated } from 'react-native';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { View, StyleSheet, FlatList, Dimensions, Animated, ListRenderItemInfo } from 'react-native';
 import AlbumHeroCard from './AlbumHeroCard';
 import { Album } from '../../data/gallery';
 
@@ -8,36 +8,43 @@ const { width: screenWidth } = Dimensions.get('window');
 const cardWidth = 300;
 const sideCardWidth = (screenWidth - cardWidth) / 2;
 
+const AnimatedFlatList = Animated.createAnimatedComponent(FlatList) as unknown as new () => FlatList<Album>;
+
 interface SwipeableAlbumCarouselProps {
   albums: Album[];
   onAlbumChange: (album: Album) => void;
+  initialAlbumIndex?: number;
 }
 
-const SwipeableAlbumCarousel: React.FC<SwipeableAlbumCarouselProps> = ({ albums, onAlbumChange }) => {
-  const scrollX = useRef(new Animated.Value(0)).current;
-  const [activeIndex, setActiveIndex] = useState(0);
+const SwipeableAlbumCarousel: React.FC<SwipeableAlbumCarouselProps> = ({ albums, onAlbumChange, initialAlbumIndex = 0 }) => {
+  const scrollX = useRef(new Animated.Value(initialAlbumIndex * (cardWidth + 20))).current;
+  const [activeIndex, setActiveIndex] = useState(initialAlbumIndex);
+  const flatListRef = useRef<FlatList<Album>>(null);
 
   useEffect(() => {
-    onAlbumChange(albums[activeIndex]);
+    if (albums.length > 0) {
+      onAlbumChange(albums[activeIndex]);
+    }
   }, [activeIndex, albums, onAlbumChange]);
 
-  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
+  const onViewableItemsChanged = useCallback(({ viewableItems }: any) => {
     if (viewableItems.length > 0) {
       setActiveIndex(viewableItems[0].index);
     }
-  }).current;
+  }, []);
 
   const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
 
   return (
     <View style={styles.container}>
-      <FlatList
+      <AnimatedFlatList
+        ref={flatListRef}
         data={albums}
-        renderItem={({ item, index }) => {
+        renderItem={({ item, index }: ListRenderItemInfo<Album>) => {
           const inputRange = [
-            (index - 1) * cardWidth,
-            index * cardWidth,
-            (index + 1) * cardWidth,
+            (index - 1) * (cardWidth + 20),
+            index * (cardWidth + 20),
+            (index + 1) * (cardWidth + 20),
           ];
           const scale = scrollX.interpolate({
             inputRange,
@@ -46,10 +53,10 @@ const SwipeableAlbumCarousel: React.FC<SwipeableAlbumCarouselProps> = ({ albums,
           });
           return <AlbumHeroCard album={item} scale={scale} />;
         }}
-        keyExtractor={item => item.id}
+        keyExtractor={(item: Album) => item.id}
         horizontal
         showsHorizontalScrollIndicator={false}
-        snapToInterval={cardWidth + 20} 
+        snapToInterval={cardWidth + 20}
         decelerationRate="fast"
         contentContainerStyle={styles.contentContainer}
         onScroll={Animated.event(
@@ -58,6 +65,12 @@ const SwipeableAlbumCarousel: React.FC<SwipeableAlbumCarouselProps> = ({ albums,
         )}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
+        initialScrollIndex={initialAlbumIndex}
+        getItemLayout={(_data, index) => ({
+          length: cardWidth + 20,
+          offset: (cardWidth + 20) * index,
+          index,
+        })}
       />
     </View>
   );
@@ -70,7 +83,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   contentContainer: {
-    paddingHorizontal: sideCardWidth - 10, 
+    paddingHorizontal: sideCardWidth - 10,
   },
 });
 

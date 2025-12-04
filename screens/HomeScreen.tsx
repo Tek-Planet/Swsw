@@ -5,10 +5,9 @@ import {
   StyleSheet,
   Text,
   View,
-  TouchableOpacity,
   StatusBar,
 } from 'react-native';
-import {Ionicons as Icon} from '@react-native-vector-icons/ionicons';
+
 import { TopNavBar, Header } from '../components/Header';
 import EventCard from '../components/EventCard';
 import { upcomingEvents, recommendedEvents, trendingEvents } from '../mock/events';
@@ -70,11 +69,7 @@ const RecommendedEvents: React.FC = () => (
     </View>
   );
 
-const FloatingActionButton: React.FC = () => (
-  <TouchableOpacity style={styles.fab}>
-    <Icon name="add" size={30} color="#fff" />
-  </TouchableOpacity>
-);
+
 
 const styles = StyleSheet.create({
     container: {
