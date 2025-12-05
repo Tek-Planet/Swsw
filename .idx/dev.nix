@@ -32,13 +32,32 @@
     previews = {
       enable = true;
       previews = {
-        web = {
-          command = [ "npm" "run" "web" "--" "--port" "$PORT" ];
-          manager = "web";
-        };
         android = {
-          # noop
-          command = [ "tail" "-f" "/dev/null" ];
+          command = [
+            "sh"
+            "-c"
+            ''
+              # Set the correct emulator to use
+              export ANDROID_SERIAL=emulator-5554
+
+              # Start watchman
+              watchman watch $PWD
+
+              # Set the correct Metro port environment variable
+              export RCT_METRO_PORT=$PORT
+
+              npm start &
+              METRO_PID=$!
+
+              # Wait for Metro to be available
+              until curl -s http://localhost:$PORT/status > /dev/null; do
+                sleep 1
+              done
+
+              npm run android
+              wait $METRO_PID
+            ''
+          ];
           manager = "web";
         };
       };
