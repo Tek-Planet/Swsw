@@ -23,7 +23,6 @@ const SignInScreen = () => {
     setError('');
     try {
       await signIn(email, password);
-      router.replace('/(tabs)');
     } catch (e: any) {
       setError(e.message);
     } finally {

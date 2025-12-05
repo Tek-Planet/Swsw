@@ -25,7 +25,6 @@ const SignUpScreen = () => {
     setError('');
     try {
       await signUp(email, password, fullName, username);
-      router.replace('/(tabs)');
     } catch (e: any) {
       setError(e.message);
     } finally {
