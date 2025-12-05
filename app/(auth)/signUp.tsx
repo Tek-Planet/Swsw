@@ -7,31 +7,30 @@ import AuthTextInput from './components/AuthTextInput';
 import AuthButton from './components/AuthButton';
 import SecondaryTextButton from './components/SecondaryTextButton';
 import SocialLoginButton from './components/SocialLoginButton';
-import CheckboxRow from './components/CheckboxRow';
 import { ThemedText } from '@/components/themed-text';
+import { useAuth } from '@/lib/context/AuthContext';
 
 const SignUpScreen = () => {
   const router = useRouter();
-  const [name, setName] = useState('');
+  const { signUp } = useAuth();
+  const [fullName, setFullName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
-  const [isOver18, setIsOver18] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSignUp = () => {
+  const handleSignUp = async () => {
     setLoading(true);
     setError('');
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      await signUp(email, password, fullName, username);
+      router.replace('/(tabs)');
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
       setLoading(false);
-      if (name && email && password && agreedToTerms && isOver18) {
-        router.replace('/(tabs)');
-      } else {
-        setError('Please fill all fields and agree to the terms');
-      }
-    }, 2000);
+    }
   };
 
   return (
@@ -51,8 +50,15 @@ const SignUpScreen = () => {
           <AuthTextInput
             label="Your name"
             placeholder="John Doe"
-            value={name}
-            onChangeText={setName}
+            value={fullName}
+            onChangeText={setFullName}
+          />
+          <AuthTextInput
+            label="Username"
+            placeholder="your_username"
+            value={username}
+            onChangeText={setUsername}
+            autoCapitalize="none"
           />
           <AuthTextInput
             label="Email"
@@ -71,28 +77,12 @@ const SignUpScreen = () => {
             secureTextEntry
           />
 
-          <CheckboxRow
-            value={agreedToTerms}
-            onValueChange={setAgreedToTerms}
-            text="I agree to the [Terms of Use](https://example.com/terms) and [Privacy Policy](https://example.com/privacy)"
-            links={{
-              'Terms of Use': () => console.log('Navigate to Terms'),
-              'Privacy Policy': () => console.log('Navigate to Privacy'),
-            }}
-          />
-
-          <CheckboxRow
-            value={isOver18}
-            onValueChange={setIsOver18}
-            text="I am at least 18 years old"
-          />
-
           {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
 
           <AuthButton
             title="Create Account"
             onPress={handleSignUp}
-            disabled={!name || !email || !password || !agreedToTerms || !isOver18}
+            disabled={!fullName || !username || !email || !password}
             loading={loading}
           />
         </View>

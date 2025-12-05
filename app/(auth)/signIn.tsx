@@ -8,26 +8,27 @@ import AuthScreenContainer from './components/AuthScreenContainer';
 import AuthTextInput from './components/AuthTextInput';
 import SecondaryTextButton from './components/SecondaryTextButton';
 import SocialLoginButton from './components/SocialLoginButton';
+import { useAuth } from '@/lib/context/AuthContext';
 
 const SignInScreen = () => {
   const router = useRouter();
-  const [email, setEmail] = useState('test@example.com');
-  const [password, setPassword] = useState('password');
+  const { signIn } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSignIn = () => {
+  const handleSignIn = async () => {
     setLoading(true);
     setError('');
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      await signIn(email, password);
+      router.replace('/(tabs)');
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
       setLoading(false);
-      if (email === 'test@example.com' && password === 'password') {
-        router.replace('/(tabs)');
-      } else {
-        setError('Incorrect email or password');
-      }
-    }, 2000);
+    }
   };
 
   return (

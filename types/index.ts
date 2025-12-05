@@ -1,6 +1,10 @@
-declare module 'expo-router' {
-  export interface InitialRoutes {
-    "/event/[id]": { id: string };
-    "/gallery/[id]": { id: string };
+export interface AppUser {
+    uid: string;
+    email: string | null;
+    displayName: string | null;
+    username?: string | null;
+    photoURL?: string | null;
+    createdAt?: any;
+    updatedAt?: any;
   }
-}
+  
