@@ -27,7 +27,7 @@ const SignUpScreen = () => {
     setTimeout(() => {
       setLoading(false);
       if (name && email && password && agreedToTerms && isOver18) {
-        router.replace('/(tabs)/home');
+        router.replace('/(tabs)');
       } else {
         setError('Please fill all fields and agree to the terms');
       }

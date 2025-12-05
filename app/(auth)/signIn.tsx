@@ -1,18 +1,18 @@
 
-import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { ThemedText } from '@/components/themed-text';
 import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+import AuthButton from './components/AuthButton';
 import AuthScreenContainer from './components/AuthScreenContainer';
 import AuthTextInput from './components/AuthTextInput';
-import AuthButton from './components/AuthButton';
 import SecondaryTextButton from './components/SecondaryTextButton';
 import SocialLoginButton from './components/SocialLoginButton';
-import { ThemedText } from '@/components/themed-text';
 
 const SignInScreen = () => {
   const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('test@example.com');
+  const [password, setPassword] = useState('password');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -23,7 +23,7 @@ const SignInScreen = () => {
     setTimeout(() => {
       setLoading(false);
       if (email === 'test@example.com' && password === 'password') {
-        router.replace('/(tabs)/home');
+        router.replace('/(tabs)');
       } else {
         setError('Incorrect email or password');
       }
@@ -86,6 +86,7 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: 40,
+    marginTop:10
   },
   title: {
     color: '#fff',

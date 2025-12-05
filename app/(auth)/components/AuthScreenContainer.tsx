@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { View, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform } from 'react-native';
 import { ThemedView } from '@/components/themed-view';
@@ -27,6 +26,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 24,
     justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
 });
 
