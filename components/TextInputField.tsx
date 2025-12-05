@@ -3,9 +3,9 @@ import React from 'react';
 import { TextInput, StyleSheet } from 'react-native';
 
 interface TextInputFieldProps {
-  placeholder: string;
-  value: string;
-  onChangeText: (text: string) => void;
+  placeholder?: string;
+  value?: string;
+  onChangeText?: (text: string) => void;
   secureTextEntry?: boolean;
 }
 

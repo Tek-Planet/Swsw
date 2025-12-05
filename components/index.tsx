@@ -2,6 +2,7 @@
 export { PrimaryButton, SecondaryButton } from './Button';
 export { ProfileAvatar, ProfileAvatarLarge } from './ProfileAvatar';
 export { default as TextInputField } from './TextInputField';
+export { FormTextInput } from './FormTextInput';
 export { default as ToggleSwitch } from './ToggleSwitch';
 export { default as ModalContainer } from './ModalContainer';
 export { default as SelfieCard } from './SelfieCard';

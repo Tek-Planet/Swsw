@@ -1,21 +1,23 @@
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useAuth } from '@/lib/context/AuthContext';
 import { Stack, SplashScreen } from 'expo-router';
 
-SplashScreen.preventAutoHideAsync();
-
 export default function RootNavigator() {
-  const { user, loading } = useAuth();
+  const { user, loading, isOnboardingComplete } = useAuth();
 
-  useEffect(() => {
-    SplashScreen.hideAsync();
-  }, []);
+  if (loading) {
+    return null; // Or a custom loading component
+  }
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
       {user ? (
-        <Stack.Screen name="(tabs)" />
+        isOnboardingComplete ? (
+          <Stack.Screen name="(tabs)" />
+        ) : (
+          <Stack.Screen name="(onboarding)" />
+        )
       ) : (
         <Stack.Screen name="(auth)" />
       )}

@@ -1,4 +1,4 @@
- 
+
 import React from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import ProfileHeader from '@/components/profile/ProfileHeader';
@@ -15,7 +15,7 @@ const ProfileScreen = () => {
 
   return (
     <ScrollView style={styles.container}>
-      <ProfileHeader user={user} />
+      <ProfileHeader />
       <MySelfies />
       <ProfileDetails />
       <LinkedAccounts />

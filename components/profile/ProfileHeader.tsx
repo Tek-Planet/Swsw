@@ -1,21 +1,15 @@
 
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { ProfileAvatarLarge } from '@/components';
-import StatsPill from '@/components/StatsPill';
-import { AppUser } from '@/types';
+import { View, Text, StyleSheet, Image } from 'react-native';
+import { useAuth } from '@/lib/context/AuthContext';
 
-const ProfileHeader = ({ user }: { user: AppUser }) => {
+const ProfileHeader = () => {
+  const { user } = useAuth();
+
   return (
     <View style={styles.container}>
-      <ProfileAvatarLarge source={user.photoURL || ''} />
-      <Text style={styles.name}>{user.displayName}</Text>
-      <Text style={styles.username}>@{user.username}</Text>
-      <View style={styles.statsContainer}>
-        <StatsPill label="Followers" value="0" />
-        <StatsPill label="Following" value="0" />
-        <StatsPill label="Likes" value="0" />
-      </View>
+      <Image source={{ uri: user?.photoUrl }} style={styles.image} />
+      <Text style={styles.name}>{user?.username}</Text>
     </View>
   );
 };
@@ -23,22 +17,19 @@ const ProfileHeader = ({ user }: { user: AppUser }) => {
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    padding: 20,
+    paddingTop: 20,
+  },
+  image: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#333',
   },
   name: {
-    color: '#fff',
     fontSize: 24,
     fontWeight: 'bold',
-  },
-  username: {
-    color: '#aaa',
-    fontSize: 16,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
-    marginTop: 20,
+    color: '#fff',
+    marginTop: 10,
   },
 });
 

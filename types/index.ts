@@ -1,10 +1,18 @@
-export interface AppUser {
-    uid: string;
-    email: string | null;
-    displayName: string | null;
-    username?: string | null;
-    photoURL?: string | null;
-    createdAt?: any;
-    updatedAt?: any;
-  }
-  
+
+import { Timestamp } from "firebase/firestore";
+
+export type UserProfile = {
+  uid: string;
+  email: string;
+  displayName: string;
+  username: string;
+  photoUrl?: string;
+  bio?: string;
+  interests?: string[];
+  vibeTags?: string[];
+  onboardingCompleted: boolean;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+};
+
+export interface AppUser extends UserProfile {}
