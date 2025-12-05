@@ -3,7 +3,13 @@ import React from 'react';
 import { TouchableOpacity, Text, View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-const SocialLoginButton = ({ icon, text, onPress }) => {
+interface SocialLoginButtonProps {
+  icon: keyof typeof Ionicons.glyphMap;
+  text: string;
+  onPress: () => void;
+}
+
+const SocialLoginButton: React.FC<SocialLoginButtonProps> = ({ icon, text, onPress }) => {
   return (
     <TouchableOpacity style={styles.button} onPress={onPress}>
       <Ionicons name={icon} size={24} color="#fff" style={styles.icon} />

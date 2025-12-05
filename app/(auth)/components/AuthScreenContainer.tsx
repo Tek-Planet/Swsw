@@ -1,9 +1,13 @@
 
 import React from 'react';
 import { View, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform } from 'react-native';
-import { ThemedView } from '@/components/ThemedView';
+import { ThemedView } from '@/components/themed-view';
 
-const AuthScreenContainer = ({ children }) => {
+interface AuthScreenContainerProps {
+  children: React.ReactNode;
+}
+
+const AuthScreenContainer: React.FC<AuthScreenContainerProps> = ({ children }) => {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#000' }}>
       <KeyboardAvoidingView

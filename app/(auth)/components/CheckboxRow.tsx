@@ -3,7 +3,14 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-const CheckboxRow = ({ value, onValueChange, text, links }) => {
+interface CheckboxRowProps {
+  value: boolean;
+  onValueChange: (newValue: boolean) => void;
+  text: string;
+  links?: { [key: string]: () => void };
+}
+
+const CheckboxRow: React.FC<CheckboxRowProps> = ({ value, onValueChange, text, links }) => {
   const textParts = text.split(/(\[.*?\]\(.*?\))/g).filter(part => part.length > 0);
 
   return (

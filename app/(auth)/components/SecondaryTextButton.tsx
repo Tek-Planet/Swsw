@@ -3,12 +3,18 @@ import React from 'react';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 
-const SecondaryTextButton = ({ text, highlight, onPress }) => {
+interface SecondaryTextButtonProps {
+  text: string;
+  highlight?: string;
+  onPress: () => void;
+}
+
+const SecondaryTextButton: React.FC<SecondaryTextButtonProps> = ({ text, highlight, onPress }) => {
   return (
     <TouchableOpacity onPress={onPress} style={styles.container}>
       <ThemedText style={styles.text}>
         {text}
-        <ThemedText style={styles.highlight}> {highlight}</ThemedText>
+        {highlight && <ThemedText style={styles.highlight}> {highlight}</ThemedText>}
       </ThemedText>
     </TouchableOpacity>
   );

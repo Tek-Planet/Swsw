@@ -1,10 +1,17 @@
 
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, TextInputProps } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Ionicons } from '@expo/vector-icons';
 
-const AuthTextInput = ({ label, placeholder, value, onChangeText, secureTextEntry, error, helperText, onBlur, onFocus, keyboardType, autoComplete, autoCapitalize }) => {
+interface AuthTextInputProps extends TextInputProps {
+  label: string;
+  error?: string;
+  helperText?: string;
+  secureTextEntry?: boolean;
+}
+
+const AuthTextInput: React.FC<AuthTextInputProps> = ({ label, placeholder, value, onChangeText, secureTextEntry, error, helperText, onBlur, onFocus, keyboardType, autoComplete, autoCapitalize }) => {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
 
@@ -23,8 +30,14 @@ const AuthTextInput = ({ label, placeholder, value, onChangeText, secureTextEntr
           value={value}
           onChangeText={onChangeText}
           secureTextEntry={secureTextEntry && !isPasswordVisible}
-          onBlur={() => setIsFocused(false)}
-          onFocus={() => setIsFocused(true)}
+          onBlur={(e) => {
+            setIsFocused(false);
+            onBlur && onBlur(e);
+          }}
+          onFocus={(e) => {
+            setIsFocused(true);
+            onFocus && onFocus(e);
+          }}
           keyboardType={keyboardType}
           autoComplete={autoComplete}
           autoCapitalize={autoCapitalize}
