@@ -1,98 +1,112 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import React from 'react';
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  StatusBar,
+} from 'react-native';
 
-export default function HomeScreen() {
+import { TopNavBar, Header } from '@/components/Header';
+import EventCard from '@/components/EventCard';
+import { upcomingEvents, recommendedEvents, trendingEvents } from '@/mock/events';
+import AlbumPreviewCard from '@/components/gallery/AlbumPreviewCard';
+import { albums } from '@/data/gallery';
+
+const HomeScreen: React.FC = () => {
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
-
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      <TopNavBar />
+      <ScrollView contentContainerStyle={styles.scrollViewContent}>
+        <Header />
+        <UpcomingEvents />
+        <RecommendedEvents />
+        <YourAlbums />
+        <TrendingEvents />
+      </ScrollView>
+      {/* <FloatingActionButton /> */}
+    </View>
   );
-}
+};
+
+const YourAlbums: React.FC = () => (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Your Albums</Text>
+      <AlbumPreviewCard album={albums[0]} />
+    </View>
+  );
+
+const UpcomingEvents: React.FC = () => (
+  <View style={styles.section}>
+    <Text style={styles.sectionTitle}>Upcoming</Text>
+    <ScrollView horizontal contentContainerStyle={styles.horizontalScroll}>
+      {upcomingEvents.map(event => (
+        <EventCard key={event.id} event={event} />
+      ))}
+    </ScrollView>
+  </View>
+);
+
+const RecommendedEvents: React.FC = () => (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Recommended</Text>
+      <ScrollView horizontal contentContainerStyle={styles.horizontalScroll}>
+        {recommendedEvents.map(event => (
+            <EventCard key={event.id} event={event} />
+        ))}
+      </ScrollView>
+    </View>
+  );
+
+  const TrendingEvents: React.FC = () => (
+    <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Trending in NYC</Text>
+        {trendingEvents.map(event => (
+            <EventCard key={event.id} event={event} />
+        ))}
+    </View>
+  );
+
+
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
+    container: {
+        flex: 1,
+        backgroundColor: '#000',
+      },
+      scrollViewContent: {
+        paddingBottom: 80, // To avoid being hidden by the FAB
+      },
+      section: {
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+      },
+      sectionTitle: {
+        color: '#fff',
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginBottom: 10,
+      },
+      horizontalScroll: {
+        paddingBottom: 20,
+      },
+      fab: {
+        position: 'absolute',
+        bottom: 30,
+        right: 30,
+        backgroundColor: '#6c63ff',
+        borderRadius: 30,
+        width: 60,
+        height: 60,
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#6c63ff',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.5,
+        shadowRadius: 5,
+      },
 });
+
+export default HomeScreen;

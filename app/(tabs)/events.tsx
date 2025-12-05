@@ -14,7 +14,7 @@ const events = [
 
 const EventsScreen: React.FC = () => {
   const renderEvent = ({ item }: { item: typeof events[0] }) => (
-    <Link href={{ pathname: "/event-detail", params: { eventId: item.id } }} asChild>
+    <Link href={`/event/${item.id}`} asChild>
         <TouchableOpacity 
         style={styles.eventCard}
         >
@@ -34,7 +34,7 @@ const EventsScreen: React.FC = () => {
         keyExtractor={item => item.id}
         contentContainerStyle={styles.listContainer}
       />
-        <Link href="/create-event" asChild>
+        <Link href={{pathname: '/event/create'}} asChild>
             <TouchableOpacity
                 style={styles.fab}
             >

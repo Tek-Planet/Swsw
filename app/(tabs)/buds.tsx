@@ -31,7 +31,7 @@ const budsData: Bud[] = [
 const BudsHomePage: React.FC = () => {
 
   const renderGroupCard = ({ item }: { item: Bud }) => (
-    <Link href={{ pathname: "/group-detail", params: { groupId: item.id } }} asChild>
+    <Link href={{ pathname: "/group/[id]", params: { id: item.id } }} asChild>
       <TouchableOpacity>
           <View style={styles.groupCard}>
               <Text style={styles.groupName}>{item.name}</Text>
@@ -51,9 +51,11 @@ const BudsHomePage: React.FC = () => {
           renderItem={renderGroupCard}
           keyExtractor={(item) => item.id}
         />
-        <TouchableOpacity style={styles.newGroupButton}>
-          <Ionicons name="add" size={30} color="white" />
-        </TouchableOpacity>
+        <Link href="/group/create" asChild>
+            <TouchableOpacity style={styles.newGroupButton}>
+              <Ionicons name="add" size={30} color="white" />
+            </TouchableOpacity>
+        </Link>
       </View>
     );
 };
