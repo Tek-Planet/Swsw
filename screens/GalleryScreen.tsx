@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import Ionicons from 'react-native-vector-icons/Ionicons';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { useNavigation } from '@react-navigation/native';
 import SwipeableAlbumCarousel from '../components/gallery/SwipeableAlbumCarousel';
 import AlbumPhotoGrid from '../components/gallery/AlbumPhotoGrid'; 
