@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { useAuth } from '@/lib/context/AuthContext';
 import { Stack, useRouter, useSegments } from 'expo-router';
@@ -11,13 +12,29 @@ export default function RootNavigator() {
     if (loading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+    const inOnboardingGroup = segments[0] === '(onboarding)';
+    const inTabsGroup = segments[0] === '(tabs)';
 
-    if (user && !isOnboardingComplete) {
-      router.replace('/(onboarding)/welcome');
-    } else if (user && isOnboardingComplete) {
-      router.replace('/(tabs)');
-    } else if (!user && !inAuthGroup) {
-      router.replace('/(auth)/signIn');
+    if (user) {
+      if (isOnboardingComplete) {
+        // User is fully onboarded. They should be in the main app.
+        // If they are not in the (tabs) group, redirect them.
+        if (!inTabsGroup) {
+          router.replace('/(tabs)');
+        }
+      } else {
+        // User is not onboarded. They should be in the onboarding flow.
+        // If they are not in the (onboarding) group, redirect them.
+        if (!inOnboardingGroup) {
+          router.replace('/(onboarding)/welcome');
+        }
+      }
+    } else {
+      // User is not logged in. They should be in the auth flow.
+      // If they are not in the (auth) group, redirect them.
+      if (!inAuthGroup) {
+        router.replace('/(auth)/signIn');
+      }
     }
   }, [user, isOnboardingComplete, loading, segments, router]);
 

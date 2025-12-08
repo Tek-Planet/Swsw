@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { PrimaryButton } from '@/components';
 import OnboardingContainer from '@/components/OnboardingContainer';
@@ -11,6 +11,7 @@ import { createOrUpdateUserProfile } from '@/lib/firebase/userProfileService';
 
 const PhotoSelfieScreen = () => {
   const [image, setImage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const { user } = useAuth();
   const router = useRouter();
 
@@ -29,9 +30,19 @@ const PhotoSelfieScreen = () => {
 
   const handleContinue = async () => {
     if (image && user) {
+      setLoading(true);
       const photoURL = await uploadImageAndGetDownloadURL(image, user.uid);
-      await createOrUpdateUserProfile(user.uid, { photoUrl: photoURL });
-      router.push('/(onboarding)/interests');
+      setLoading(false);
+
+      if (photoURL) {
+        await createOrUpdateUserProfile(user.uid, { photoUrl: photoURL });
+        router.push('/(onboarding)/interests');
+      } else {
+        Alert.alert(
+          'Upload Failed',
+          'Sorry, we couldn\'t upload your photo. Please check your connection and try again.'
+        );
+      }
     }
   };
 
@@ -41,22 +52,21 @@ const PhotoSelfieScreen = () => {
         <Text style={styles.title}>Add a Photo</Text>
         <Text style={styles.subtitle}>Let’s see that beautiful smile!</Text>
         <TouchableOpacity onPress={pickImage}>
-            {
-                image ? (
-                    <Image source={{ uri: image }} style={styles.image} />
-                ) : (
-                    <View style={styles.imagePlaceholder}>
-                        <Text style={styles.imagePlaceholderText}>Select a Photo</Text>
-                    </View>
-                )
-            }
+          {image ? (
+            <Image source={{ uri: image }} style={styles.image} />
+          ) : (
+            <View style={styles.imagePlaceholder}>
+              <Text style={styles.imagePlaceholderText}>Select a Photo</Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
       <View style={styles.actions}>
         <PrimaryButton
           title="Continue"
           onPress={handleContinue}
-          disabled={!image}
+          disabled={!image || loading}
+          loading={loading} 
         />
       </View>
     </OnboardingContainer>
@@ -101,10 +111,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-    imagePlaceholderText: {
-        color: '#fff',
-        fontSize: 18,
-    },
+  imagePlaceholderText: {
+    color: '#fff',
+    fontSize: 18,
+  },
 });
 
 export default PhotoSelfieScreen;

@@ -1,5 +1,6 @@
 
 import { ThemedText } from '@/components/themed-text';
+import { useAuth } from '@/lib/context/AuthContext';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -8,13 +9,12 @@ import AuthScreenContainer from './components/AuthScreenContainer';
 import AuthTextInput from './components/AuthTextInput';
 import SecondaryTextButton from './components/SecondaryTextButton';
 import SocialLoginButton from './components/SocialLoginButton';
-import { useAuth } from '@/lib/context/AuthContext';
 
 const SignInScreen = () => {
   const router = useRouter();
   const { signIn } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('tek@gmail.com');
+  const [password, setPassword] = useState('Password@1012');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
