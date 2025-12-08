@@ -66,7 +66,6 @@ const PhotoSelfieScreen = () => {
           title="Continue"
           onPress={handleContinue}
           disabled={!image || loading}
-          loading={loading} 
         />
       </View>
     </OnboardingContainer>

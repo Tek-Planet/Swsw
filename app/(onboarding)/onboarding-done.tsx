@@ -1,12 +1,30 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { PrimaryButton } from '@/components';
 import OnboardingContainer from '@/components/OnboardingContainer';
+import { useAuth } from '@/lib/context/AuthContext';
+import { createOrUpdateUserProfile } from '@/lib/firebase/userProfileService';
 
 const OnboardingDoneScreen = () => {
   const router = useRouter();
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(false);
+
+  const handlePress = async () => {
+    if (!user) return;
+
+    setLoading(true);
+    try {
+      await createOrUpdateUserProfile(user.uid, { onboardingCompleted: true });
+      router.replace('/(tabs)');
+    } catch (error) { 
+      console.error("Error completing onboarding:", error);
+      // Optionally, show an error message to the user
+      setLoading(false);
+    }
+  };
 
   return (
     <OnboardingContainer>
@@ -19,7 +37,9 @@ const OnboardingDoneScreen = () => {
       <View style={styles.actions}>
         <PrimaryButton
           title="Let's Go!"
-          onPress={() => router.replace('/(tabs)')}
+          onPress={handlePress}
+          loading={loading}
+          disabled={loading}
         />
       </View>
     </OnboardingContainer>

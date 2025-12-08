@@ -1,5 +1,5 @@
 
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { storage } from './firebaseConfig';
 
 const uploadImageAndGetDownloadURL = async (imageUri: string, userId: string): Promise<string | null> => {
@@ -19,7 +19,7 @@ const uploadImageAndGetDownloadURL = async (imageUri: string, userId: string): P
 
     // 3. Create a unique reference in Firebase Storage
     const storageRef = ref(storage, `images/${userId}/${Date.now()}`);
-    console.log('[uploadImageAndGetDownloadURL] Created storage reference.');
+    console.log('[uploadImageAndGetDownloadURL] Created storage reference.', storageRef);
 
     // 4. Upload the blob to the reference
     console.log('[uploadImageAndGetDownloadURL] Uploading blob to Firebase Storage...');
@@ -32,7 +32,7 @@ const uploadImageAndGetDownloadURL = async (imageUri: string, userId: string): P
     
     return downloadURL;
   } catch (error) {
-    console.error('[uploadImageAndGetDownloadURL] An error occurred during the upload process:', error);
+    console.error('some error:', error);
     
     // Returning null signals that the upload failed.
     return null;
