@@ -35,3 +35,15 @@ export const listenToUserProfile = (
     callback(doc.data() as UserProfile | null);
   });
 };
+
+export const updateUserProfile = async (
+  uid: string,
+  partial: Partial<UserProfile>
+): Promise<void> => {
+  const userDocRef = doc(db, 'users', uid);
+  await setDoc(
+    userDocRef,
+    { ...partial, updatedAt: Timestamp.now() },
+    { merge: true }
+  );
+};

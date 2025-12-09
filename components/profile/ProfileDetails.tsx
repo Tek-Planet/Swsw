@@ -1,15 +1,29 @@
 
 import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { TextInputField, ChipSelector, PrimaryButton, SecondaryButton } from '@/components';
+import { TextInputField, ChipSelector, PrimaryButton } from '@/components';
 import { HelperText } from '@/components/Validation';
 import SectionCard from '@/components/SectionCard';
+import { UserProfile } from '@/types';
+import { updateUserProfile } from '@/lib/firebase/userProfileService';
+import { useAuth } from '@/lib/context/AuthContext';
 
 const interestsOptions = ['Reading', 'Gaming', 'Traveling', 'Cooking', 'Sports', 'Music'];
 
-const ProfileDetails = () => {
-  const [bio, setBio] = useState('');
-  const [interests, setInterests] = useState<string[]>([]);
+interface ProfileDetailsProps {
+  userProfile: UserProfile;
+}
+
+const ProfileDetails: React.FC<ProfileDetailsProps> = ({ userProfile }) => {
+  const { user } = useAuth();
+  const [bio, setBio] = useState(userProfile.bio || '');
+  const [interests, setInterests] = useState<string[]>(userProfile.interests || []);
+
+  const handleSave = async () => {
+    if (user) {
+      await updateUserProfile(user.uid, { bio, interests });
+    }
+  };
 
   return (
     <SectionCard>
@@ -26,7 +40,7 @@ const ProfileDetails = () => {
         onSelectionChange={setInterests}
       />
       <View style={styles.buttonContainer}>
-      <PrimaryButton title="Save Details" onPress={() => {}} />
+        <PrimaryButton title="Save Details" onPress={handleSave} />
       </View>
     </SectionCard>
   );

@@ -1,15 +1,17 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
-import { useAuth } from '@/lib/context/AuthContext';
+import { UserProfile } from '@/types';
 
-const ProfileHeader = () => {
-  const { user } = useAuth();
+interface ProfileHeaderProps {
+  userProfile: UserProfile;
+}
 
+const ProfileHeader: React.FC<ProfileHeaderProps> = ({ userProfile }) => {
   return (
     <View style={styles.container}>
-      <Image source={{ uri: user?.photoUrl }} style={styles.image} />
-      <Text style={styles.name}>{user?.username}</Text>
+      <Image source={{ uri: userProfile.photoUrl }} style={styles.image} />
+      <Text style={styles.name}>{userProfile.displayName}</Text>
     </View>
   );
 };
