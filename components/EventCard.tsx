@@ -1,173 +1,83 @@
+
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
-import { Link, useRouter } from 'expo-router';
-import EnhanceGridButton from './EnhanceGridButton';
+import { Link } from 'expo-router';
+import { Event } from '@/types/event'; // Correctly import the Event type
 
-// TODO: This should be a real type
 interface EventCardProps {
-  event: any;
+  event: Event;
 }
 
 const EventCard: React.FC<EventCardProps> = ({ event }) => {
-  const router = useRouter();
+  // Default image if coverImageUrl is not provided
+  const imageUrl = event.coverImageUrl || 'https://via.placeholder.com/250x120.png?text=Event';
 
-  const handleEnhanceGridPress = () => {
-    router.push('/enhance-grid-survey');
-  };
-
-  const renderEventContent = () => {
-    if (event.time) { // Upcoming Event
-      return (
-        <View style={styles.recommendedEventCard}>
-          <Image source={{ uri: event.image }} style={styles.recommendedEventImage} />
-          <Text style={styles.recommendedEventTitle}>{event.name}</Text>
-          <Text style={styles.recommendedEventHost}>{event.host}</Text>
-          <View style={styles.upcomingEventDetails}>
-            <Text style={styles.eventTime}>{event.time}</Text>
-            <Text style={styles.goingStatus}>✓ GOING</Text>
-          </View>
-          <View style={styles.divider} />
-          <EnhanceGridButton onPress={handleEnhanceGridPress} />
-          <Text style={styles.helperText}>Find new people to meet at this event.</Text>
-        </View>
-      );
-    } else if (event.status) { // Recommended Event
-      return (
-        <View style={styles.recommendedEventCard}>
-          <Image source={{ uri: event.image }} style={styles.recommendedEventImage} />
-          <Text style={styles.recommendedEventTitle}>{event.title}</Text>
-          <Text style={styles.recommendedEventHost}>{event.host}</Text>
-          <Text style={styles.status}>{event.status}</Text>
-          <View style={styles.divider} />
-          <EnhanceGridButton onPress={handleEnhanceGridPress} />
-          <Text style={styles.helperText}>Find new people to meet at this event.</Text>
-        </View>
-      );
-    } else { // Trending Event
-      return (
-        <View style={styles.trendingEventCard}>
-          <View style={styles.trendingEventHeader}>
-            <Text style={styles.trendingEventTitle}>{event.title}</Text>
-            <TouchableOpacity>
-              <Text style={styles.joinButton}>Join</Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.trendingEventSubtitle}>{event.subtitle}</Text>
-          <Image source={{ uri: event.image }} style={styles.trendingEventImage} />
-          <View style={styles.attendees}>
-            <Text style={styles.attendeeText}>{event.attendees}</Text>
-          </View>
-          <View style={styles.divider} />
-          <EnhanceGridButton onPress={handleEnhanceGridPress} />
-          <Text style={styles.helperText}>Find new people to meet at this event.</Text>
-        </View>
-      );
-    }
-  };
+  // Basic date formatting (can be improved with a library like date-fns)
+  const eventDate = event.startTime.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  });
+  const eventTime = event.startTime.toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 
   return (
     <Link href={`/event/${event.id}`} asChild>
-      <TouchableOpacity>
-        {renderEventContent()}
+      <TouchableOpacity style={styles.card}>
+        <Image source={{ uri: imageUrl }} style={styles.image} />
+        <View style={styles.content}>
+          <Text style={styles.title}>{event.title}</Text>
+          <Text style={styles.host}>by {event.hostName}</Text>
+          <View style={styles.detailsContainer}>
+            <Text style={styles.detailsText}>{eventDate}</Text>
+            <Text style={styles.detailsText}>{eventTime}</Text>
+          </View>
+        </View>
       </TouchableOpacity>
     </Link>
   );
 };
 
 const styles = StyleSheet.create({
-    divider: {
-        height: 1,
-        backgroundColor: '#444',
-        marginVertical: 15,
-      },
-    helperText: {
-        color: '#aaa',
-        fontSize: 12,
-        textAlign: 'center',
-        marginTop: 5,
-    },
-    eventTime: {
-        color: '#aaa',
-        fontSize: 14,
-    },
-    goingStatus: {
-        color: '#28a745',
-        fontWeight: 'bold',
-        fontSize: 16,
-    },
-    upcomingEventDetails: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginTop: 10,
-    },
-    recommendedEventCard: {
-        backgroundColor: '#1a1a1a',
-        borderRadius: 15,
-        padding: 15,
-        marginRight: 15,
-        width: 250,
-    },
-    recommendedEventImage: {
-        width: '100%',
-        height: 120,
-        borderRadius: 10,
-    },
-    recommendedEventTitle: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: 'bold',
-        marginTop: 10,
-    },
-    recommendedEventHost: {
-        color: '#aaa',
-        fontSize: 14,
-        marginTop: 5,
-    },
-    status: {
-        color: '#6c63ff',
-        fontSize: 14,
-        marginTop: 10,
-    },
-    trendingEventCard: {
-        backgroundColor: '#1a1a1a',
-        borderRadius: 15,
-        padding: 20,
-        shadowColor: '#fff',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 5,
-    },
-    trendingEventHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    trendingEventTitle: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: 'bold',
-    },
-    joinButton: {
-        color: '#6c63ff',
-        fontWeight: 'bold',
-    },
-    trendingEventSubtitle: {
-        color: '#aaa',
-        fontSize: 14,
-        marginVertical: 10,
-    },
-    trendingEventImage: {
-        width: '100%',
-        height: 150,
-        borderRadius: 10,
-    },
-    attendees: {
-        marginTop: 10,
-    },
-    attendeeText: {
-        color: '#fff',
-    },
+  card: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 15,
+    marginRight: 15,
+    width: 280, // A bit wider for better content display
+    overflow: 'hidden', // Ensures the image corners are rounded
+  },
+  image: {
+    width: '100%',
+    height: 140, // Increased height for a better visual
+  },
+  content: {
+    padding: 15,
+  },
+  title: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  host: {
+    color: '#aaa',
+    fontSize: 14,
+    marginBottom: 10,
+  },
+  detailsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopColor: '#333',
+    borderTopWidth: 1,
+    paddingTop: 10,
+  },
+  detailsText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+  },
 });
 
 export default EventCard;
