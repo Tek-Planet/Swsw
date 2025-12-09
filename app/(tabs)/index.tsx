@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -10,9 +10,12 @@ import {
 
 import { TopNavBar, Header } from '@/components/Header';
 import EventCard from '@/components/EventCard';
-import { upcomingEvents, recommendedEvents, trendingEvents } from '@/mock/events';
+import { recommendedEvents, trendingEvents } from '@/mock/events';
 import AlbumPreviewCard from '@/components/gallery/AlbumPreviewCard';
 import { albums } from '@/data/gallery';
+import { useAuth } from '@/lib/context/AuthContext';
+import { listenToUserUpcomingEvents } from '@/lib/services/eventService';
+import { Event } from '@/types/event';
 
 const HomeScreen: React.FC = () => {
   return (
@@ -38,16 +41,37 @@ const YourAlbums: React.FC = () => (
     </View>
   );
 
-const UpcomingEvents: React.FC = () => (
-  <View style={styles.section}>
-    <Text style={styles.sectionTitle}>Upcoming</Text>
-    <ScrollView horizontal contentContainerStyle={styles.horizontalScroll}>
-      {upcomingEvents.map(event => (
-        <EventCard key={event.id} event={event} />
-      ))}
-    </ScrollView>
-  </View>
-);
+const UpcomingEvents: React.FC = () => {
+  const { user } = useAuth();
+  const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
+
+  useEffect(() => {
+    if (user) {
+      const unsubscribe = listenToUserUpcomingEvents(user.uid, (events) => {
+        setUpcomingEvents(events);
+      });
+      return () => unsubscribe();
+    }
+  }, [user]);
+
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Upcoming</Text>
+      {upcomingEvents.length > 0 ? (
+        <ScrollView horizontal contentContainerStyle={styles.horizontalScroll}>
+          {upcomingEvents.map(event => (
+            <EventCard key={event.id} event={event} />
+          ))}
+        </ScrollView>
+      ) : (
+        <View style={styles.placeholderContainer}>
+            <Text style={styles.placeholderText}>No upcoming events yet.</Text>
+            <Text style={styles.placeholderSubText}>Create an event or join one!</Text>
+        </View>
+      )}
+    </View>
+  );
+};
 
 const RecommendedEvents: React.FC = () => (
     <View style={styles.section}>
@@ -68,8 +92,6 @@ const RecommendedEvents: React.FC = () => (
         ))}
     </View>
   );
-
-
 
 const styles = StyleSheet.create({
     container: {
@@ -107,6 +129,23 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.5,
         shadowRadius: 5,
       },
+      placeholderContainer: {
+        height: 100,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#1a1a1a',
+        borderRadius: 10,
+        marginHorizontal: 20,
+      },
+      placeholderText: {
+        color: '#999',
+        fontSize: 16,
+      },
+      placeholderSubText: {
+        color: '#666',
+        fontSize: 14,
+        marginTop: 5,
+      }
 });
 
 export default HomeScreen;
