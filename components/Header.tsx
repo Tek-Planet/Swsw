@@ -1,11 +1,14 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
+import { useAuth } from '@/lib/context/AuthContext';
+import { listenToUserProfile } from '@/lib/firebase/userProfileService';
+import { UserProfile } from '@/types';
 
 export const TopNavBar: React.FC = () => (
     <View>
@@ -13,9 +16,24 @@ export const TopNavBar: React.FC = () => (
     </View>
   );
   
-export const Header: React.FC = () => (
+export const Header: React.FC = () => {
+  const { user } = useAuth();
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      const unsubscribe = listenToUserProfile(user.uid, (profile) => {
+        setUserProfile(profile);
+      });
+      return () => unsubscribe();
+    }
+  }, [user]);
+
+  return (
     <View style={styles.header}>
-      <Text style={styles.greeting}>It's time to dance, Anushka</Text>
+      <Text style={styles.greeting}>
+        {userProfile ? `It's time to dance, ${userProfile.displayName}` : 'Loading...'}
+      </Text>
       <View style={styles.headerActions}>
           <Text style={styles.partyGenie}>Party Genie</Text>
           <Icon name="help-circle-outline" size={24} color="#fff" />
@@ -23,6 +41,7 @@ export const Header: React.FC = () => (
   
     </View>
   );
+};
 
 interface AppHeaderProps {
     title: string;
