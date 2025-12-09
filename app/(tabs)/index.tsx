@@ -10,11 +10,11 @@ import {
 
 import { TopNavBar, Header } from '@/components/Header';
 import EventCard from '@/components/EventCard';
-import { recommendedEvents, trendingEvents } from '@/mock/events';
+import { trendingEvents } from '@/mock/events';
 import AlbumPreviewCard from '@/components/gallery/AlbumPreviewCard';
 import { albums } from '@/data/gallery';
 import { useAuth } from '@/lib/context/AuthContext';
-import { listenToUserUpcomingEvents } from '@/lib/services/eventService';
+import { listenToUserUpcomingEvents, listenToRecommendedEvents } from '@/lib/services/eventService';
 import { Event } from '@/types/event';
 
 const HomeScreen: React.FC = () => {
@@ -73,16 +73,41 @@ const UpcomingEvents: React.FC = () => {
   );
 };
 
-const RecommendedEvents: React.FC = () => (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Recommended</Text>
-      <ScrollView horizontal contentContainerStyle={styles.horizontalScroll}>
-        {recommendedEvents.map(event => (
-            <EventCard key={event.id} event={event} />
-        ))}
-      </ScrollView>
-    </View>
-  );
+const RecommendedEvents: React.FC = () => {
+    const { user, userProfile } = useAuth();
+    const [recommendedEvents, setRecommendedEvents] = useState<Event[]>([]);
+  
+    useEffect(() => {
+      if (user && userProfile?.interests) {
+        const unsubscribe = listenToRecommendedEvents(
+          user.uid,
+          userProfile.interests,
+          (events) => {
+            setRecommendedEvents(events);
+          }
+        );
+        return () => unsubscribe();
+      }
+    }, [user, userProfile]);
+  
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Recommended for You</Text>
+        {recommendedEvents.length > 0 ? (
+            <ScrollView horizontal contentContainerStyle={styles.horizontalScroll}>
+                {recommendedEvents.map(event => (
+                    <EventCard key={event.id} event={event} />
+                ))}
+            </ScrollView>
+        ) : (
+            <View style={styles.placeholderContainer}>
+                <Text style={styles.placeholderText}>No recommendations right now.</Text>
+                <Text style={styles.placeholderSubText}>Update your interests to get better recommendations.</Text>
+            </View>
+        )}
+      </View>
+    );
+  };
 
   const TrendingEvents: React.FC = () => (
     <View style={styles.section}>

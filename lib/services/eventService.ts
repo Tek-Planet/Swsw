@@ -43,8 +43,14 @@ export async function createEvent(
   data: Omit<Event, 'id' | 'createdAt' | 'updatedAt' | 'attendeesCount' | 'likesCount' | 'popularityScore' | 'attendeeIds'>
 ): Promise<string> {
   try {
-    const newEventRef = await addDoc(eventCollection, {
+    const processedData = {
       ...data,
+      // Ensure tags are always stored as lowercase
+      tags: data.tags ? data.tags.map(tag => tag.toLowerCase()) : [],
+    };
+
+    const newEventRef = await addDoc(eventCollection, {
+      ...processedData,
       attendeesCount: 1, // Start with the host as an attendee
       likesCount: 0,
       popularityScore: 0,
@@ -62,8 +68,15 @@ export async function createEvent(
 export async function updateEvent(eventId: string, partial: Partial<Omit<Event, 'id'>>): Promise<void> {
   try {
     const eventRef = getEventDocRef(eventId);
+    const processedPartial = { ...partial };
+
+    // If tags are being updated, ensure they are stored as lowercase
+    if (processedPartial.tags) {
+      processedPartial.tags = processedPartial.tags.map(tag => tag.toLowerCase());
+    }
+
     await updateDoc(eventRef, {
-      ...partial,
+      ...processedPartial,
       updatedAt: serverTimestamp(),
     });
   } catch (error) {
@@ -129,6 +142,45 @@ export function listenToUserUpcomingEvents(
     });
   
     return unsubscribe;
+}
+
+export function listenToRecommendedEvents(
+  userId: string,
+  interests: string[],
+  callback: (events: Event[]) => void
+): () => void {
+  // Can't recommend events if we don't know user interests
+  if (!interests || interests.length === 0) {
+    callback([]);
+    return () => {}; // Return a no-op unsubscribe function
+  }
+
+  // Normalize interests to lowercase for case-insensitive matching
+  const lowerCaseInterests = interests.map(interest => interest.toLowerCase());
+
+  const now = new Date();
+  const q = query(
+    eventCollection,
+    where('status', '==', 'published'),
+    where('visibility', '==', 'public'),
+    where('startTime', '>=', now),
+    where('tags', 'array-contains-any', lowerCaseInterests),
+    orderBy('startTime', 'asc'),
+    limit(10) // Get a few more than we need to allow for client-side filtering
+  );
+
+  const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    const events = querySnapshot.docs
+      .map(doc => eventFromDoc(doc))
+      // Filter out events the user is already hosting or attending
+      .filter(event => !event.attendeeIds.includes(userId));
+
+    callback(events.slice(0, 5)); // Return the top 5 after filtering
+  }, (error) => {
+    console.error("Error listening to recommended events:", error);
+  });
+
+  return unsubscribe;
 }
 
 export function listenToTrendingEvents(
