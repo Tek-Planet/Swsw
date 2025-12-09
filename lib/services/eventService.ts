@@ -5,6 +5,7 @@ import {
   addDoc,
   setDoc,
   getDoc,
+  getDocs,
   updateDoc,
   onSnapshot,
   query,
@@ -18,10 +19,12 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebaseConfig';
 import { Event, FirestoreEvent, EventAttendee } from '@/types/event';
+import { UserProfile } from '@/types/user';
 
 // --- Helper Functions ---
 
 const eventCollection = collection(db, 'events');
+const userCollection = collection(db, 'users');
 
 const getEventDocRef = (eventId: string) => doc(db, 'events', eventId);
 
@@ -36,6 +39,41 @@ const eventFromDoc = (doc: QueryDocumentSnapshot<DocumentData>): Event => {
     updatedAt: data.updatedAt.toDate(),
   };
 };
+
+// --- User Profile Functions ---
+
+export async function getProfilesForUserIds(userIds: string[]): Promise<Map<string, UserProfile>> {
+  const profiles = new Map<string, UserProfile>();
+  if (!userIds || userIds.length === 0) {
+    return profiles;
+  }
+
+  // Firestore 'in' queries are limited to 10 items per query.
+  // We need to batch our requests to handle more than 10 user IDs.
+  const batches: string[][] = [];
+  for (let i = 0; i < userIds.length; i += 10) {
+    batches.push(userIds.slice(i, i + 10));
+  }
+
+  try {
+    const fetchPromises = batches.map(async (batch) => {
+      const q = query(userCollection, where('__name__', 'in', batch));
+      const querySnapshot = await getDocs(q);
+      querySnapshot.forEach((doc) => {
+        profiles.set(doc.id, doc.data() as UserProfile);
+      });
+    });
+
+    await Promise.all(fetchPromises);
+
+  } catch (error) {
+    console.error("Error fetching user profiles:", error);
+    // Depending on requirements, you might want to handle this error more gracefully
+  }
+
+  return profiles;
+}
+
 
 // --- CRUD Functions ---
 
@@ -166,7 +204,7 @@ export function listenToRecommendedEvents(
     where('startTime', '>=', now),
     where('tags', 'array-contains-any', lowerCaseInterests),
     orderBy('startTime', 'asc'),
-    limit(10) // Get a few more than we need to allow for client-side filtering
+    limit(10) // Get a few more than we need to need to allow for client-side filtering
   );
 
   const unsubscribe = onSnapshot(q, (querySnapshot) => {
