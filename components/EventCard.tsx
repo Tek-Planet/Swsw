@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import EnhanceGridButton from './EnhanceGridButton';
 
 // TODO: This should be a real type
@@ -66,9 +66,11 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
   };
 
   return (
-    <TouchableOpacity onPress={() => router.push(`/event/${event.id}`)}>
-      {renderEventContent()}
-    </TouchableOpacity>
+    <Link href={`/event/${event.id}`} asChild>
+      <TouchableOpacity>
+        {renderEventContent()}
+      </TouchableOpacity>
+    </Link>
   );
 };
 

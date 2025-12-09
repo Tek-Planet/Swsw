@@ -15,7 +15,7 @@ export const signUpWithEmail = async (
   email: any,
   password: any,
   fullName: any,
-  username: any
+  username: anyca
 ) => {
   try {
     const userCredential = await createUserWithEmailAndPassword(
