@@ -1,27 +1,26 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-} from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View
+} from 'react-native';
 
+import { getProfilesForUserIds, listenToEvent } from '@/lib/services/eventService';
 import { Event } from '@/types/event';
-import { listenToEvent, getProfilesForUserIds } from '@/lib/services/eventService';
 
-import StickyTopBar from '@/components/StickyTopBar';
+import ActivityFeed from '@/components/ActivityFeed';
+import DescriptionBlock from '@/components/DescriptionBlock';
 import EventHeroCard from '@/components/EventHeroCard';
 import EventMetaCard from '@/components/EventMetaCard';
-import HostInfo from '@/components/HostInfo';
-import DescriptionBlock from '@/components/DescriptionBlock';
-import GuestList, { Guest } from '@/components/GuestList';
-import PhotoAlbum from '@/components/PhotoAlbum';
-import ActivityFeed from '@/components/ActivityFeed';
 import FloatingRSVPBar from '@/components/FloatingRSVPBar';
+import GuestList, { Guest } from '@/components/GuestList';
+import HostInfo from '@/components/HostInfo';
+import PhotoAlbum from '@/components/PhotoAlbum';
+import StickyTopBar from '@/components/StickyTopBar';
 
 const EventDetailScreen: React.FC = () => {
   const { id } = useLocalSearchParams();
@@ -73,7 +72,7 @@ const EventDetailScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <StickyTopBar />
-      <ScrollView>
+      <ScrollView contentContainerStyle={styles.scrollContentContainer}>
         <EventHeroCard eventName={event.title} imageUrl={event.coverImageUrl} />
         <EventMetaCard date={eventDate} time={eventTime} location={event.location.address || 'TBD'} address={event.location.city} />
         <HostInfo host={host} />
@@ -89,6 +88,7 @@ const EventDetailScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
+  scrollContentContainer: { paddingHorizontal: 1 },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   errorText: { color: '#fff', fontSize: 18, textAlign: 'center', marginTop: 50 },
 });

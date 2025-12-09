@@ -34,11 +34,11 @@ const EventMetaCard: React.FC<EventMetaCardProps> = ({ date, time, location, add
 
 const styles = StyleSheet.create({
   container: {
+    marginTop:10,
     backgroundColor: '#1a1a1a',
     borderRadius: 20,
     paddingHorizontal: 20,
     paddingVertical: 15,
-    marginHorizontal: 20,
     marginBottom: 20,
   },
   cardSection: {

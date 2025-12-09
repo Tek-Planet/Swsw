@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 
 export interface Guest {
   id: string;
@@ -49,7 +49,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a1a',
     borderRadius: 20,
     padding: 20,
-    marginHorizontal: 20,
     marginBottom: 20,
   },
   header: {
@@ -64,29 +63,28 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   count: {
-    color: 'gray',
-    fontSize: 16,
+    color: '#A8A8A8',
+    fontSize: 14,
+    fontWeight: '500',
   },
   avatars: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   avatarContainer: {
     alignItems: 'center',
-    marginRight: 10,
-    width: 60,
+    marginRight: 10, 
+    width: 60, 
   },
   avatar: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    borderWidth: 2,
-    borderColor: '#1a1a1a',
+    marginBottom: 5,
   },
   guestName: {
-    color: '#fff',
-    marginTop: 4,
+    color: '#E0E0E0',
     fontSize: 12,
     textAlign: 'center',
   },

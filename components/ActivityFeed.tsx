@@ -33,7 +33,6 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: '#2a2a2a',
     borderRadius: 15,
-    marginHorizontal:20
   },
   title: {
     color: 'white',

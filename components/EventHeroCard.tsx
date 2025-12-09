@@ -26,7 +26,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#2a2a2a',
     borderRadius: 30,
     overflow: 'hidden', // Ensures the overlay and image conform to border radius
-    marginHorizontal: 20,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
