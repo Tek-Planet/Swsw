@@ -1,46 +1,69 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import {Ionicons as Icon} from '@react-native-vector-icons/ionicons';
+import { Ionicons as Icon } from '@expo/vector-icons';
 
 interface EventMetaCardProps {
   date: string;
   time: string;
-  icon: any;
+  location: string;
+  address?: string;
 }
 
-const EventMetaCard: React.FC<EventMetaCardProps> = ({ date, time, icon }) => {
+const EventMetaCard: React.FC<EventMetaCardProps> = ({ date, time, location, address }) => {
   return (
-    <View style={styles.card}>
-      <Icon name={icon} size={24} color="#fff" />
-      <View style={styles.textContainer}>
-        <Text style={styles.date}>{date}</Text>
-        <Text style={styles.time}>{time}</Text>
+    <View style={styles.container}>
+      <View style={styles.cardSection}>
+        <Icon name="calendar-outline" size={28} color="#A855F7" />
+        <View style={styles.textContainer}>
+          <Text style={styles.title}>{date}</Text>
+          <Text style={styles.subtitle}>{time}</Text>
+        </View>
+      </View>
+      <View style={styles.divider} />
+      <View style={styles.cardSection}>
+        <Icon name="location-outline" size={28} color="#A855F7" />
+        <View style={styles.textContainer}>
+          <Text style={styles.title}>{location}</Text>
+          {address && <Text style={styles.subtitle}>{address}</Text>}
+        </View>
       </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  card: {
+  container: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    marginHorizontal: 20,
+    marginBottom: 20,
+  },
+  cardSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2a2a2a',
-    borderRadius: 15,
-    padding: 15,
-    marginHorizontal: 20,
-    marginTop: 20,
+    paddingVertical: 5,
   },
   textContainer: {
-    marginLeft: 15,
+    marginLeft: 20,
+    flex: 1,
   },
-  date: {
-    color: '#fff',
+  title: {
+    color: 'white',
     fontSize: 16,
+    fontWeight: '600',
   },
-  time: {
+  subtitle: {
     color: '#aaa',
     fontSize: 14,
+    marginTop: 2,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#333',
+    marginVertical: 10,
   },
 });
 

@@ -1,10 +1,11 @@
 
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export interface Guest {
   id: string;
   avatar: string;
+  firstName: string;
 }
 
 interface GuestListProps {
@@ -13,6 +14,7 @@ interface GuestListProps {
 }
 
 const GuestList: React.FC<GuestListProps> = ({ guests, total }) => {
+  console.log(guests,)
   const displayedGuests = guests.slice(0, 5); // Show a max of 5 avatars
   const overflowCount = total - displayedGuests.length;
 
@@ -24,7 +26,10 @@ const GuestList: React.FC<GuestListProps> = ({ guests, total }) => {
       </View>
       <View style={styles.avatars}>
         {displayedGuests.map(guest => (
-          <Image key={guest.id} source={{ uri: guest.avatar }} style={styles.avatar} />
+          <View key={guest.id} style={styles.avatarContainer}>
+            <Image source={{ uri: guest.avatar }} style={styles.avatar} />
+            <Text style={styles.guestName}>{guest.firstName}</Text>
+          </View>
         ))}
         {overflowCount > 0 && (
           <View style={styles.overflow}>
@@ -64,8 +69,13 @@ const styles = StyleSheet.create({
   },
   avatars: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 16,
+  },
+  avatarContainer: {
+    alignItems: 'center',
+    marginRight: 10,
+    width: 60,
   },
   avatar: {
     width: 48,
@@ -73,7 +83,12 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     borderWidth: 2,
     borderColor: '#1a1a1a',
-    marginRight: -16, // Overlap avatars
+  },
+  guestName: {
+    color: '#fff',
+    marginTop: 4,
+    fontSize: 12,
+    textAlign: 'center',
   },
   overflow: {
     width: 48,

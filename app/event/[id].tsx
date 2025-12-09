@@ -11,14 +11,12 @@ import {
 import { useLocalSearchParams } from 'expo-router';
 
 import { Event } from '@/types/event';
-import { UserProfile } from '@/types/user';
 import { listenToEvent, getProfilesForUserIds } from '@/lib/services/eventService';
 
 import StickyTopBar from '@/components/StickyTopBar';
 import EventHeroCard from '@/components/EventHeroCard';
 import EventMetaCard from '@/components/EventMetaCard';
 import HostInfo from '@/components/HostInfo';
-import LocationCard from '@/components/LocationCard';
 import DescriptionBlock from '@/components/DescriptionBlock';
 import GuestList, { Guest } from '@/components/GuestList';
 import PhotoAlbum from '@/components/PhotoAlbum';
@@ -40,12 +38,12 @@ const EventDetailScreen: React.FC = () => {
     const unsubscribe = listenToEvent(id, async (fetchedEvent) => {
       if (fetchedEvent) {
         setEvent(fetchedEvent);
-        // Fetch guest profiles
         if (fetchedEvent.attendeeIds && fetchedEvent.attendeeIds.length > 0) {
           const profilesMap = await getProfilesForUserIds(fetchedEvent.attendeeIds);
           const guestList = Array.from(profilesMap.entries()).map(([userId, profile]) => ({
             id: userId,
-            avatar: profile.photoURL || 'https://i.pravatar.cc/150?u=${userId}', // Fallback avatar
+            avatar: profile.photoUrl || `https://i.pravatar.cc/150?u=${userId}`,
+            firstName: profile.displayName,
           }));
           setGuests(guestList);
         }
@@ -61,116 +59,38 @@ const EventDetailScreen: React.FC = () => {
   const memoizedGuestList = useMemo(() => guests, [guests]);
 
   if (loading) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#fff" />
-      </View>
-    );
+    return <ActivityIndicator style={styles.centerContainer} size="large" color="#fff" />;
   }
 
   if (!event) {
-    return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>Event not found.</Text>
-      </View>
-    );
+    return <Text style={styles.errorText}>Event not found.</Text>;
   }
 
-  const eventDate = event.startTime.toLocaleDateString(undefined, {
-    weekday: 'long',
-    month: 'short',
-    day: 'numeric',
-  });
-  const eventTime = `${event.startTime.toLocaleTimeString(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  })} – ${event.endTime.toLocaleTimeString(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  })}`;
+  const eventDate = event.startTime.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+  const eventTime = `${event.startTime.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true })} – ${event.endTime.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+  const host = { name: event.hostName, photoUrl: event.hostAvatarUrl };
 
   return (
     <View style={styles.container}>
       <StickyTopBar />
       <ScrollView>
-        <View style={styles.headerSection}>
-          <Text style={styles.casualTitle}>{event.subtitle || ''}</Text>
-          <EventHeroCard eventName={event.title} imageUrl={event.coverImageUrl} />
-        </View>
-        <EventMetaCard date={eventDate} time={eventTime} icon="calendar-outline" />
-        <HostInfo hostName={event.hostName} hostAvatar={event.hostAvatarUrl || 'https://via.placeholder.com/150'} />
-        <LocationCard
-          location={event.location.address || 'Location TBD'}
-          address={event.location.city || ''}
-        />
+        <EventHeroCard eventName={event.title} imageUrl={event.coverImageUrl} />
+        <EventMetaCard date={eventDate} time={eventTime} location={event.location.address || 'TBD'} address={event.location.city} />
+        <HostInfo host={host} />
         <DescriptionBlock text={event.description} />
+        <GuestList guests={memoizedGuestList} total={event.attendeeIds.length} />
         <PhotoAlbum />
-        {memoizedGuestList.length > 0 && (
-            <GuestList guests={memoizedGuestList} total={event.attendeesCount} />
-        )}
         <ActivityFeed groupId="123" />
       </ScrollView>
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.button}>
-          <Text style={styles.buttonText}>Share</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.button}>
-          <Text style={styles.buttonText}>Add to Calendar</Text>
-        </TouchableOpacity>
-      </View>
       <FloatingRSVPBar />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#000',
-  },
-  errorText: {
-    color: '#fff',
-    fontSize: 18,
-  },
-  headerSection: {
-    paddingTop: 80, 
-    marginBottom: 20,
-  },
-  casualTitle: {
-    color: '#aaa',
-    fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 10,
-    paddingHorizontal: 20,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#333',
-    backgroundColor: '#1a1a1a',
-  },
-  button: {
-    backgroundColor: '#333',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
+  container: { flex: 1, backgroundColor: '#000' },
+  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  errorText: { color: '#fff', fontSize: 18, textAlign: 'center', marginTop: 50 },
 });
 
 export default EventDetailScreen;

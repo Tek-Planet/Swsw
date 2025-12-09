@@ -50,7 +50,7 @@ const UpcomingEvents: React.FC = () => {
 
   useEffect(() => {
     if (user) {
-      const unsubscribe = listenToUserUpcomingEvents(user.uid, (events) => {
+      const unsubscribe = listenToUserUpcomingEvents(user.uid, (events: Event[]) => {
         setUpcomingEvents(events);
       });
       return () => unsubscribe();
@@ -87,7 +87,7 @@ const RecommendedEvents: React.FC = () => {
       const unsubscribe = listenToRecommendedEvents(
         user.uid,
         userProfile.interests,
-        (events) => {
+        (events: Event[]) => {
           setRecommendedEvents(events);
         }
       );
@@ -120,7 +120,7 @@ const TrendingEvents: React.FC = () => {
   const [trendingEvents, setTrendingEvents] = useState<Event[]>([]);
 
   useEffect(() => {
-    const unsubscribe = listenToTrendingEvents((events) => {
+    const unsubscribe = listenToTrendingEvents((events: Event[]) => {
       setTrendingEvents(events);
     });
     return () => unsubscribe();

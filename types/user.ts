@@ -1,7 +1,7 @@
 
 export interface UserProfile {
   displayName: string;
-  photoURL?: string;
+  photoUrl?: string;
   email: string;
   interests?: string[];
 }

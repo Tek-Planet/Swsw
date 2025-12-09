@@ -1,23 +1,31 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
-import {Ionicons as Icon} from '@react-native-vector-icons/ionicons';
+import { Ionicons as Icon } from '@expo/vector-icons';
 
 interface HostInfoProps {
-  hostName: string;
-  hostAvatar: string;
+  host: {
+    name: string;
+    photoURL?: string;
+    photoUrl?: string; // Handling inconsistent casing
+  };
 }
 
-const HostInfo: React.FC<HostInfoProps> = ({ hostName, hostAvatar }) => {
+const HostInfo: React.FC<HostInfoProps> = ({ host }) => {
+  // Use the photoURL, fallback to photoUrl, then to a default placeholder
+  const hostAvatar = host.photoURL || host.photoUrl || 'https://via.placeholder.com/150';
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Hosted by</Text>
+      <View style={styles.cardHeader}>
+        <Text style={styles.title}>Hosted by</Text>
+        <TouchableOpacity>
+          <Icon name="chevron-forward" size={24} color="#A855F7" />
+        </TouchableOpacity>
+      </View>
       <View style={styles.hostContainer}>
         <Image source={{ uri: hostAvatar }} style={styles.avatar} />
-        <Text style={styles.hostName}>{hostName}</Text>
-        <TouchableOpacity>
-          <Icon name="chevron-forward" size={24} color="#fff" />
-        </TouchableOpacity>
+        <Text style={styles.hostName}>{host.name}</Text>
       </View>
     </View>
   );
@@ -25,32 +33,37 @@ const HostInfo: React.FC<HostInfoProps> = ({ hostName, hostAvatar }) => {
 
 const styles = StyleSheet.create({
   container: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 20,
+    padding: 20,
     marginHorizontal: 20,
-    marginTop: 20,
+    marginBottom: 20,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   title: {
-    color: '#aaa',
-    fontSize: 14,
-    marginBottom: 10,
+    color: 'white',
+    fontSize: 20,
+    fontWeight: 'bold',
   },
   hostContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#2a2a2a',
-    borderRadius: 15,
-    padding: 15,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     marginRight: 15,
   },
   hostName: {
     color: '#fff',
     fontSize: 16,
-    flex: 1,
+    fontWeight: '600',
   },
 });
 
