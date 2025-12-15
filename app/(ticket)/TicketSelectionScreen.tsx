@@ -1,0 +1,214 @@
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { doc, getDoc, collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { db } from '../../lib/firebase/firebaseConfig'; // Assuming you have a firebaseConfig file
+import { Event, TicketTier } from '../../types/event';
+
+const TicketSelectionScreen = () => {
+  const { eventId } = useLocalSearchParams();
+  const router = useRouter();
+  const [event, setEvent] = useState<Event | null>(null);
+  const [ticketTiers, setTicketTiers] = useState<TicketTier[]>([]);
+  const [selectedTiers, setSelectedTiers] = useState<{ [key: string]: number }>({});
+  const [totalPrice, setTotalPrice] = useState(0);
+
+  useEffect(() => {
+    if (!eventId) return;
+
+    const fetchEventDetails = async () => {
+      const eventRef = doc(db, 'events', eventId as string);
+      const eventSnap = await getDoc(eventRef);
+      if (eventSnap.exists()) {
+        setEvent({ id: eventSnap.id, ...eventSnap.data() } as Event);
+      }
+    };
+
+    const fetchTicketTiers = async () => {
+      const tiersRef = collection(db, 'events', eventId as string, 'ticketTiers');
+      const q = query(tiersRef, where('isActive', '==', true), orderBy('sortOrder'));
+      const tiersSnap = await getDocs(q);
+      const tiers = tiersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TicketTier));
+      console.log()
+      setTicketTiers(tiers);
+    };
+
+    fetchEventDetails();
+    fetchTicketTiers();
+  }, [eventId]);
+
+  const handleQuantityChange = (tierId: string, quantity: number) => {
+    const newSelectedTiers = { ...selectedTiers, [tierId]: quantity };
+    if (quantity === 0) {
+      delete newSelectedTiers[tierId];
+    }
+    setSelectedTiers(newSelectedTiers);
+  };
+
+  useEffect(() => {
+    let total = 0;
+    for (const tierId in selectedTiers) {
+      const tier = ticketTiers.find(t => t.id === tierId);
+      if (tier) {
+        total += tier.price * selectedTiers[tierId];
+      }
+    }
+    setTotalPrice(total);
+  }, [selectedTiers, ticketTiers]);
+
+  const renderTier = ({ item }: { item: TicketTier }) => {
+    const maxQuantity = item.type === 'table' ? 1 : 10;
+    return (
+      <View style={styles.tierCard}>
+        <View>
+          <Text style={styles.tierName}>{item.name}</Text>
+          <Text style={styles.tierPrice}>₹{item.price.toLocaleString()}</Text>
+          {item.description && <Text style={styles.tierDescription}>{item.description}</Text>}
+        </View>
+        <View style={styles.quantitySelector}>
+          <TouchableOpacity onPress={() => handleQuantityChange(item.id, (selectedTiers[item.id] || 0) - 1)} disabled={(selectedTiers[item.id] || 0) === 0}>
+            <Text style={styles.quantityButton}>-</Text>
+          </TouchableOpacity>
+          <Text style={styles.quantityText}>{selectedTiers[item.id] || 0}</Text>
+          <TouchableOpacity onPress={() => handleQuantityChange(item.id, (selectedTiers[item.id] || 0) + 1)} disabled={(selectedTiers[item.id] || 0) >= maxQuantity}>
+            <Text style={styles.quantityButton}>+</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
+  const handleContinueToPay = () => {
+    router.push({
+      pathname: '/(ticket)/CheckoutScreen',
+      params: { eventId: eventId as string, selectedTiers: JSON.stringify(selectedTiers) },
+    });
+  };
+
+  if (!event) {
+    return <View style={styles.container}><Text style={styles.text}>Loading...</Text></View>;
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.eventHeader}>
+        <Text style={styles.eventTitle}>{event.title}</Text>
+        <Text style={styles.eventDetails}>{new Date(event.startTime).toLocaleDateString()} at {event.location.address}</Text>
+      </View>
+      <FlatList
+        data={ticketTiers}
+        renderItem={renderTier}
+        keyExtractor={item => item.id}
+        contentContainerStyle={styles.listContainer}
+      />
+      <View style={styles.stickyFooter}>
+        <Text style={styles.totalPrice}>Total: ₹{totalPrice.toLocaleString()}</Text>
+        <TouchableOpacity style={styles.ctaButton} onPress={handleContinueToPay}>
+          <Text style={styles.ctaButtonText}>Continue to Pay</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#121212',
+  },
+  text: {
+    color: '#fff',
+    fontSize: 24,
+    textAlign: 'center',
+    marginTop: 50,
+  },
+  eventHeader: {
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
+  },
+  eventTitle: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  eventDetails: {
+    color: '#aaa',
+    fontSize: 16,
+    marginTop: 5,
+  },
+  listContainer: {
+    paddingBottom: 120, // To avoid being hidden by the footer
+  },
+  tierCard: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 10,
+    padding: 15,
+    marginHorizontal: 15,
+    marginTop: 15,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  tierName: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  tierPrice: {
+    color: '#aaa',
+    fontSize: 16,
+    marginTop: 5,
+  },
+  tierDescription: {
+    color: '#888',
+    fontSize: 14,
+    marginTop: 5,
+  },
+  quantitySelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  quantityButton: {
+    color: '#4a90e2',
+    fontSize: 24,
+    fontWeight: 'bold',
+    paddingHorizontal: 10,
+  },
+  quantityText: {
+    color: '#fff',
+    fontSize: 18,
+    marginHorizontal: 10,
+  },
+  stickyFooter: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#1a1a1a',
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  totalPrice: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  ctaButton: {
+    backgroundColor: '#4a90e2',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  ctaButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+});
+
+export default TicketSelectionScreen;
