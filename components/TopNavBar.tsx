@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import  Icon  from "@react-native-vector-icons/ionicons";
+import { Ionicons } from '@expo/vector-icons';
 
 interface TopNavBarProps {
   title: string;
@@ -12,15 +12,15 @@ const TopNavBar: React.FC<TopNavBarProps> = ({ title, onBackPress }) => {
   return (
     <View style={styles.container}>
       <TouchableOpacity onPress={onBackPress}>
-        <Icon name="arrow-back" size={24} color="#fff" />
+        <Ionicons name="arrow-back" size={24} color="#fff" />
       </TouchableOpacity>
       <Text style={styles.title}>{title}</Text>
       <View style={styles.rightIcons}>
         <TouchableOpacity>
-          <Icon name="share-social-outline" size={24} color="#fff" />
+          <Ionicons name="share-social-outline" size={24} color="#fff" />
         </TouchableOpacity>
         <TouchableOpacity>
-          <Icon name="ellipsis-vertical" size={24} color="#fff" />
+          <Ionicons name="ellipsis-vertical" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
     </View>

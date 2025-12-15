@@ -46,3 +46,42 @@ export const createStripeCheckout = functions.https.onCall(async (data, context)
     );
   }
 });
+
+export const createPaymentIntent = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "The function must be called while authenticated."
+    );
+  }
+
+  const { amount } = data;
+
+  try {
+    const customer = await stripe.customers.create();
+    const ephemeralKey = await stripe.ephemeralKeys.create(
+      { customer: customer.id },
+      { apiVersion: '2024-06-20' }
+    );
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amount,
+      currency: "inr",
+      customer: customer.id,
+      automatic_payment_methods: {
+        enabled: true,
+      },
+    });
+
+    return {
+      clientSecret: paymentIntent.client_secret,
+      ephemeralKey: ephemeralKey.secret,
+      customer: customer.id,
+    };
+  } catch (error) {
+    console.error("Error creating Payment Intent:", error);
+    throw new functions.https.HttpsError(
+      "internal",
+      "Unable to create Payment Intent."
+    );
+  }
+});

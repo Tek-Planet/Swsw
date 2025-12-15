@@ -1,21 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { doc, getDoc, collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db } from '../../lib/firebase/firebaseConfig';
 import { Event, TicketTier } from '../../types/event';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { useStripe, StripeProvider } from '@stripe/stripe-react-native';
 
-const CheckoutScreen = () => {
+const CheckoutScreenContent = () => {
   const { eventId, selectedTiers: selectedTiersJSON } = useLocalSearchParams();
   const router = useRouter();
   const functions = getFunctions();
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
   const [event, setEvent] = useState<Event | null>(null);
   const [ticketTiers, setTicketTiers] = useState<TicketTier[]>([]);
   const [selectedTiers, setSelectedTiers] = useState<{ [key: string]: number }>({});
   const [totalPrice, setTotalPrice] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [paymentSheetReady, setPaymentSheetReady] = useState(false);
 
   useEffect(() => {
     if (!eventId || !selectedTiersJSON) {
@@ -28,21 +31,18 @@ const CheckoutScreen = () => {
 
     const fetchEventAndTiers = async () => {
       try {
-        // Fetch event details
         const eventRef = doc(db, 'events', eventId as string);
         const eventSnap = await getDoc(eventRef);
         if (eventSnap.exists()) {
           setEvent({ id: eventSnap.id, ...eventSnap.data() } as Event);
         }
 
-        // Fetch ticket tiers
         const tiersRef = collection(db, 'events', eventId as string, 'ticketTiers');
         const q = query(tiersRef, where('isActive', '==', true), orderBy('sortOrder'));
         const tiersSnap = await getDocs(q);
         const tiers = tiersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TicketTier));
         setTicketTiers(tiers);
 
-        // Calculate total price
         let total = 0;
         for (const tierId in parsedSelectedTiers) {
           const tier = tiers.find(t => t.id === tierId);
@@ -51,6 +51,7 @@ const CheckoutScreen = () => {
           }
         }
         setTotalPrice(total);
+        await initializePaymentSheet(total);
       } catch (error) {
         console.error("Error fetching checkout data:", error);
       } finally {
@@ -61,37 +62,42 @@ const CheckoutScreen = () => {
     fetchEventAndTiers();
   }, [eventId, selectedTiersJSON]);
 
-  const handlePayment = async () => {
-    const createStripeCheckout = httpsCallable(functions, 'createStripeCheckout');
+  const initializePaymentSheet = async (amount: number) => {
+    const createPaymentIntent = httpsCallable(functions, 'createPaymentIntent');
     try {
-        const lineItems = Object.keys(selectedTiers).map(tierId => {
-            const tier = ticketTiers.find(t => t.id === tierId);
-            return {
-                price_data: {
-                    currency: 'inr',
-                    product_data: {
-                        name: `${event?.title} - ${tier?.name}`,
-                    },
-                    unit_amount: (tier?.price || 0) * 100,
-                },
-                quantity: selectedTiers[tierId],
-            };
-        });
+      const { data } = await createPaymentIntent({ amount: amount * 100 }); // amount in cents
+      const { clientSecret, ephemeralKey, customer } = data as {clientSecret: string, ephemeralKey: string, customer: string};
 
-        const { data } = await createStripeCheckout({ lineItems });
-        const { sessionId } = data as {sessionId: string};
-        
-        router.push({
-            pathname: '/(ticket)/PurchaseConfirmationScreen',
-            params: { sessionId: sessionId },
-        });
+      const { error } = await initPaymentSheet({
+        merchantDisplayName: "TekPlanet, Inc.",
+        customerId: customer,
+        customerEphemeralKeySecret: ephemeralKey,
+        paymentIntentClientSecret: clientSecret,
+      });
 
-    } catch (error) {
-        console.error('Error creating Stripe checkout session:', error);
-        // Handle error, e.g., show a message to the user
+      if (!error) {
+        setPaymentSheetReady(true);
+      }
+    } catch (e) {
+      console.error('Error initializing payment sheet:', e);
     }
-};
+  };
 
+  const handlePayment = async () => {
+    if (!paymentSheetReady) return;
+
+    const { error } = await presentPaymentSheet();
+
+    if (error) {
+      Alert.alert(`Error: ${error.code}`, error.message);
+    } else {
+      Alert.alert('Success', 'Your order is confirmed!');
+      router.push({
+        pathname: '/(ticket)/PurchaseConfirmationScreen',
+        params: { eventId: eventId as string },
+      });
+    }
+  };
 
   if (loading) {
     return <View style={styles.container}><ActivityIndicator size="large" color="#fff" /></View>;
@@ -122,12 +128,24 @@ const CheckoutScreen = () => {
           <Text style={styles.totalText}>₹{totalPrice.toLocaleString()}</Text>
         </View>
       </View>
-      <TouchableOpacity style={styles.ctaButton} onPress={handlePayment}>
+      <TouchableOpacity style={styles.ctaButton} onPress={handlePayment} disabled={!paymentSheetReady}>
         <Text style={styles.ctaButtonText}>Pay with Card</Text>
       </TouchableOpacity>
     </View>
   );
 };
+
+const CheckoutScreen = () => {
+  // Replace with your actual publishable key
+  const publishableKey = 'pk_test_51PbyHEBDI5aFNBRO2sRqb832vC7FqN9aR3j2p4nQJg8Z8d6wR8gL2l3f7qJ7e5fF3b2nO9k0vY6aZ5Q00zJ4bY9cI'; 
+
+  return (
+    <StripeProvider publishableKey={publishableKey}>
+      <CheckoutScreenContent />
+    </StripeProvider>
+  );
+};
+
 
 const styles = StyleSheet.create({
   container: {

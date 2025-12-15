@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
-import {Ionicons } from '@react-native-vector-icons/ionicons';
+import { Ionicons } from '@expo/vector-icons';
 
 interface UploadSelfieButtonProps {
   onPress: () => void;
