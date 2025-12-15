@@ -48,8 +48,32 @@ export interface EventAttendee {
   createdAt: Date;
 }
 
+// New TicketTier types
+export type TicketTierType = 'ticket' | 'table' | 'addon';
+
+export interface TicketTier {
+  id: string;
+  name: string;
+  price: number;
+  currency: string;
+  type: TicketTierType;
+  description?: string;
+  isActive: boolean;
+  quantityTotal?: number | null;
+  quantitySold: number;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type FirestoreTicketTier = Omit<TicketTier, 'id' | 'createdAt' | 'updatedAt'> & {
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
+};
+
+
 // Firestore-specific types
-export type FirestoreEvent = Omit<Event, 'startTime' | 'endTime' | 'createdAt' | 'updatedAt'> & {
+export type FirestoreEvent = Omit<Event, 'id' | 'startTime' | 'endTime' | 'createdAt' | 'updatedAt'> & {
   startTime: Timestamp;
   endTime: Timestamp;
   createdAt: Timestamp;
