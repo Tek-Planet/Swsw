@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { Link } from 'expo-router';
@@ -11,7 +10,7 @@ interface AlbumPreviewCardProps {
 const AlbumPreviewCard: React.FC<AlbumPreviewCardProps> = ({ album }) => {
 
   return (
-    <Link href={`/gallery/${album.id}` as any} asChild>
+    <Link href={{ pathname: '/gallery', params: { albumId: album.id } }} asChild>
       <TouchableOpacity>
         <View style={styles.card}>
           <Image source={{ uri: album.thumbnail }} style={styles.thumbnail} />
@@ -31,21 +30,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a1a',
     borderRadius: 15,
     padding: 15,
-    marginBottom: 15,
     alignItems: 'center',
+    marginBottom: 10,
   },
   thumbnail: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginRight: 15,
+    width: 80,
+    height: 80,
+    borderRadius: 10,
   },
   textContainer: {
-    flex: 1,
+    marginLeft: 15,
   },
   title: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
   },
   subtitle: {

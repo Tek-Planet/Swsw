@@ -63,7 +63,7 @@ const UpcomingEvents: React.FC = () => {
       {upcomingEvents.length > 0 ? (
         <ScrollView horizontal contentContainerStyle={styles.horizontalScroll}>
           {upcomingEvents.map((event) => (
-            <EventCard key={event.id} event={event} />
+            <EventCard key={event.id} event={event} showEnhanceGridButton={true} />
           ))}
         </ScrollView>
       ) : (

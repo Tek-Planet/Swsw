@@ -1,10 +1,11 @@
 
 import { AuthProvider, useAuth } from '@/lib/context/AuthContext';
-import { useRouter, useSegments } from 'expo-router';
+import { DarkTheme, ThemeProvider } from '@react-navigation/native';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
-import { ThemeProvider, DarkTheme } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import { LogBox } from 'react-native';
 
+LogBox.ignoreAllLogs(true);
 // This component contains the authentication and navigation logic.
 function RootLayoutNav() {
   const { user, loading, isOnboardingComplete } = useAuth();
