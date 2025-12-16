@@ -9,7 +9,7 @@ import {
   View
 } from 'react-native';
 import { auth, db } from '../../lib/firebase/firebaseConfig';
-import { collection, onSnapshot, query } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 
 import { getProfilesForUserIds, listenToEvent } from '@/lib/services/eventService';
 import { Event } from '@/types/event';
@@ -54,13 +54,14 @@ const EventDetailScreen: React.FC = () => {
   useEffect(() => {
     if (!id) return;
 
-    const ordersQuery = query(collection(db, 'events', id, 'orders'));
+    const ordersQuery = query(collection(db, 'events', id, 'orders'), where('status', '==', 'paid'));
 
     const unsubscribeOrders = onSnapshot(ordersQuery, async (snapshot) => {
       setTotalTicketHolders(snapshot.size);
 
       if (snapshot.empty) {
         setTicketHolders([]);
+        setHasTicket(false);
         setLoading(false);
         return;
       }
