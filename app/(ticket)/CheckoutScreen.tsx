@@ -137,7 +137,7 @@ const CheckoutScreenContent = () => {
 
 const CheckoutScreen = () => {
   // Replace with your actual publishable key
-  const publishableKey = 'pk_test_51PbyHEBDI5aFNBRO2sRqb832vC7FqN9aR3j2p4nQJg8Z8d6wR8gL2l3f7qJ7e5fF3b2nO9k0vY6aZ5Q00zJ4bY9cI'; 
+  const publishableKey = 'pk_test_51H7dhKIIFaIFWb8DibhnahU1Fct1pIwtMI1rCppJAnn0NRJalw1x5eNZoQ6kLCcRKWsKKjsuehF1fL6QpdlQorgm00pVgb8E3d'; 
 
   return (
     <StripeProvider publishableKey={publishableKey}>
