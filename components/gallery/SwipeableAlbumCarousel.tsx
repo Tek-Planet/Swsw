@@ -2,7 +2,7 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, FlatList, Dimensions, Animated, ListRenderItemInfo } from 'react-native';
 import AlbumHeroCard from './AlbumHeroCard';
-import { Album } from '@/data/gallery';
+import { Album } from '@/types/gallery';
 
 const { width: screenWidth } = Dimensions.get('window');
 const cardWidth = 300;
@@ -22,13 +22,13 @@ const SwipeableAlbumCarousel: React.FC<SwipeableAlbumCarouselProps> = ({ albums,
   const flatListRef = useRef<FlatList<Album>>(null);
 
   useEffect(() => {
-    if (albums.length > 0) {
+    if (albums.length > 0 && activeIndex < albums.length) {
       onAlbumChange(albums[activeIndex]);
     }
   }, [activeIndex, albums, onAlbumChange]);
 
   const onViewableItemsChanged = useCallback(({ viewableItems }: any) => {
-    if (viewableItems.length > 0) {
+    if (viewableItems.length > 0 && viewableItems[0].index !== null) {
       setActiveIndex(viewableItems[0].index);
     }
   }, []);

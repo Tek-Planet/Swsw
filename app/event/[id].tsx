@@ -110,7 +110,7 @@ const EventDetailScreen: React.FC = () => {
         <HostInfo host={host} />
         <DescriptionBlock text={event.description} />
         <TicketHoldersList ticketHolders={memoizedTicketHolders} total={totalTicketHolders} />
-        <PhotoAlbum />
+        <PhotoAlbum eventId={id} />
         <ActivityFeed groupId="123" />
       </ScrollView>
       <FloatingRSVPBar eventId={id} hasTicket={hasTicket} />

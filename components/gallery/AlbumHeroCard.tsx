@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { View, Text, Image, StyleSheet, Animated } from 'react-native';
-import { Album } from '@/data/gallery';
+import { Album } from '@/types/gallery';
 
 interface AlbumHeroCardProps {
   album: Album;
@@ -11,11 +11,13 @@ interface AlbumHeroCardProps {
 const AlbumHeroCard: React.FC<AlbumHeroCardProps> = ({ album, scale }) => {
   return (
     <Animated.View style={[styles.card, { transform: [{ scale }] }]}>
-      <Image source={{ uri: album.thumbnail }} style={styles.image} />
+      <Image source={{ uri: album.coverPhotoUrl }} style={styles.image} />
       <View style={styles.overlay} />
       <View style={styles.textContainer}>
         <Text style={styles.title}>{album.title}</Text>
-        <Text style={styles.metrics}>{`${album.attendees} attendees · ${album.chats} chats`}</Text>
+        {album.photoCount !== undefined && (
+          <Text style={styles.metrics}>{`${album.photoCount} photos`}</Text>
+        )}
       </View>
     </Animated.View>
   );
