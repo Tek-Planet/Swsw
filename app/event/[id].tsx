@@ -9,7 +9,7 @@ import {
   View
 } from 'react-native';
 import { auth, db } from '../../lib/firebase/firebaseConfig';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query } from 'firebase/firestore';
 
 import { getProfilesForUserIds, listenToEvent } from '@/lib/services/eventService';
 import { Event } from '@/types/event';
@@ -19,7 +19,7 @@ import DescriptionBlock from '@/components/DescriptionBlock';
 import EventHeroCard from '@/components/EventHeroCard';
 import EventMetaCard from '@/components/EventMetaCard';
 import FloatingRSVPBar from '@/components/FloatingRSVPBar';
-import GuestList, { Guest } from '@/components/GuestList';
+import TicketHoldersList, { TicketHolder } from '@/components/TicketHoldersList';
 import HostInfo from '@/components/HostInfo';
 import PhotoAlbum from '@/components/PhotoAlbum';
 import StickyTopBar from '@/components/StickyTopBar';
@@ -27,7 +27,8 @@ import StickyTopBar from '@/components/StickyTopBar';
 const EventDetailScreen: React.FC = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [event, setEvent] = useState<Event | null>(null);
-  const [guests, setGuests] = useState<Guest[]>([]);
+  const [ticketHolders, setTicketHolders] = useState<TicketHolder[]>([]);
+  const [totalTicketHolders, setTotalTicketHolders] = useState(0);
   const [loading, setLoading] = useState(true);
   const [hasTicket, setHasTicket] = useState(false);
   const userId = auth.currentUser?.uid;
@@ -38,46 +39,54 @@ const EventDetailScreen: React.FC = () => {
       return;
     }
 
-    const unsubscribe = listenToEvent(id, async (fetchedEvent) => {
+    const unsubscribeEvent = listenToEvent(id, (fetchedEvent) => {
       if (fetchedEvent) {
         setEvent(fetchedEvent);
-        if (fetchedEvent.attendeeIds && fetchedEvent.attendeeIds.length > 0) {
-          const profilesMap = await getProfilesForUserIds(fetchedEvent.attendeeIds);
-          const guestList = Array.from(profilesMap.entries()).map(([userId, profile]) => ({
-            id: userId,
-            avatar: profile.photoUrl || `https://i.pravatar.cc/150?u=${userId}`,
-            firstName: profile.displayName,
-          }));
-          setGuests(guestList);
-        }
       } else {
         setEvent(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => unsubscribeEvent();
   }, [id]);
 
   useEffect(() => {
-    if (!id || !userId) {
-      setHasTicket(false);
-      return;
-    }
+    if (!id) return;
 
-    const ordersQuery = query(
-      collection(db, 'events', id, 'orders'),
-      where('userId', '==', userId)
-    );
+    const ordersQuery = query(collection(db, 'events', id, 'orders'));
 
-    const unsubscribe = onSnapshot(ordersQuery, (snapshot) => {
-      setHasTicket(!snapshot.empty);
+    const unsubscribeOrders = onSnapshot(ordersQuery, async (snapshot) => {
+      setTotalTicketHolders(snapshot.size);
+
+      if (snapshot.empty) {
+        setTicketHolders([]);
+        setLoading(false);
+        return;
+      }
+
+      const userIds = snapshot.docs.map(doc => doc.data().userId);
+      if (userId) {
+        setHasTicket(userIds.includes(userId));
+      }
+
+      const uniqueUserIds = [...new Set(userIds)];
+      const profilesMap = await getProfilesForUserIds(uniqueUserIds);
+      
+      const holdersList = Array.from(profilesMap.entries()).map(([profId, profile]) => ({
+        id: profId,
+        avatar: profile.photoUrl || `https://i.pravatar.cc/150?u=${profId}`,
+        firstName: profile.displayName,
+      }));
+      
+      setTicketHolders(holdersList);
+      setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => unsubscribeOrders();
   }, [id, userId]);
 
-  const memoizedGuestList = useMemo(() => guests, [guests]);
+  const memoizedTicketHolders = useMemo(() => ticketHolders, [ticketHolders]);
 
   if (loading) {
     return <ActivityIndicator style={styles.centerContainer} size="large" color="#fff" />;
@@ -99,7 +108,7 @@ const EventDetailScreen: React.FC = () => {
         <EventMetaCard date={eventDate} time={eventTime} location={event.location.address || 'TBD'} address={event.location.city} />
         <HostInfo host={host} />
         <DescriptionBlock text={event.description} />
-        <GuestList guests={memoizedGuestList} total={event.attendeeIds.length} />
+        <TicketHoldersList ticketHolders={memoizedTicketHolders} total={totalTicketHolders} />
         <PhotoAlbum />
         <ActivityFeed groupId="123" />
       </ScrollView>

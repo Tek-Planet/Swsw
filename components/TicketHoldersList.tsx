@@ -2,33 +2,33 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 
-export interface Guest {
+export interface TicketHolder {
   id: string;
   avatar: string;
   firstName: string;
 }
 
-interface GuestListProps {
-  guests: Guest[];
+interface TicketHoldersListProps {
+  ticketHolders: TicketHolder[];
   total: number;
 }
 
-const GuestList: React.FC<GuestListProps> = ({ guests, total }) => {
+const TicketHoldersList: React.FC<TicketHoldersListProps> = ({ ticketHolders, total }) => {
  
-  const displayedGuests = guests.slice(0, 5); // Show a max of 5 avatars
-  const overflowCount = total - displayedGuests.length;
+  const displayedTicketHolders = ticketHolders.slice(0, 5); // Show a max of 5 avatars
+  const overflowCount = total - displayedTicketHolders.length;
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Guest List</Text>
+        <Text style={styles.title}>Ticket Holders</Text>
         <Text style={styles.count}>{total} Going</Text>
       </View>
       <View style={styles.avatars}>
-        {displayedGuests.map(guest => (
-          <View key={guest.id} style={styles.avatarContainer}>
-            <Image source={{ uri: guest.avatar }} style={styles.avatar} />
-            <Text style={styles.guestName}>{guest.firstName}</Text>
+        {displayedTicketHolders.map(holder => (
+          <View key={holder.id} style={styles.avatarContainer}>
+            <Image source={{ uri: holder.avatar }} style={styles.avatar} />
+            <Text style={styles.guestName}>{holder.firstName}</Text>
           </View>
         ))}
         {overflowCount > 0 && (
@@ -112,4 +112,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default GuestList;
+export default TicketHoldersList;
