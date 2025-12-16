@@ -93,7 +93,7 @@ export async function getEventPhotoPreview(
  */
 export async function ensureDefaultAlbum(eventId: string): Promise<string> {
   const albumsRef = collection(db, 'events', eventId, 'albums');
-  const q = query(albumsRef, where('sortOrder', '==', 0), limit(1));
+  const q = query(albumsRef, where('title', '==', 'Event Photos'), limit(1));
   const snapshot = await getDocs(q);
 
   if (!snapshot.empty) {
@@ -124,4 +124,48 @@ export async function createPhotoDoc(
 ): Promise<void> {
   const photosRef = collection(db, 'events', eventId, 'albums', albumId, 'photos');
   await addDoc(photosRef, photoData);
+}
+
+/**
+ * Retrieves a list of event IDs for which the user has a paid order.
+ */
+export async function getUserAccessibleEventIds(uid: string): Promise<string[]> {
+  const ordersRef = collection(db, 'users', uid, 'orders');
+  const q = query(ordersRef, where('status', '==', 'paid'), orderBy('createdAt', 'desc'));
+  const snapshot = await getDocs(q);
+
+  if (snapshot.empty) {
+    return [];
+  }
+
+  const eventIds = snapshot.docs.map(doc => doc.data().eventId as string);
+  // Return unique event IDs
+  return [...new Set(eventIds)];
+}
+
+/**
+* Gets the cover photo URL for a given event (first photo of the default album).
+*/
+export async function getEventCoverPhotoUrl(eventId: string): Promise<string | null> {
+  try {
+      const albumId = await ensureDefaultAlbum(eventId);
+
+      const photosQuery = query(
+          collection(db, 'events', eventId, 'albums', albumId, 'photos'),
+          orderBy('createdAt', 'desc'),
+          limit(1)
+      );
+
+      const photoSnapshot = await getDocs(photosQuery);
+
+      if (photoSnapshot.empty) {
+          return null;
+      }
+
+      const photo = photoSnapshot.docs[0].data();
+      return photo.thumbUrl || photo.url || null;
+  } catch (error) {
+      console.error(`Failed to get cover photo for event ${eventId}:`, error);
+      return null;
+  }
 }

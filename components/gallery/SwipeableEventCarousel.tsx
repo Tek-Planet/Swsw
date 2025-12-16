@@ -1,31 +1,36 @@
 
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, FlatList, Dimensions, Animated, ListRenderItemInfo } from 'react-native';
-import AlbumHeroCard from './AlbumHeroCard';
-import { Album } from '@/types/gallery';
+import EventHeroCard from './EventHeroCard';
 
 const { width: screenWidth } = Dimensions.get('window');
 const cardWidth = 300;
 const sideCardWidth = (screenWidth - cardWidth) / 2;
 
-const AnimatedFlatList = Animated.createAnimatedComponent(FlatList) as unknown as new () => FlatList<Album>;
-
-interface SwipeableAlbumCarouselProps {
-  albums: Album[];
-  onAlbumChange: (album: Album) => void;
-  initialAlbumIndex?: number;
+interface CarouselItem {
+  id: string;
+  coverUrl: string | null;
+  title?: string;
 }
 
-const SwipeableAlbumCarousel: React.FC<SwipeableAlbumCarouselProps> = ({ albums, onAlbumChange, initialAlbumIndex = 0 }) => {
-  const scrollX = useRef(new Animated.Value(initialAlbumIndex * (cardWidth + 20))).current;
-  const [activeIndex, setActiveIndex] = useState(initialAlbumIndex);
-  const flatListRef = useRef<FlatList<Album>>(null);
+const AnimatedFlatList = Animated.createAnimatedComponent(FlatList) as unknown as new () => FlatList<CarouselItem>;
+
+interface SwipeableEventCarouselProps {
+  items: CarouselItem[];
+  onFocusChange: (itemId: string) => void;
+  initialIndex?: number;
+}
+
+const SwipeableEventCarousel: React.FC<SwipeableEventCarouselProps> = ({ items, onFocusChange, initialIndex = 0 }) => {
+  const scrollX = useRef(new Animated.Value(initialIndex * (cardWidth + 20))).current;
+  const [activeIndex, setActiveIndex] = useState(initialIndex);
+  const flatListRef = useRef<FlatList<CarouselItem>>(null);
 
   useEffect(() => {
-    if (albums.length > 0 && activeIndex < albums.length) {
-      onAlbumChange(albums[activeIndex]);
+    if (items.length > 0 && activeIndex < items.length) {
+      onFocusChange(items[activeIndex].id);
     }
-  }, [activeIndex, albums, onAlbumChange]);
+  }, [activeIndex, items, onFocusChange]);
 
   const onViewableItemsChanged = useCallback(({ viewableItems }: any) => {
     if (viewableItems.length > 0 && viewableItems[0].index !== null) {
@@ -39,8 +44,8 @@ const SwipeableAlbumCarousel: React.FC<SwipeableAlbumCarouselProps> = ({ albums,
     <View style={styles.container}>
       <AnimatedFlatList
         ref={flatListRef}
-        data={albums}
-        renderItem={({ item, index }: ListRenderItemInfo<Album>) => {
+        data={items}
+        renderItem={({ item, index }: ListRenderItemInfo<CarouselItem>) => {
           const inputRange = [
             (index - 1) * (cardWidth + 20),
             index * (cardWidth + 20),
@@ -51,9 +56,9 @@ const SwipeableAlbumCarousel: React.FC<SwipeableAlbumCarouselProps> = ({ albums,
             outputRange: [0.8, 1, 0.8],
             extrapolate: 'clamp',
           });
-          return <AlbumHeroCard album={item} scale={scale} />;
+          return <EventHeroCard item={item} scale={scale} />;
         }}
-        keyExtractor={(item: Album) => item.id}
+        keyExtractor={(item: CarouselItem) => item.id}
         horizontal
         showsHorizontalScrollIndicator={false}
         snapToInterval={cardWidth + 20}
@@ -65,7 +70,7 @@ const SwipeableAlbumCarousel: React.FC<SwipeableAlbumCarouselProps> = ({ albums,
         )}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
-        initialScrollIndex={initialAlbumIndex}
+        initialScrollIndex={initialIndex}
         getItemLayout={(_data, index) => ({
           length: cardWidth + 20,
           offset: (cardWidth + 20) * index,
@@ -87,4 +92,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SwipeableAlbumCarousel;
+export default SwipeableEventCarousel;

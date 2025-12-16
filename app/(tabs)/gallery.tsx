@@ -1,73 +1,115 @@
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  Text,
+  ActivityIndicator,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import SwipeableAlbumCarousel from '@/components/gallery/SwipeableAlbumCarousel';
+import { getAuth } from 'firebase/auth';
+
+import SwipeableEventCarousel from '@/components/gallery/SwipeableEventCarousel';
 import AlbumPhotoGrid from '@/components/gallery/AlbumPhotoGrid';
-import { Album, Photo } from '@/types/gallery';
-import { listenEventAlbums, listenAlbumPhotos } from '@/lib/services/galleryService';
+import { Photo } from '@/types/gallery';
+import {
+  listenAlbumPhotos,
+  getUserAccessibleEventIds,
+  getEventCoverPhotoUrl,
+  ensureDefaultAlbum,
+} from '@/lib/services/galleryService';
 
 const GalleryScreen: React.FC = () => {
   const router = useRouter();
-  const { eventId, albumId } = useLocalSearchParams<{ eventId: string, albumId?: string }>();
+  const { eventId: eventIdFromParams } = useLocalSearchParams<{ eventId?: string }>();
+  const auth = getAuth();
+  const userId = auth.currentUser?.uid;
 
-  const [albums, setAlbums] = useState<Album[]>([]);
+  const [accessibleEventIds, setAccessibleEventIds] = useState<string[]>([]);
+  const [carouselItems, setCarouselItems] = useState<Array<{ id: string; coverUrl: string | null; title?: string }>>([]);
+  const [focusedEventId, setFocusedEventId] = useState<string | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
-  const [currentAlbum, setCurrentAlbum] = useState<Album | null>(null);
-  const [loadingAlbums, setLoadingAlbums] = useState(true);
-  const [loadingPhotos, setLoadingPhotos] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [loadingPhotos, setLoadingPhotos] = useState(false);
 
   useEffect(() => {
-    if (!eventId) return;
-
-    const unsubscribe = listenEventAlbums(eventId, (fetchedAlbums) => {
-      setAlbums(fetchedAlbums);
-      if (fetchedAlbums.length > 0) {
-        const initialAlbum = albumId ? fetchedAlbums.find(a => a.id === albumId) || fetchedAlbums[0] : fetchedAlbums[0];
-        setCurrentAlbum(initialAlbum);
+    const initialize = async () => {
+      if (!userId) {
+        setLoading(false);
+        return;
       }
-      setLoadingAlbums(false);
-    });
 
-    return () => unsubscribe();
-  }, [eventId, albumId]);
+      try {
+        setLoading(true);
+        const eventIds = await getUserAccessibleEventIds(userId);
+        setAccessibleEventIds(eventIds);
+
+        if (eventIds.length > 0) {
+          const coverPhotos = await Promise.all(eventIds.map(id => getEventCoverPhotoUrl(id)));
+          const items = eventIds.map((id, index) => ({
+            id,
+            coverUrl: coverPhotos[index],
+            // You can add event titles here if you have a way to fetch them
+          }));
+          setCarouselItems(items);
+
+          const initialEventId =
+            eventIdFromParams && eventIds.includes(eventIdFromParams)
+              ? eventIdFromParams
+              : eventIds[0];
+          setFocusedEventId(initialEventId);
+        } else {
+          setCarouselItems([]);
+          setFocusedEventId(null);
+        }
+      } catch (error) {
+        console.error("Failed to initialize gallery:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initialize();
+  }, [userId, eventIdFromParams]);
 
   useEffect(() => {
-    if (!eventId || !currentAlbum) return;
+    let unsubscribe: () => void = () => {};
 
-    setLoadingPhotos(true);
-    const unsubscribe = listenAlbumPhotos(eventId, currentAlbum.id, (fetchedPhotos) => {
-      setPhotos(fetchedPhotos);
-      setLoadingPhotos(false);
-    });
+    const fetchPhotos = async () => {
+      if (!focusedEventId) {
+        setPhotos([]);
+        return;
+      }
+
+      try {
+        setLoadingPhotos(true);
+        const defaultAlbumId = await ensureDefaultAlbum(focusedEventId);
+        unsubscribe = listenAlbumPhotos(focusedEventId, defaultAlbumId, (newPhotos) => {
+          setPhotos(newPhotos);
+          setLoadingPhotos(false);
+        });
+      } catch (error) {
+        console.error(`Failed to fetch photos for event ${focusedEventId}:`, error);
+        setLoadingPhotos(false);
+      }
+    };
+
+    fetchPhotos();
 
     return () => unsubscribe();
-  }, [eventId, currentAlbum]);
+  }, [focusedEventId]);
 
-  const initialAlbumIndex = useMemo(() => {
-    if (!albumId || albums.length === 0) return 0;
-    const index = albums.findIndex(album => album.id === albumId);
-    return index !== -1 ? index : 0;
-  }, [albumId, albums]);
-
-  const handleAlbumChange = useCallback((album: Album) => {
-    setCurrentAlbum(album);
+  const handleFocusChange = useCallback((eventId: string) => {
+    setFocusedEventId(eventId);
   }, []);
 
-  if (loadingAlbums) {
+  if (loading) {
     return <View style={styles.center}><ActivityIndicator size="large" color="#fff" /></View>;
   }
 
-  if (!eventId) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>Event ID is missing.</Text>
-      </View>
-    );
-  }
-
-  if (albums.length === 0) {
+  if (carouselItems.length === 0) {
     return (
       <View style={styles.container}>
         {router.canGoBack() && (
@@ -76,11 +118,13 @@ const GalleryScreen: React.FC = () => {
           </TouchableOpacity>
         )}
         <View style={styles.center}>
-          <Text style={styles.errorText}>No albums found for this event.</Text>
+          <Text style={styles.errorText}>No event photos yet. Buy a ticket to unlock photos.</Text>
         </View>
       </View>
     );
   }
+
+  const initialIndex = focusedEventId ? carouselItems.findIndex(item => item.id === focusedEventId) : 0;
 
   return (
     <View style={styles.container}>
@@ -89,15 +133,15 @@ const GalleryScreen: React.FC = () => {
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
       )}
-      <SwipeableAlbumCarousel 
-        albums={albums} 
-        onAlbumChange={handleAlbumChange} 
-        initialAlbumIndex={initialAlbumIndex}
+      <SwipeableEventCarousel
+        items={carouselItems}
+        onFocusChange={handleFocusChange}
+        initialIndex={initialIndex >= 0 ? initialIndex : 0}
       />
       {loadingPhotos ? (
         <View style={styles.center}><ActivityIndicator size="large" color="#fff" /></View>
       ) : (
-        <AlbumPhotoGrid key={currentAlbum?.id} photos={photos} />
+        <AlbumPhotoGrid key={focusedEventId} photos={photos} />
       )}
     </View>
   );
@@ -107,6 +151,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
+    paddingTop: 50,
   },
   center: {
     flex: 1,
