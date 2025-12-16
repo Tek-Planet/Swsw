@@ -1,7 +1,7 @@
 import { View, Text, ActivityIndicator, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
-import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../../lib/firebase/firebaseConfig';
 import { Order } from '../../types/event';
 
@@ -17,7 +17,7 @@ const PurchaseProcessingScreen = () => {
 
         const userId = auth.currentUser?.uid;
         if (!userId) {
-            Alert.alert("Error", "You must be logged in to manage a purchase.", [{ text: "OK", onPress: () => router.replace('/(auth)/LoginScreen') }]);
+            Alert.alert("Error", "You must be logged in to manage a purchase.", [{ text: "OK", onPress: () => router.replace('/(auth)/signIn') }]);
             return;
         }
 
@@ -35,7 +35,7 @@ const PurchaseProcessingScreen = () => {
                 }
             } else {
                 // Order was likely cancelled or doesn't exist
-                Alert.alert("Error", "This order could not be found.", [{ text: "OK", onPress: () => router.replace(`/(event)/${eventId}`) }]);
+                Alert.alert("Error", "This order could not be found.", [{ text: "OK", onPress: () => router.replace({ pathname: '/event/[id]', params: { id: eventId }}) }]);
                 unsubscribe();
             }
         });
@@ -60,14 +60,13 @@ const PurchaseProcessingScreen = () => {
                         const eventOrderRef = doc(db, 'events', eventId, 'orders', orderId);
 
                         try {
-                            // Firestore does not support batch writes with updates, so we do them sequentially.
-                            // A cloud function would be better for atomicity.
-                            await updateDoc(userOrderRef, { status: 'canceled', updatedAt: serverTimestamp() });
-                            await updateDoc(eventOrderRef, { status: 'canceled', updatedAt: serverTimestamp() });
+                            // Deleting the order from both the user's and event's collections
+                            await deleteDoc(userOrderRef);
+                            await deleteDoc(eventOrderRef);
                             router.back();
                         } catch (error) {
-                            console.error("Error cancelling order:", error);
-                            Alert.alert("Error", "Could not cancel the order. Please try again.");
+                            console.error("Error deleting order:", error);
+                            Alert.alert("Error", "Could not delete the order. Please try again.");
                         }
                     },
                 },
@@ -80,7 +79,7 @@ const PurchaseProcessingScreen = () => {
     };
 
     const handleDecideLater = () => {
-        router.replace(`/(event)/${eventId}`); // Go to event details
+        router.replace({ pathname: '/event/[id]', params: { id: eventId }}); // Go to event details
     };
 
     return (

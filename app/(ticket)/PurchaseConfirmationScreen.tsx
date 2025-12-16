@@ -16,7 +16,7 @@ const PurchaseConfirmationScreen = () => {
   };
 
   const handleGoHome = () => {
-    router.replace('/(tabs)/ExploreScreen'); // Navigate to a main screen, e.g., Explore
+    router.replace('/'); // Navigate to a main screen, e.g., Explore
   };
 
   return (

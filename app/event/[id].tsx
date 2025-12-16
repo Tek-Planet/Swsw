@@ -8,6 +8,7 @@ import {
   Text,
   View
 } from 'react-native';
+import { auth } from '../../lib/firebase/firebaseConfig';
 
 import { getProfilesForUserIds, listenToEvent } from '@/lib/services/eventService';
 import { Event } from '@/types/event';
@@ -27,6 +28,8 @@ const EventDetailScreen: React.FC = () => {
   const [event, setEvent] = useState<Event | null>(null);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasTicket, setHasTicket] = useState(false);
+  const userId = auth.currentUser?.uid;
 
   useEffect(() => {
     if (typeof id !== 'string') {
@@ -37,6 +40,9 @@ const EventDetailScreen: React.FC = () => {
     const unsubscribe = listenToEvent(id, async (fetchedEvent) => {
       if (fetchedEvent) {
         setEvent(fetchedEvent);
+        if (userId && fetchedEvent.attendeeIds.includes(userId)) {
+            setHasTicket(true);
+        }
         if (fetchedEvent.attendeeIds && fetchedEvent.attendeeIds.length > 0) {
           const profilesMap = await getProfilesForUserIds(fetchedEvent.attendeeIds);
           const guestList = Array.from(profilesMap.entries()).map(([userId, profile]) => ({
@@ -53,7 +59,7 @@ const EventDetailScreen: React.FC = () => {
     });
 
     return () => unsubscribe();
-  }, [id]);
+  }, [id, userId]);
 
   const memoizedGuestList = useMemo(() => guests, [guests]);
 
@@ -81,7 +87,7 @@ const EventDetailScreen: React.FC = () => {
         <PhotoAlbum />
         <ActivityFeed groupId="123" />
       </ScrollView>
-      <FloatingRSVPBar />
+      {hasTicket && <FloatingRSVPBar />}
     </View>
   );
 };

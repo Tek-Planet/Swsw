@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
-import { doc, getDoc } from 'firebase/firestore';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { doc, getDoc, Timestamp } from 'firebase/firestore';
 import { db, auth } from '../../lib/firebase/firebaseConfig';
 import { Order, Event } from '../../types/event';
-import { BarCodeScanner } from 'expo-barcode-scanner'; // Using as a stand-in for QR code generation
 
 const TicketScreen = () => {
   const { orderId, eventId } = useLocalSearchParams<{ orderId: string, eventId: string }>();
+  const router = useRouter();
   const [order, setOrder] = useState<Order | null>(null);
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
@@ -34,13 +34,27 @@ const TicketScreen = () => {
             const [orderSnap, eventSnap] = await Promise.all([getDoc(orderRef), getDoc(eventRef)]);
 
             if (orderSnap.exists()) {
-                setOrder({ orderId: orderSnap.id, ...orderSnap.data() } as Order);
+                const orderData = orderSnap.data();
+                // Manually convert Timestamp to Date for consistent typing
+                const convertedOrder: Order = {
+                    orderId: orderSnap.id,
+                    ...orderData,
+                    createdAt: (orderData.createdAt as Timestamp).toDate(),
+                } as Order;
+                setOrder(convertedOrder);
             } else {
                 Alert.alert('Error', 'Could not find your order details.');
             }
 
             if (eventSnap.exists()) {
-                setEvent({ id: eventSnap.id, ...eventSnap.data() } as Event);
+                const eventData = eventSnap.data();
+                // Manually convert Timestamp to Date for consistent typing
+                const convertedEvent: Event = {
+                    id: eventSnap.id,
+                    ...eventData,
+                    startTime: (eventData.startTime as Timestamp).toDate(),
+                } as Event;
+                setEvent(convertedEvent);
             } else {
                 Alert.alert('Error', 'Could not find event details.');
             }
@@ -89,17 +103,16 @@ const TicketScreen = () => {
                 </View>
                 <View style={styles.detailItem}>
                     <Text style={styles.detailLabel}>Location</Text>
-                    <Text style={styles.detailValue}>{event.location.type === 'online' ? 'Online Event' : event.location.address}</Text>
+                    <Text style={styles.detailValue}>{event.location.type === 'online' ? 'Online Event' : event.location.address || 'TBA'}</Text>
                 </View>
             </View>
 
             <View style={styles.qrSection}>
                 {/* This is a placeholder for a real QR code. We generate a fake one based on orderId */}
-                <BarCodeScanner
-                    type={"qr"}
-                    style={{ height: 150, width: 150 }}
-                    value={order.orderId}
-                />
+                <View style={{ height: 150, width: 150, backgroundColor: 'white', justifyContent: 'center', alignItems: 'center' }}>
+                    <Text style={{color: 'black'}}>QR CODE</Text>
+                    <Text style={{color: 'black', fontSize: 10, textAlign: 'center'}}>{order.orderId}</Text>
+                </View>
                 <Text style={styles.scanText}>Show this QR code at the event</Text>
             </View>
 
@@ -117,6 +130,21 @@ const TicketScreen = () => {
                  <Text style={styles.orderId}>Order ID: {order.orderId}</Text>
                  <Text style={styles.purchaseDate}>Purchased on: {new Date(order.createdAt).toLocaleDateString()}</Text>
             </View>
+        </View>
+
+        <View style={styles.navigationButtons}>
+            <TouchableOpacity
+                style={styles.navButton}
+                onPress={() => router.push({ pathname: '/event/[id]', params: { id: eventId } })}
+            >
+                <Text style={styles.navButtonText}>View Event Details</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+                style={[styles.navButton, styles.homeButton]}
+                onPress={() => router.push('/(tabs)')}
+            >
+                <Text style={styles.navButtonText}>Go to Home</Text>
+            </TouchableOpacity>
         </View>
     </ScrollView>
   );
@@ -221,6 +249,31 @@ const styles = StyleSheet.create({
         color: '#888',
         fontSize: 12,
         marginTop: 4,
+    },
+    navigationButtons: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        marginVertical: 10,
+        marginHorizontal: 20,
+    },
+    navButton: {
+        backgroundColor: '#4a90e2',
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 8,
+        alignItems: 'center',
+        flex: 1,
+        marginHorizontal: 5,
+    },
+    homeButton: {
+        backgroundColor: '#333',
+        borderWidth: 1,
+        borderColor: '#4a90e2',
+    },
+    navButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
     },
 });
 
