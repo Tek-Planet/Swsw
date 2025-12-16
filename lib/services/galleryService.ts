@@ -1,15 +1,27 @@
 
-import { db } from '../firebase/firebaseConfig';
-import { collection, query, where, orderBy, onSnapshot, getDocs, limit } from 'firebase/firestore';
-import { Album, Photo } from '../../types/gallery';
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  limit,
+  getDocs,
+  onSnapshot,
+  Unsubscribe,
+  doc,
+  addDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase/firebaseConfig';
+import { Album, Photo } from '@/types/gallery';
 
 /**
- * Listens for real-time updates on active albums for a specific event.
+ * Listens for real-time updates to the albums of a specific event.
  */
 export function listenEventAlbums(
   eventId: string,
   callback: (albums: Album[]) => void
-): () => void {
+): Unsubscribe {
   const albumsQuery = query(
     collection(db, 'events', eventId, 'albums'),
     where('isActive', '==', true),
@@ -17,39 +29,26 @@ export function listenEventAlbums(
   );
 
   return onSnapshot(albumsQuery, (snapshot) => {
-    const albums = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: doc.data().createdAt?.toDate(),
-    })) as Album[];
+    const albums = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Album));
     callback(albums);
   });
 }
 
 /**
- * Listens for real-time updates on photos for a specific album.
+ * Listens for real-time updates to the photos within a specific album.
  */
 export function listenAlbumPhotos(
   eventId: string,
   albumId: string,
-  callback: (photos: Photo[]) => void,
-  limitCount?: number
-): () => void {
-  let photosQuery = query(
+  callback: (photos: Photo[]) => void
+): Unsubscribe {
+  const photosQuery = query(
     collection(db, 'events', eventId, 'albums', albumId, 'photos'),
     orderBy('createdAt', 'desc')
   );
 
-  if (limitCount) {
-    photosQuery = query(photosQuery, limit(limitCount));
-  }
-
   return onSnapshot(photosQuery, (snapshot) => {
-    const photos = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: doc.data().createdAt?.toDate(),
-    })) as Photo[];
+    const photos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Photo));
     callback(photos);
   });
 }
@@ -69,28 +68,60 @@ export async function getEventPhotoPreview(
   );
 
   const albumSnapshot = await getDocs(albumsQuery);
-  const albums = albumSnapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data(),
-    createdAt: doc.data().createdAt?.toDate(),
-  })) as Album[];
-
-  const initialAlbumId = albums.length > 0 ? albums[0].id : undefined;
-  let previewPhotos: Photo[] = [];
-
-  if (initialAlbumId) {
-    const photosQuery = query(
-      collection(db, 'events', eventId, 'albums', initialAlbumId, 'photos'),
-      orderBy('createdAt', 'desc'),
-      limit(limitPhotos)
-    );
-    const photoSnapshot = await getDocs(photosQuery);
-    previewPhotos = photoSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: doc.data().createdAt?.toDate(),
-    })) as Photo[];
+  if (albumSnapshot.empty) {
+    return { albums: [], previewPhotos: [], initialAlbumId: undefined };
   }
 
+  const albums = albumSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Album));
+  const initialAlbumId = albums[0].id;
+
+  const photosQuery = query(
+    collection(db, 'events', eventId, 'albums', initialAlbumId, 'photos'),
+    orderBy('createdAt', 'desc'),
+    limit(limitPhotos)
+  );
+
+  const photoSnapshot = await getDocs(photosQuery);
+  const previewPhotos = photoSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Photo));
+
   return { albums, previewPhotos, initialAlbumId };
+}
+
+/**
+ * Ensures a default album exists for an event, creating one if necessary.
+ * Returns the ID of the default album.
+ */
+export async function ensureDefaultAlbum(eventId: string): Promise<string> {
+  const albumsRef = collection(db, 'events', eventId, 'albums');
+  const q = query(albumsRef, where('sortOrder', '==', 0), limit(1));
+  const snapshot = await getDocs(q);
+
+  if (!snapshot.empty) {
+    // Default album already exists
+    return snapshot.docs[0].id;
+  } else {
+    // Create default album
+    const albumData = {
+      title: 'Event Photos',
+      isActive: true,
+      sortOrder: 0,
+      createdAt: serverTimestamp(),
+      photoCount: 0,
+      coverPhotoUrl: '',
+    };
+    const docRef = await addDoc(albumsRef, albumData);
+    return docRef.id;
+  }
+}
+
+/**
+ * Creates a new photo document in a specific album.
+ */
+export async function createPhotoDoc(
+  eventId: string,
+  albumId: string,
+  photoData: Omit<Photo, 'id'>
+): Promise<void> {
+  const photosRef = collection(db, 'events', eventId, 'albums', albumId, 'photos');
+  await addDoc(photosRef, photoData);
 }

@@ -1,11 +1,13 @@
 
+import { FieldValue } from 'firebase/firestore';
+
 export type Album = {
   id: string;
   title: string;
   coverPhotoUrl?: string;
   sortOrder: number;
   isActive: boolean;
-  createdAt?: Date;
+  createdAt?: Date | FieldValue;
   photoCount?: number;
 };
 
@@ -14,6 +16,7 @@ export type Photo = {
   url: string;
   thumbUrl?: string;
   uploadedBy: "host" | "user";
-  createdAt?: Date;
+  uploaderId: string;
+  createdAt?: Date | FieldValue;
   taggedUserIds?: string[];
 };
