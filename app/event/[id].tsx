@@ -8,7 +8,8 @@ import {
   Text,
   View
 } from 'react-native';
-import { auth } from '../../lib/firebase/firebaseConfig';
+import { auth, db } from '../../lib/firebase/firebaseConfig';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 
 import { getProfilesForUserIds, listenToEvent } from '@/lib/services/eventService';
 import { Event } from '@/types/event';
@@ -24,7 +25,7 @@ import PhotoAlbum from '@/components/PhotoAlbum';
 import StickyTopBar from '@/components/StickyTopBar';
 
 const EventDetailScreen: React.FC = () => {
-  const { id } = useLocalSearchParams();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const [event, setEvent] = useState<Event | null>(null);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,9 +41,6 @@ const EventDetailScreen: React.FC = () => {
     const unsubscribe = listenToEvent(id, async (fetchedEvent) => {
       if (fetchedEvent) {
         setEvent(fetchedEvent);
-        if (userId && fetchedEvent.attendeeIds.includes(userId)) {
-            setHasTicket(true);
-        }
         if (fetchedEvent.attendeeIds && fetchedEvent.attendeeIds.length > 0) {
           const profilesMap = await getProfilesForUserIds(fetchedEvent.attendeeIds);
           const guestList = Array.from(profilesMap.entries()).map(([userId, profile]) => ({
@@ -56,6 +54,24 @@ const EventDetailScreen: React.FC = () => {
         setEvent(null);
       }
       setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [id]);
+
+  useEffect(() => {
+    if (!id || !userId) {
+      setHasTicket(false);
+      return;
+    }
+
+    const ordersQuery = query(
+      collection(db, 'events', id, 'orders'),
+      where('userId', '==', userId)
+    );
+
+    const unsubscribe = onSnapshot(ordersQuery, (snapshot) => {
+      setHasTicket(!snapshot.empty);
     });
 
     return () => unsubscribe();
@@ -87,7 +103,7 @@ const EventDetailScreen: React.FC = () => {
         <PhotoAlbum />
         <ActivityFeed groupId="123" />
       </ScrollView>
-      {hasTicket && <FloatingRSVPBar />}
+      <FloatingRSVPBar eventId={id} hasTicket={hasTicket} />
     </View>
   );
 };

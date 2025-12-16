@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { doc, getDoc, Timestamp } from 'firebase/firestore';
-import { db, auth } from '../../lib/firebase/firebaseConfig';
-import { Order, Event } from '../../types/event';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { auth, db } from '../../lib/firebase/firebaseConfig';
+import { Event, Order } from '../../types/event';
 
 const TicketScreen = () => {
   const { orderId, eventId } = useLocalSearchParams<{ orderId: string, eventId: string }>();
@@ -35,7 +37,6 @@ const TicketScreen = () => {
 
             if (orderSnap.exists()) {
                 const orderData = orderSnap.data();
-                // Manually convert Timestamp to Date for consistent typing
                 const convertedOrder: Order = {
                     orderId: orderSnap.id,
                     ...orderData,
@@ -48,7 +49,6 @@ const TicketScreen = () => {
 
             if (eventSnap.exists()) {
                 const eventData = eventSnap.data();
-                // Manually convert Timestamp to Date for consistent typing
                 const convertedEvent: Event = {
                     id: eventSnap.id,
                     ...eventData,
@@ -77,7 +77,6 @@ const TicketScreen = () => {
     return <View style={styles.centered}><Text style={styles.errorText}>Could not load ticket.</Text></View>;
   }
 
-  // Combine items by name and type to handle multiple quantities of the same item
   const aggregatedItems = order.items.reduce((acc, item) => {
     const key = `${item.name}-${item.type}`;
     if (!acc[key]) {
@@ -90,60 +89,66 @@ const TicketScreen = () => {
 
   return (
     <ScrollView style={styles.container}>
-        <View style={styles.ticketContainer}>
-            <View style={styles.header}>
+       
+        <View style={styles.ticketCard}>
+            <View style={styles.ticketHeader}>
                 <Text style={styles.eventTitle}>{event.title}</Text>
                 <Text style={styles.eventHost}>by {event.hostName}</Text>
             </View>
 
-            <View style={styles.detailsSection}>
-                <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>Date & Time</Text>
-                    <Text style={styles.detailValue}>{new Date(event.startTime).toLocaleString()}</Text>
-                </View>
-                <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>Location</Text>
-                    <Text style={styles.detailValue}>{event.location.type === 'online' ? 'Online Event' : event.location.address || 'TBA'}</Text>
-                </View>
-            </View>
-
-            <View style={styles.qrSection}>
-                {/* This is a placeholder for a real QR code. We generate a fake one based on orderId */}
-                <View style={{ height: 150, width: 150, backgroundColor: 'white', justifyContent: 'center', alignItems: 'center' }}>
-                    <Text style={{color: 'black'}}>QR CODE</Text>
-                    <Text style={{color: 'black', fontSize: 10, textAlign: 'center'}}>{order.orderId}</Text>
-                </View>
-                <Text style={styles.scanText}>Show this QR code at the event</Text>
-            </View>
-
-            <View style={styles.itemsSection}>
-                <Text style={styles.itemsHeader}>Your Items</Text>
-                {Object.values(aggregatedItems).map((item, index) => (
-                    <View key={index} style={styles.itemRow}>
-                        <Text style={styles.itemName}>{item.quantity} x {item.name}</Text>
-                        <Text style={styles.itemPrice}>₹{(item.unitPrice * item.quantity).toLocaleString()}</Text>
+            <View style={styles.ticketBody}>
+                <View style={styles.qrContainer}>
+                    <View style={styles.qrPlaceholder}>
+                        <Ionicons name="qr-code" size={100} color="#fff" />
                     </View>
-                ))}
+                    <Text style={styles.scanText}>Show this at the entrance</Text>
+                </View>
+
+                <View style={styles.detailsContainer}>
+                    <View style={styles.detailRow}>
+                        <Ionicons name="calendar-outline" size={18} color="#aaa" />
+                        <Text style={styles.detailText}>{new Date(event.startTime).toLocaleDateString()}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                        <Ionicons name="time-outline" size={18} color="#aaa" />
+                        <Text style={styles.detailText}>{new Date(event.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                        <Ionicons name="location-outline" size={18} color="#aaa" />
+                        <Text style={styles.detailText}>{event.location.type === 'online' ? 'Online Event' : event.location.address || 'TBA'}</Text>
+                    </View>
+                </View>
+
+                <View style={styles.itemsContainer}>
+                    <Text style={styles.itemsTitle}>Your Items</Text>
+                    {Object.values(aggregatedItems).map((item, index) => (
+                        <View key={index} style={styles.itemRow}>
+                            <Text style={styles.itemName}>{item.quantity}x {item.name}</Text>
+                            <Text style={styles.itemPrice}>₹{(item.unitPrice * item.quantity).toLocaleString()}</Text>
+                        </View>
+                    ))}
+                </View>
             </View>
 
-            <View style={styles.footer}>
+            <View style={styles.ticketFooter}>
                  <Text style={styles.orderId}>Order ID: {order.orderId}</Text>
-                 <Text style={styles.purchaseDate}>Purchased on: {new Date(order.createdAt).toLocaleDateString()}</Text>
             </View>
         </View>
 
-        <View style={styles.navigationButtons}>
+        <View style={styles.actionButtonsContainer}>
             <TouchableOpacity
-                style={styles.navButton}
+                style={styles.actionButton}
                 onPress={() => router.push({ pathname: '/event/[id]', params: { id: eventId } })}
             >
-                <Text style={styles.navButtonText}>View Event Details</Text>
+                <Ionicons name="eye-outline" size={20} color="#fff" style={{marginRight: 10}}/>
+                <Text style={styles.actionButtonText}>View Event</Text>
             </TouchableOpacity>
             <TouchableOpacity
-                style={[styles.navButton, styles.homeButton]}
+                style={[styles.actionButton, styles.secondaryActionButton]}
                 onPress={() => router.push('/(tabs)')}
             >
-                <Text style={styles.navButtonText}>Go to Home</Text>
+                 <Ionicons name="home-outline" size={20} color="#fff" style={{marginRight: 10}}/>
+                <Text style={styles.actionButtonText}>Go Home</Text>
             </TouchableOpacity>
         </View>
     </ScrollView>
@@ -153,7 +158,7 @@ const TicketScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#1a1a1a',
+        backgroundColor: '#121212',
     },
     centered: {
         flex: 1,
@@ -165,112 +170,124 @@ const styles = StyleSheet.create({
         color: '#ff4444',
         fontSize: 16,
     },
-    ticketContainer: {
-        margin: 20,
-        backgroundColor: '#2c2c2c',
-        borderRadius: 15,
-        overflow: 'hidden',
-    },
-    header: {
-        backgroundColor: '#4a90e2',
+    headerContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
         padding: 20,
+        paddingTop: 40,
+    },
+    backButton: {
+        position: 'absolute',
+        top: 40,
+        left: 20,
+        zIndex: 1,
+    },
+    headerTitle: {
+        color: '#fff',
+        fontSize: 22,
+        fontWeight: 'bold',
+        textAlign: 'center',
+        flex: 1,
+    },
+    ticketCard: {
+        marginHorizontal: 20,
+        backgroundColor: '#1E1E1E',
+        borderRadius: 20,
+        overflow: 'hidden',
+        marginTop: 20,
+    },
+    ticketHeader: {
+        backgroundColor: '#6C63FF',
+        padding: 25,
+        alignItems: 'center',
     },
     eventTitle: {
         color: '#fff',
-        fontSize: 26,
+        fontSize: 24,
         fontWeight: 'bold',
     },
     eventHost: {
-        color: '#f0f0f0',
+        color: '#E0E0E0',
         fontSize: 16,
-        marginTop: 4,
     },
-    detailsSection: {
+    ticketBody: {
         padding: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: '#444',
     },
-    detailItem: {
-        marginBottom: 15,
-    },
-    detailLabel: {
-        color: '#aaa',
-        fontSize: 14,
-        marginBottom: 4,
-    },
-    detailValue: {
-        color: '#fff',
-        fontSize: 16,
-    },
-    qrSection: {
+    qrContainer: {
         alignItems: 'center',
-        padding: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: '#444',
+        marginBottom: 20,
+    },
+    qrPlaceholder: {
+        width: 150,
+        height: 150,
+        backgroundColor: '#333',
+        borderRadius: 15,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     scanText: {
         color: '#aaa',
         marginTop: 10,
-        fontSize: 14,
     },
-    itemsSection: {
-        padding: 20,
+    detailsContainer: {
+        marginBottom: 20,
     },
-    itemsHeader: {
+    detailRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    detailText: {
+        color: '#fff',
+        fontSize: 16,
+        marginLeft: 10,
+    },
+    itemsContainer: {},
+    itemsTitle: {
         color: '#fff',
         fontSize: 18,
         fontWeight: 'bold',
-        marginBottom: 15,
+        marginBottom: 10,
     },
     itemRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginBottom: 10,
+        paddingVertical: 8,
     },
     itemName: {
-        color: '#f0f0f0',
+        color: '#E0E0E0',
         fontSize: 16,
     },
     itemPrice: {
-        color: '#f0f0f0',
+        color: '#fff',
         fontSize: 16,
         fontWeight: 'bold',
     },
-    footer: {
-        backgroundColor: '#1a1a1a',
+    ticketFooter: {
+        backgroundColor: '#333',
         padding: 15,
         alignItems: 'center',
     },
     orderId: {
-        color: '#888',
+        color: '#aaa',
         fontSize: 12,
     },
-    purchaseDate: {
-        color: '#888',
-        fontSize: 12,
-        marginTop: 4,
+    actionButtonsContainer: {
+        padding: 20,
     },
-    navigationButtons: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        marginVertical: 10,
-        marginHorizontal: 20,
-    },
-    navButton: {
+    actionButton: {
         backgroundColor: '#4a90e2',
-        paddingVertical: 12,
-        paddingHorizontal: 20,
-        borderRadius: 8,
+        borderRadius: 15,
+        padding: 15,
+        flexDirection: 'row',
         alignItems: 'center',
-        flex: 1,
-        marginHorizontal: 5,
+        justifyContent: 'center',
+        marginBottom: 10,
     },
-    homeButton: {
+    secondaryActionButton: {
         backgroundColor: '#333',
-        borderWidth: 1,
-        borderColor: '#4a90e2',
     },
-    navButtonText: {
+    actionButtonText: {
         color: '#fff',
         fontSize: 16,
         fontWeight: 'bold',

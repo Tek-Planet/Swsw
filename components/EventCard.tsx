@@ -23,9 +23,8 @@ const EventCard: React.FC<EventCardProps> = ({ event, showEnhanceGridButton }) =
     }
 
     const ordersQuery = query(
-      collection(db, 'orders'),
-      where('userId', '==', user.uid),
-      where('eventId', '==', event.id)
+      collection(db, 'events', event.id, 'orders'),
+      where('userId', '==', user.uid)
     );
 
     const unsubscribe = onSnapshot(ordersQuery, (snapshot) => {
@@ -70,9 +69,17 @@ const EventCard: React.FC<EventCardProps> = ({ event, showEnhanceGridButton }) =
         </View>
       </TouchableOpacity>
       {isUpcoming && (
-        <TouchableOpacity style={styles.buyButton} onPress={() => router.push(`/(ticket)/TicketSelectionScreen?eventId=${event.id}`)}>
-          <Text style={styles.buyButtonText}>{hasPurchased ? 'Buy Extra Ticket' : 'Buy Tickets'}</Text>
-        </TouchableOpacity>
+        <View>
+          {hasPurchased ? (
+            <TouchableOpacity style={styles.viewTicketsButton} onPress={() => router.push({ pathname: '/event/tickets', params: { eventId: event.id } })}>
+              <Text style={styles.viewTicketsButtonText}>View Tickets</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={styles.buyButton} onPress={() => router.push(`/(ticket)/TicketSelectionScreen?eventId=${event.id}`)}>
+              <Text style={styles.buyButtonText}>Buy Tickets</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       )}
       {showEnhanceGridButton && (
         <>
@@ -140,6 +147,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buyButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  viewTicketsButton: {
+    backgroundColor: '#6c63ff',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    marginTop: 15,
+    alignItems: 'center',
+  },
+  viewTicketsButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',

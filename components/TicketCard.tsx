@@ -20,7 +20,7 @@ const TicketCard: React.FC<TicketCardProps> = ({ order }) => {
       <View style={styles.cardContent}>
         <Text style={styles.orderId}>Order ID: {order.orderId}</Text>
         <Text style={styles.itemSummary}>{totalItems} item(s)</Text>
-        <Text style={styles.totalAmount}>Total: ₹{order.totalAmount.toLocaleString()}</Text>
+        <Text style={styles.totalAmount}>Total: ₹{order.subtotal.toLocaleString()}</Text>
         <Text style={styles.status}>Status: {order.status}</Text>
       </View>
     </TouchableOpacity>

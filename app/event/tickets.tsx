@@ -1,17 +1,19 @@
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, Alert } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '../../lib/firebase/firebaseConfig';
 import { Order } from '../../types/event';
 import TicketCard from '../../components/TicketCard';
+import { Ionicons } from '@expo/vector-icons';
 
 const EventTicketsScreen = () => {
   const { eventId } = useLocalSearchParams<{ eventId: string }>();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const userId = auth.currentUser?.uid;
+  const router = useRouter();
 
   useEffect(() => {
     if (!userId || !eventId) {
@@ -44,7 +46,12 @@ const EventTicketsScreen = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Your Tickets for this Event</Text>
+      <View style={styles.headerContainer}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="white" />
+        </TouchableOpacity>
+        <Text style={styles.header}>Your Tickets</Text>
+      </View>
       {orders.length > 0 ? (
         <FlatList
           data={orders}
@@ -62,19 +69,28 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#121212',
-    padding: 20,
+    paddingTop: 40,
   },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  backButton: {
+    marginRight: 20,
+  },
   header: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 20,
     textAlign: 'center',
+    flex: 1,
   },
   noTicketsText: {
     color: '#aaa',
