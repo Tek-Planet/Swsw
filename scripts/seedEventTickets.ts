@@ -12,7 +12,7 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
-const eventId = 'ggcjUg5IBYAIMaP7UNae';
+const eventId = 'hIn7DP1V5XeuwIO09QUQ';
 
 // The type annotations now correctly use the imported types
 const ticketTiers: Omit<FirestoreTicketTier, 'createdAt' | 'updatedAt'>[] = [

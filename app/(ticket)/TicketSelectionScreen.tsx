@@ -29,7 +29,6 @@ const TicketSelectionScreen = () => {
       const q = query(tiersRef, where('isActive', '==', true), orderBy('sortOrder'));
       const tiersSnap = await getDocs(q);
       const tiers = tiersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TicketTier));
-      console.log()
       setTicketTiers(tiers);
     };
 
@@ -58,6 +57,8 @@ const TicketSelectionScreen = () => {
 
   const renderTier = ({ item }: { item: TicketTier }) => {
     const maxQuantity = item.type === 'table' ? 1 : 10;
+    const currentQuantity = selectedTiers[item.id] || 0;
+
     return (
       <View style={styles.tierCard}>
         <View>
@@ -66,12 +67,12 @@ const TicketSelectionScreen = () => {
           {item.description && <Text style={styles.tierDescription}>{item.description}</Text>}
         </View>
         <View style={styles.quantitySelector}>
-          <TouchableOpacity onPress={() => handleQuantityChange(item.id, (selectedTiers[item.id] || 0) - 1)} disabled={(selectedTiers[item.id] || 0) === 0}>
-            <Text style={styles.quantityButton}>-</Text>
+          <TouchableOpacity onPress={() => handleQuantityChange(item.id, currentQuantity - 1)} disabled={currentQuantity === 0}>
+            <Text style={[styles.quantityButton, currentQuantity === 0 && styles.disabledQuantityButton]}>-</Text>
           </TouchableOpacity>
-          <Text style={styles.quantityText}>{selectedTiers[item.id] || 0}</Text>
-          <TouchableOpacity onPress={() => handleQuantityChange(item.id, (selectedTiers[item.id] || 0) + 1)} disabled={(selectedTiers[item.id] || 0) >= maxQuantity}>
-            <Text style={styles.quantityButton}>+</Text>
+          <Text style={styles.quantityText}>{currentQuantity}</Text>
+          <TouchableOpacity onPress={() => handleQuantityChange(item.id, currentQuantity + 1)} disabled={currentQuantity >= maxQuantity}>
+            <Text style={[styles.quantityButton, currentQuantity >= maxQuantity && styles.disabledQuantityButton]}>+</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -85,6 +86,8 @@ const TicketSelectionScreen = () => {
     });
   };
 
+  const isContinueDisabled = Object.keys(selectedTiers).length === 0;
+
   if (!event) {
     return <View style={styles.container}><Text style={styles.text}>Loading...</Text></View>;
   }
@@ -93,7 +96,11 @@ const TicketSelectionScreen = () => {
     <View style={styles.container}>
       <View style={styles.eventHeader}>
         <Text style={styles.eventTitle}>{event.title}</Text>
-        <Text style={styles.eventDetails}>{new Date(event.startTime).toLocaleDateString()} at {event.location.address}</Text>
+        {event.startTime && event.location.address && (
+          <Text style={styles.eventDetails}>
+            {new Date(event.startTime).toLocaleDateString()} at {event.location.address}
+          </Text>
+        )}
       </View>
       <FlatList
         data={ticketTiers}
@@ -103,7 +110,11 @@ const TicketSelectionScreen = () => {
       />
       <View style={styles.stickyFooter}>
         <Text style={styles.totalPrice}>Total: ₹{totalPrice.toLocaleString()}</Text>
-        <TouchableOpacity style={styles.ctaButton} onPress={handleContinueToPay}>
+        <TouchableOpacity 
+          style={[styles.ctaButton, isContinueDisabled && styles.ctaButtonDisabled]}
+          onPress={handleContinueToPay}
+          disabled={isContinueDisabled}
+        >
           <Text style={styles.ctaButtonText}>Continue to Pay</Text>
         </TouchableOpacity>
       </View>
@@ -175,6 +186,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     paddingHorizontal: 10,
   },
+  disabledQuantityButton: {
+    color: '#555',
+  },
   quantityText: {
     color: '#fff',
     fontSize: 18,
@@ -203,6 +217,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 20,
+  },
+  ctaButtonDisabled: {
+    backgroundColor: '#888',
+    opacity: 0.7,
   },
   ctaButtonText: {
     color: '#fff',

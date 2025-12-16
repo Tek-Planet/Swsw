@@ -1,8 +1,11 @@
-import React from 'react';
+
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Event } from '@/types/event';
 import EnhanceGridButton from './EnhanceGridButton';
+import { auth, db } from '@/lib/firebase/firebaseConfig';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
 interface EventCardProps {
   event: Event;
@@ -11,6 +14,26 @@ interface EventCardProps {
 
 const EventCard: React.FC<EventCardProps> = ({ event, showEnhanceGridButton }) => {
   const router = useRouter();
+  const [hasPurchased, setHasPurchased] = useState(false);
+  const user = auth.currentUser;
+
+  useEffect(() => {
+    if (!user || !event) {
+      return;
+    }
+
+    const ordersQuery = query(
+      collection(db, 'orders'),
+      where('userId', '==', user.uid),
+      where('eventId', '==', event.id)
+    );
+
+    const unsubscribe = onSnapshot(ordersQuery, (snapshot) => {
+      setHasPurchased(!snapshot.empty);
+    });
+
+    return () => unsubscribe();
+  }, [user, event]);
 
   if (!event) {
     return null;
@@ -48,7 +71,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, showEnhanceGridButton }) =
       </TouchableOpacity>
       {isUpcoming && (
         <TouchableOpacity style={styles.buyButton} onPress={() => router.push(`/(ticket)/TicketSelectionScreen?eventId=${event.id}`)}>
-          <Text style={styles.buyButtonText}>Buy Tickets</Text>
+          <Text style={styles.buyButtonText}>{hasPurchased ? 'Buy Extra Ticket' : 'Buy Tickets'}</Text>
         </TouchableOpacity>
       )}
       {showEnhanceGridButton && (

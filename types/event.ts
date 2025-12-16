@@ -79,3 +79,26 @@ export type FirestoreEvent = Omit<Event, 'id' | 'startTime' | 'endTime' | 'creat
   createdAt: Timestamp;
   updatedAt: Timestamp;
 };
+
+export interface OrderItem {
+  tierId: string;
+  name: string;
+  type: TicketTierType;
+  unitPrice: number;
+  quantity: number;
+}
+
+export type OrderStatus = 'pending' | 'paid' | 'canceled';
+
+export interface Order {
+  orderId: string;
+  eventId: string;
+  userId: string;
+  items: OrderItem[];
+  subtotal: number;
+  currency: string;
+  status: OrderStatus;
+  createdAt: Date; // Converted in app code
+  updatedAt: Date; // Converted in app code
+  stripeSessionId?: string;
+}
