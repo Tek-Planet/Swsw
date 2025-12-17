@@ -48,14 +48,17 @@ export function listenEventPosts(
   const q = query(postsRef, orderBy('createdAt', 'desc'), limit(limitCount));
 
   const unsubscribe = onSnapshot(q, (snapshot) => {
-    const posts = snapshot.docs.map((doc) => {
+    const posts: Post[] = [];
+    snapshot.forEach((doc) => {
       const data = doc.data() as FirestorePost;
-      return {
-        ...data,
-        id: doc.id,
-        createdAt: data.createdAt.toDate(),
-        updatedAt: data.updatedAt?.toDate(),
-      };
+      if (data.createdAt) { // Check if the server timestamp is available
+        posts.push({
+          ...data,
+          id: doc.id,
+          createdAt: data.createdAt.toDate(),
+          updatedAt: data.updatedAt?.toDate(),
+        } as Post);
+      }
     });
     callback(posts);
   });

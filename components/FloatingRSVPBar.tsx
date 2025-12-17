@@ -80,12 +80,17 @@ const styles = StyleSheet.create({
     marginLeft: 15,
   },
   buyButton: {
-    backgroundColor: '#4a90e2',
+    backgroundColor: '#6c63ff',
     borderRadius: 30,
-    paddingVertical: 15,
-    paddingHorizontal: 100,
+    paddingVertical: 16,
+    paddingHorizontal: 40,
     alignItems: 'center',
-    flex: 1
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   buyButtonText: {
     color: '#fff',

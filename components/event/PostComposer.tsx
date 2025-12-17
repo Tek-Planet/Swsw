@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
     maxHeight: 120,
   },
   button: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#6c63ff',
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 20,
