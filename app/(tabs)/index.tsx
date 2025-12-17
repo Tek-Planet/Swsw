@@ -10,8 +10,7 @@ import {
 
 import { TopNavBar, Header } from '@/components/Header';
 import EventCard from '@/components/EventCard';
-import AlbumPreviewCard from '@/components/gallery/AlbumPreviewCard';
-import { albums } from '@/data/gallery';
+import RecentAlbum from '@/components/event/RecentAlbum';
 import { useAuth } from '@/lib/context/AuthContext';
 import {
   listenToUserUpcomingEvents,
@@ -29,20 +28,13 @@ const HomeScreen: React.FC = () => {
         <Header />
         <UpcomingEvents />
         <RecommendedEvents />
-        <YourAlbums />
+        <RecentAlbum />
         <TrendingEvents />
       </ScrollView>
       {/* <FloatingActionButton /> */}
     </View>
   );
 };
-
-const YourAlbums: React.FC = () => (
-  <View style={styles.section}>
-    <Text style={styles.sectionTitle}>Your Albums</Text>
-    <AlbumPreviewCard album={albums[0]} />
-  </View>
-);
 
 const UpcomingEvents: React.FC = () => {
   const { user } = useAuth();

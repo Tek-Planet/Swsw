@@ -47,3 +47,12 @@ export const updateUserProfile = async (
     { merge: true }
   );
 };
+
+export const disableUserAccount = async (uid: string): Promise<void> => {
+    const userDocRef = doc(db, 'users', uid);
+    await setDoc(
+      userDocRef,
+      { status: 'disabled', updatedAt: Timestamp.now() },
+      { merge: true }
+    );
+  };
