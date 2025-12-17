@@ -1,25 +1,25 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  Text,
-  ActivityIndicator,
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
-
-import SwipeableEventCarousel from '@/components/gallery/SwipeableEventCarousel';
-import AlbumPhotoGrid from '@/components/gallery/AlbumPhotoGrid';
-import { Photo } from '@/types/gallery';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  listenAlbumPhotos,
-  getUserAccessibleEventIds,
-  getEventCoverPhotoUrl,
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+
+import AlbumPhotoGrid from '@/components/gallery/AlbumPhotoGrid';
+import SwipeableEventCarousel from '@/components/gallery/SwipeableEventCarousel';
+import {
   ensureDefaultAlbum,
+  getEventCoverPhotoUrl,
+  getUserAccessibleEventIds,
+  listenAlbumPhotos,
 } from '@/lib/services/galleryService';
+import { Photo } from '@/types/gallery';
 
 const GalleryScreen: React.FC = () => {
   const router = useRouter();

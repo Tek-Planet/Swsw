@@ -15,7 +15,7 @@ function assertPositiveInt(n: unknown) {
 }
 
 export const helloWorld = functions.https.onRequest((_req: functions.Request, res: functions.Response) => {
-  res.send("Hello from Firebase new build!");
+  res.send("Hello from Tekplanet!");
 });
 
 export const createCheckoutSession = functions.https.onCall(async (data, context: functions.https.CallableContext) => {

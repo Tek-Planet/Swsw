@@ -1,16 +1,20 @@
 {
   "expo": {
-    "name": "swswpro",
-    "slug": "swswpro",
+    "name": "Grid",
+    "slug": "grid",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "swswpro",
+    "scheme": "grid",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "googleServicesFile": "./GoogleService-Info.plist"
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "bundleIdentifier": "com.techplanet.grid",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "googleServicesFile": "./google-services.json",
@@ -21,8 +25,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.swswpro"
+      "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "static",
@@ -42,12 +45,19 @@
           }
         }
       ],
-      "@react-native-firebase/app",
-      "expo-web-browser"
+      "expo-web-browser",
+     
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "3f6993c4-5f31-42c9-afbe-a246d37ace7e"
+      }
     }
   }
 }
