@@ -1,21 +1,21 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   View,
-  StatusBar,
 } from 'react-native';
 
-import { TopNavBar, Header } from '@/components/Header';
 import EventCard from '@/components/EventCard';
+import { Header, TopNavBar } from '@/components/Header';
 import RecentAlbum from '@/components/event/RecentAlbum';
 import { useAuth } from '@/lib/context/AuthContext';
 import {
-  listenToUserUpcomingEvents,
   listenToRecommendedEvents,
   listenToTrendingEvents,
+  listenToUserUpcomingEvents,
 } from '@/lib/services/eventService';
 import { Event } from '@/types/event';
 
@@ -27,7 +27,7 @@ const HomeScreen: React.FC = () => {
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
         <Header />
         <UpcomingEvents />
-        <RecommendedEvents />
+        {/* <RecommendedEvents /> */}
         <RecentAlbum />
         <TrendingEvents />
       </ScrollView>
@@ -120,7 +120,7 @@ const TrendingEvents: React.FC = () => {
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Trending in NYC</Text>
+      <Text style={styles.sectionTitle}>Trending in Events</Text>
       {trendingEvents.length > 0 ? (
         <ScrollView horizontal contentContainerStyle={styles.horizontalScroll}>
           {trendingEvents.map((event) => (

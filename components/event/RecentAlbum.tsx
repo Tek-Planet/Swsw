@@ -1,11 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
 import { useAuth } from '@/lib/context/AuthContext';
 import { listenToMostRecentEvent } from '@/lib/services/eventService';
 import { getAlbum } from '@/lib/services/galleryService';
 import { Event } from '@/types/event';
 import { Album } from '@/types/gallery';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import { AlbumPreviewCard } from './AlbumPreviewCard';
 
 const RecentAlbum = () => {
@@ -39,7 +39,7 @@ const RecentAlbum = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Your Most Recent Album</Text>
+      <Text style={styles.title}>My Album</Text>
       <AlbumPreviewCard event={event} album={album} />
     </View>
   );

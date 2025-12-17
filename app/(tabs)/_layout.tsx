@@ -9,7 +9,6 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
     index: ['home', 'home-outline'],
     buds: ['people', 'people-outline'],
     events: ['calendar', 'calendar-outline'],
-    gallery: ['images', 'images-outline'],
     profile: ['person', 'person-outline'],
   };
 
@@ -58,7 +57,6 @@ const TabLayout = () => {
       <Tabs.Screen name="index" options={{ title: 'Home', headerShown: false }} />
       <Tabs.Screen name="buds" options={{ title: 'Buds', headerShown: false }} />
       <Tabs.Screen name="events" options={{ title: 'Events', headerShown: false }} />
-      <Tabs.Screen name="gallery" options={{ title: 'Gallery', headerShown: false }} />
       <Tabs.Screen name="profile" options={{ title: 'Profile', headerShown: false }} />
     </Tabs>
   );
