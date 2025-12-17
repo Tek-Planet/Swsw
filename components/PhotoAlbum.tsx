@@ -119,7 +119,7 @@ const PhotoAlbum: React.FC<Props> = ({ eventId }) => {
   };
 
   const handleViewMore = () => {
-    router.push({ pathname: '/(tabs)/gallery', params: { eventId } });
+    router.push({ pathname: '/gallery', params: { eventId } });
   };
 
   const renderHeader = () => (
