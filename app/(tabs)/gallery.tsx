@@ -47,8 +47,8 @@ const GalleryScreen: React.FC = () => {
         setAccessibleEventIds(eventIds);
 
         if (eventIds.length > 0) {
-          const coverPhotos = await Promise.all(eventIds.map(id => getEventCoverPhotoUrl(id)));
-          const items = eventIds.map((id, index) => ({
+          const coverPhotos = await Promise.all(eventIds.map((id: string) => getEventCoverPhotoUrl(id)));
+          const items = eventIds.map((id: string, index: number) => ({
             id,
             coverUrl: coverPhotos[index],
             // You can add event titles here if you have a way to fetch them
@@ -86,7 +86,7 @@ const GalleryScreen: React.FC = () => {
       try {
         setLoadingPhotos(true);
         const defaultAlbumId = await ensureDefaultAlbum(focusedEventId);
-        unsubscribe = listenAlbumPhotos(focusedEventId, defaultAlbumId, (newPhotos) => {
+        unsubscribe = listenAlbumPhotos(focusedEventId, defaultAlbumId, (newPhotos: Photo[]) => {
           setPhotos(newPhotos);
           setLoadingPhotos(false);
         });
