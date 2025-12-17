@@ -1,24 +1,23 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   View,
-  StatusBar,
-  ActivityIndicator,
 } from 'react-native';
-import { getAuth } from 'firebase/auth';
 
-import { TopNavBar, Header } from '@/components/Header';
 import EventCard from '@/components/EventCard';
 import AlbumPreviewCard from '@/components/gallery/AlbumPreviewCard';
+import { Header, TopNavBar } from '@/components/Header';
 import { useAuth } from '@/lib/context/AuthContext';
 import {
-  listenToUserUpcomingEvents,
+  getEvent,
   listenToRecommendedEvents,
   listenToTrendingEvents,
-  getEvent,
+  listenToUserUpcomingEvents,
 } from '@/lib/services/eventService';
 import { getUserAccessibleEventIds } from '@/lib/services/galleryService';
 import { Event } from '@/types/event';
@@ -31,9 +30,10 @@ const HomeScreen: React.FC = () => {
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
         <Header />
         <UpcomingEvents />
-        <RecommendedEvents />
-        <YourAlbums />
         <TrendingEvents />
+        {/* <RecommendedEvents /> */}
+        <YourAlbums />
+        
       </ScrollView>
       {/* <FloatingActionButton /> */}
     </View>
@@ -195,7 +195,7 @@ const TrendingEvents: React.FC = () => {
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Trending in NYC</Text>
+      <Text style={styles.sectionTitle}>Trending</Text>
       {trendingEvents.length > 0 ? (
         <ScrollView horizontal contentContainerStyle={styles.horizontalScroll}>
           {trendingEvents.map((event) => (

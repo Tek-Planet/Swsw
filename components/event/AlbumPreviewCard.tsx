@@ -1,8 +1,8 @@
 
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
 import { Event } from '@/types/event';
 import { Album } from '@/types/gallery';
+import React from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
 interface AlbumPreviewCardProps {
   event: Event;
