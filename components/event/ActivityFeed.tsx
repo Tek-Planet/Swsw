@@ -89,7 +89,7 @@ const ActivityFeed: React.FC<Props> = ({ eventId }) => {
   return (
     <View style={styles.container}>
       <PostComposer eventId={eventId} />
-      {posts.length === 0 ? (
+      {posts?.length === 0 ? (
         <View style={styles.center}>
           <Text style={styles.emptyText}>No posts yet. Be the first!</Text>
         </View>

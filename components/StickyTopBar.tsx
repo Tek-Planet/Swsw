@@ -1,8 +1,8 @@
 
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import React from 'react';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 
 const StickyTopBar = () => {
   const navigation = useNavigation();
@@ -13,12 +13,12 @@ const StickyTopBar = () => {
         <Ionicons name="arrow-back" size={24} color="white" />
       </TouchableOpacity>
       <View style={styles.actions}>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={() => alert('Coming soon')} >
           <Ionicons name="share-outline" size={24} color="white" />
         </TouchableOpacity>
-        <TouchableOpacity>
+        {/* <TouchableOpacity>
           <Ionicons name="ellipsis-vertical" size={24} color="white" />
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </View>
     </View>
   );
