@@ -35,8 +35,8 @@ const PhotoAlbum: React.FC<Props> = ({ eventId }) => {
   const fetchPreview = async () => {
     try {
       setLoading(true);
-      const { previewPhotos } = await getEventPhotoPreview(eventId, 6);
-      setPhotos(previewPhotos);
+      const previewPhotos = await getEventPhotoPreview(eventId);
+      setPhotos(previewPhotos ? [previewPhotos] : []);
     } catch (error) {
       console.error('Failed to fetch photo preview:', error);
     } finally {

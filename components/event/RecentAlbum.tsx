@@ -4,21 +4,22 @@ import { View, Text, StyleSheet } from 'react-native';
 import { useAuth } from '@/lib/context/AuthContext';
 import { listenToMostRecentEvent } from '@/lib/services/eventService';
 import { getAlbum } from '@/lib/services/galleryService';
-import { Event, PhotoAlbum } from '@/types';
-import { AlbumPreviewCard } from '@/components/event/AlbumPreviewCard';
+import { Event } from '@/types/event';
+import { Album } from '@/types/gallery';
+import { AlbumPreviewCard } from './AlbumPreviewCard';
 
 const RecentAlbum = () => {
   const { user } = useAuth();
   const [event, setEvent] = useState<Event | null>(null);
-  const [album, setAlbum] = useState<PhotoAlbum | null>(null);
+  const [album, setAlbum] = useState<Album | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (user) {
       const unsubscribe = listenToMostRecentEvent(user.uid, async (mostRecentEvent) => {
-        if (mostRecentEvent && mostRecentEvent.defaultPhotoAlbumId) {
+        if (mostRecentEvent && mostRecentEvent.linkedAlbumId) {
           setEvent(mostRecentEvent);
-          const fetchedAlbum = await getAlbum(mostRecentEvent.defaultPhotoAlbumId);
+          const fetchedAlbum = await getAlbum(mostRecentEvent.linkedAlbumId);
           setAlbum(fetchedAlbum);
         }
         setLoading(false);
