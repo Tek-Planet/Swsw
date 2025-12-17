@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { PrimaryButton } from '@/components';
@@ -11,10 +11,19 @@ import { createOrUpdateUserProfile } from '@/lib/firebase/userProfileService';
 const ProfileBasicsScreen = () => {
   const router = useRouter();
   const { user } = useAuth();
-  const [fullName, setFullName] = useState('');
-  const [username, setUsername] = useState('');
-  const [bio, setBio] = useState('');
+  
+  const [fullName, setFullName] = useState(user?.displayName || '');
+  const [username, setUsername] = useState(user?.username || '');
+  const [bio, setBio] = useState(user?.bio || '');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setFullName(user.displayName || '');
+      setUsername(user.username || '');
+      setBio(user.bio || '');
+    }
+  }, [user]);
 
   const handleNext = async () => {
     if (!user) return;
@@ -42,7 +51,7 @@ const ProfileBasicsScreen = () => {
     <OnboardingContainer>
       <View style={styles.content}>
         <Text style={styles.title}>The Basics</Text>
-        <Text style={styles.subtitle}>Let’s get to know you.</Text>
+        <Text style={styles.subtitle}>Confirm your details.</Text>
         <FormTextInput
           label="Full Name"
           placeholder="Your full name"

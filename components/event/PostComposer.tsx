@@ -1,7 +1,9 @@
 
+import { getUserProfile } from '@/lib/firebase/userProfileService';
 import { createEventPost } from '@/lib/services/postService';
+import { UserProfile } from '@/types';
 import { getAuth } from 'firebase/auth';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -19,18 +21,27 @@ type Props = {
 const PostComposer: React.FC<Props> = ({ eventId }) => {
   const [text, setText] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [authorProfile, setAuthorProfile] = useState<UserProfile | null>(null);
   const auth = getAuth();
-  const user = auth.currentUser;
+  const currentUser = auth.currentUser;
+
+  useEffect(() => {
+    // Fetch the user's profile from Firestore when the component mounts
+    if (currentUser) {
+      getUserProfile(currentUser.uid).then(setAuthorProfile);
+    }
+  }, [currentUser]); // Re-run if the user changes
 
   const handlePost = async () => {
-    if (!user || text.trim().length === 0) return;
+    if (!currentUser || !authorProfile || text.trim().length === 0) return;
 
     setIsSending(true);
     try {
+      // Use the profile from Firestore as the source of truth
       await createEventPost(eventId, text, {
-        uid: user.uid,
-        name: user.displayName || 'Anonymous',
-        avatarUrl: user.photoURL || undefined,
+        uid: currentUser.uid,
+        name: authorProfile.displayName || 'Anonymous',
+        avatarUrl: authorProfile.photoUrl || undefined,
       });
       setText(''); // Clear input on success
     } catch (error) {
@@ -41,20 +52,24 @@ const PostComposer: React.FC<Props> = ({ eventId }) => {
     }
   };
 
+  // Determine if the post button should be enabled
+  const canPost = !isSending && text.trim().length > 0 && !!authorProfile;
+
   return (
     <View style={styles.container}>
       <TextInput
         style={styles.input}
-        placeholder="Share something..."
+        placeholder={authorProfile ? "Share something..." : "Authenticating..."}
         placeholderTextColor="#A8A8A8"
         value={text}
         onChangeText={setText}
         multiline
+        editable={!!authorProfile} // Disable input while profile is loading
       />
       <TouchableOpacity
-        style={styles.button}
+        style={[styles.button, !canPost && styles.buttonDisabled]}
         onPress={handlePost}
-        disabled={isSending || text.trim().length === 0}
+        disabled={!canPost}
       >
         {isSending ? (
           <ActivityIndicator size="small" color="#fff" />
@@ -91,6 +106,10 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  buttonDisabled: {
+    backgroundColor: '#5a5a5a',
+    opacity: 0.7,
   },
 });
 
