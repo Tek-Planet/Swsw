@@ -14,7 +14,7 @@ import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { getProfilesForUserIds, listenToEvent } from '@/lib/services/eventService';
 import { Event } from '@/types/event';
 
-import ActivityFeed from '@/components/ActivityFeed';
+import ActivityFeed from '@/components/event/ActivityFeed';
 import DescriptionBlock from '@/components/DescriptionBlock';
 import EventHeroCard from '@/components/EventHeroCard';
 import EventMetaCard from '@/components/EventMetaCard';
@@ -111,7 +111,7 @@ const EventDetailScreen: React.FC = () => {
         <DescriptionBlock text={event.description} />
         <TicketHoldersList ticketHolders={memoizedTicketHolders} total={totalTicketHolders} />
         <PhotoAlbum eventId={id} />
-        <ActivityFeed groupId="123" />
+        <ActivityFeed eventId={id} />
       </ScrollView>
       <FloatingRSVPBar eventId={id} hasTicket={hasTicket} />
     </View>
