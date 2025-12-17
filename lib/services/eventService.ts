@@ -176,3 +176,33 @@ export function listenToTrendingEvents(
 
   return unsubscribe;
 }
+
+export function listenToMostRecentEvent(
+  uid: string,
+  callback: (event: Event | null) => void
+): () => void {
+  const userEventsRef = collection(db, 'users', uid, 'user_events');
+  const q = query(
+    userEventsRef,
+    orderBy('eventDate', 'desc'),
+    limit(1)
+  );
+
+  return onSnapshot(q, async (snapshot) => {
+    if (snapshot.empty) {
+      callback(null);
+      return;
+    }
+
+    const userEvent = snapshot.docs[0].data();
+    const eventDocRef = doc(db, 'events', userEvent.eventId);
+    const eventDoc = await getDoc(eventDocRef);
+
+    if (eventDoc.exists()) {
+      const eventData = eventFromDoc(eventDoc as QueryDocumentSnapshot<DocumentData>);
+      callback(eventData);
+    } else {
+      callback(null);
+    }
+  });
+}

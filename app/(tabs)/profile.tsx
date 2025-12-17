@@ -1,14 +1,12 @@
 
-import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
-import ProfileHeader from '@/components/profile/ProfileHeader';
-import MySelfies from '@/components/profile/MySelfies';
 import ProfileDetails from '@/components/profile/ProfileDetails';
-import LinkedAccounts from '@/components/profile/LinkedAccounts';
+import ProfileHeader from '@/components/profile/ProfileHeader';
 import ProfileSettings from '@/components/profile/ProfileSettings';
 import { useAuth } from '@/lib/context/AuthContext';
 import { listenToUserProfile } from '@/lib/firebase/userProfileService';
 import { UserProfile } from '@/types';
+import React, { useEffect, useState } from 'react';
+import { ScrollView, StyleSheet } from 'react-native';
 
 const ProfileScreen = () => {
   const { user, signOut } = useAuth();
@@ -28,9 +26,9 @@ const ProfileScreen = () => {
   return (
     <ScrollView style={styles.container}>
       <ProfileHeader userProfile={userProfile} />
-      <MySelfies />
+      {/* <MySelfies /> */}
       <ProfileDetails userProfile={userProfile} />
-      <LinkedAccounts />
+      {/* <LinkedAccounts /> */}
       <ProfileSettings onSignOut={signOut} />
     </ScrollView>
   );
