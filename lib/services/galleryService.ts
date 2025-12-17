@@ -1,101 +1,171 @@
 
-import { doc, getDoc, collection, query, where, onSnapshot, addDoc, serverTimestamp, getDocs, orderBy, limit } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  limit,
+  getDocs,
+  onSnapshot,
+  Unsubscribe,
+  doc,
+  addDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebaseConfig';
 import { Album, Photo } from '@/types/gallery';
 
-export const getAlbum = async (albumId: string): Promise<Album | null> => {
-  try {
-    const albumRef = doc(db, 'albums', albumId);
-    const albumSnap = await getDoc(albumRef);
+/**
+ * Listens for real-time updates to the albums of a specific event.
+ */
+export function listenEventAlbums(
+  eventId: string,
+  callback: (albums: Album[]) => void
+): Unsubscribe {
+  const albumsQuery = query(
+    collection(db, 'events', eventId, 'albums'),
+    where('isActive', '==', true),
+    orderBy('sortOrder', 'asc')
+  );
 
-    if (albumSnap.exists()) {
-      return albumSnap.data() as Album;
-    }
-    return null;
-  } catch (error) {
-    console.error('Error fetching album:', error);
-    throw error;
-  }
-};
+  return onSnapshot(albumsQuery, (snapshot) => {
+    const albums = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Album));
+    callback(albums);
+  });
+}
 
-export const ensureDefaultAlbum = async (eventId: string): Promise<string> => {
-    const albumsRef = collection(db, 'events', eventId, 'albums');
-    const q = query(albumsRef, where('title', '==', 'Default Album'));
-    const querySnapshot = await getDocs(q);
-
-    if (!querySnapshot.empty) {
-        return querySnapshot.docs[0].id;
-    } else {
-        const newAlbumRef = await addDoc(albumsRef, {
-            title: 'Default Album',
-            createdAt: serverTimestamp(),
-            isActive: true,
-            sortOrder: 0,
-        });
-        return newAlbumRef.id;
-    }
-};
-
-export const getEventCoverPhotoUrl = async (eventId: string): Promise<string | null> => {
-    // This is a placeholder.
-    // In a real app, you might fetch event details that include a cover photo URL.
-    console.log("Fetching cover photo for event:", eventId)
-    return null;
-};
-
-export const getUserAccessibleEventIds = async (userId: string): Promise<string[]> => {
-    const ticketsRef = collection(db, 'tickets');
-    const q = query(ticketsRef, where('userId', '==', userId));
-    const querySnapshot = await getDocs(q);
-    const eventIds = querySnapshot.docs.map(doc => doc.data().eventId);
-    return [...new Set(eventIds)] as string[];
-};
-
-export const listenAlbumPhotos = (
+/**
+ * Listens for real-time updates to the photos within a specific album.
+ */
+export function listenAlbumPhotos(
   eventId: string,
   albumId: string,
   callback: (photos: Photo[]) => void
-): (() => void) => {
-  const photosRef = collection(db, 'events', eventId, 'albums', albumId, 'photos');
-  const q = query(photosRef);
+): Unsubscribe {
+  const photosQuery = query(
+    collection(db, 'events', eventId, 'albums', albumId, 'photos'),
+    orderBy('createdAt', 'desc')
+  );
 
-  const unsubscribe = onSnapshot(q, (querySnapshot) => {
-    const photos: Photo[] = [];
-    querySnapshot.forEach((doc) => {
-      photos.push({ id: doc.id, ...doc.data() } as Photo);
-    });
+  return onSnapshot(photosQuery, (snapshot) => {
+    const photos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Photo));
     callback(photos);
   });
-
-  return unsubscribe;
-};
-
-export const createPhotoDoc = async (eventId: string, albumId: string, photoData: Omit<Photo, 'id'>) => {
-    const photosRef = collection(db, 'events', eventId, 'albums', albumId, 'photos');
-    await addDoc(photosRef, photoData);
 }
 
-export const getEventPhotoPreview = async (eventId: string): Promise<Photo | null> => {
-    try {
-        const albumId = await ensureDefaultAlbum(eventId);
-        if (!albumId) {
-            console.log("No default album found for event:", eventId);
-            return null;
-        }
+/**
+ * Fetches a preview of photos for an event, including the first few albums and initial photos.
+ */
+export async function getEventPhotoPreview(
+  eventId: string,
+  limitPhotos: number = 6
+): Promise<{ albums: Album[]; previewPhotos: Photo[]; initialAlbumId?: string }> {
+  const albumsQuery = query(
+    collection(db, 'events', eventId, 'albums'),
+    where('isActive', '==', true),
+    orderBy('sortOrder', 'asc'),
+    limit(3)
+  );
 
-        const photosRef = collection(db, 'events', eventId, 'albums', albumId, 'photos');
-        const q = query(photosRef, orderBy('createdAt', 'desc'), limit(1));
+  const albumSnapshot = await getDocs(albumsQuery);
+  if (albumSnapshot.empty) {
+    return { albums: [], previewPhotos: [], initialAlbumId: undefined };
+  }
 
-        const querySnapshot = await getDocs(q);
+  const albums = albumSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Album));
+  const initialAlbumId = albums[0].id;
 
-        if (!querySnapshot.empty) {
-            const doc = querySnapshot.docs[0];
-            return { id: doc.id, ...doc.data() } as Photo;
-        } else {
-            return null;
-        }
-    } catch (error) {
-        console.error("Error fetching event photo preview:", error);
-        return null;
-    }
+  const photosQuery = query(
+    collection(db, 'events', eventId, 'albums', initialAlbumId, 'photos'),
+    orderBy('createdAt', 'desc'),
+    limit(limitPhotos)
+  );
+
+  const photoSnapshot = await getDocs(photosQuery);
+  const previewPhotos = photoSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Photo));
+
+  return { albums, previewPhotos, initialAlbumId };
+}
+
+/**
+ * Ensures a default album exists for an event, creating one if necessary.
+ * Returns the ID of the default album.
+ */
+export async function ensureDefaultAlbum(eventId: string): Promise<string> {
+  const albumsRef = collection(db, 'events', eventId, 'albums');
+  const q = query(albumsRef, where('title', '==', 'Event Photos'), limit(1));
+  const snapshot = await getDocs(q);
+
+  if (!snapshot.empty) {
+    // Default album already exists
+    return snapshot.docs[0].id;
+  } else {
+    // Create default album
+    const albumData = {
+      title: 'Event Photos',
+      isActive: true,
+      sortOrder: 0,
+      createdAt: serverTimestamp(),
+      photoCount: 0,
+      coverPhotoUrl: '',
+    };
+    const docRef = await addDoc(albumsRef, albumData);
+    return docRef.id;
+  }
+}
+
+/**
+ * Creates a new photo document in a specific album.
+ */
+export async function createPhotoDoc(
+  eventId: string,
+  albumId: string,
+  photoData: Omit<Photo, 'id'>
+): Promise<void> {
+  const photosRef = collection(db, 'events', eventId, 'albums', albumId, 'photos');
+  await addDoc(photosRef, photoData);
+}
+
+/**
+ * Retrieves a list of event IDs for which the user has a paid order.
+ */
+export async function getUserAccessibleEventIds(uid: string): Promise<string[]> {
+  const ordersRef = collection(db, 'users', uid, 'orders');
+  const q = query(ordersRef, where('status', '==', 'paid'), orderBy('createdAt', 'desc'));
+  const snapshot = await getDocs(q);
+
+  if (snapshot.empty) {
+    return [];
+  }
+
+  const eventIds = snapshot.docs.map(doc => doc.data().eventId as string);
+  // Return unique event IDs
+  return [...new Set(eventIds)];
+}
+
+/**
+* Gets the cover photo URL for a given event (first photo of the default album).
+*/
+export async function getEventCoverPhotoUrl(eventId: string): Promise<string | null> {
+  try {
+      const albumId = await ensureDefaultAlbum(eventId);
+
+      const photosQuery = query(
+          collection(db, 'events', eventId, 'albums', albumId, 'photos'),
+          orderBy('createdAt', 'desc'),
+          limit(1)
+      );
+
+      const photoSnapshot = await getDocs(photosQuery);
+
+      if (photoSnapshot.empty) {
+          return null;
+      }
+
+      const photo = photoSnapshot.docs[0].data();
+      return photo.thumbUrl || photo.url || null;
+  } catch (error) {
+      console.error(`Failed to get cover photo for event ${eventId}:`, error);
+      return null;
+  }
 }

@@ -10,7 +10,6 @@ import {
 
 import EventCard from '@/components/EventCard';
 import { Header, TopNavBar } from '@/components/Header';
-import RecentAlbum from '@/components/event/RecentAlbum';
 import { useAuth } from '@/lib/context/AuthContext';
 import {
   listenToRecommendedEvents,
@@ -28,7 +27,6 @@ const HomeScreen: React.FC = () => {
         <Header />
         <UpcomingEvents />
         {/* <RecommendedEvents /> */}
-        <RecentAlbum />
         <TrendingEvents />
       </ScrollView>
       {/* <FloatingActionButton /> */}
