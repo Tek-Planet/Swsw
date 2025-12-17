@@ -36,6 +36,22 @@ const eventFromDoc = (doc: QueryDocumentSnapshot<DocumentData>): Event => {
   };
 };
 
+export async function getEvent(eventId: string): Promise<Event | null> {
+    try {
+      const eventRef = getEventDocRef(eventId);
+      const docSnap = await getDoc(eventRef);
+  
+      if (docSnap.exists()) {
+        return eventFromDoc(docSnap as QueryDocumentSnapshot<DocumentData>);
+      } else {
+        return null;
+      }
+    } catch (error) {
+      console.error("Error fetching event:", error);
+      return null;
+    }
+  }
+
 export async function getProfilesForUserIds(userIds: string[]): Promise<Map<string, UserProfile>> {
   const profiles = new Map<string, UserProfile>();
   if (!userIds || userIds.length === 0) return profiles;

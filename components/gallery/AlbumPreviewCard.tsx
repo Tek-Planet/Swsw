@@ -1,53 +1,51 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+
 import { Link } from 'expo-router';
-import { Album } from '@/data/gallery';
+import React from 'react';
+import { Image, StyleSheet, Text, View } from 'react-native';
 
 interface AlbumPreviewCardProps {
-  album: Album;
+  eventId: string;
+  title: string;
+  coverImageUrl: string | null;
+  photoCount: number;
 }
 
-const AlbumPreviewCard: React.FC<AlbumPreviewCardProps> = ({ album }) => {
-
+const AlbumPreviewCard: React.FC<AlbumPreviewCardProps> = ({ eventId, title, coverImageUrl, photoCount }) => {
   return (
-    <Link href={{ pathname: '/gallery', params: { albumId: album.id } }} asChild>
-      <TouchableOpacity>
-        <View style={styles.card}>
-          <Image source={{ uri: album.thumbnail }} style={styles.thumbnail} />
-          <View style={styles.textContainer}>
-            <Text style={styles.title}>{album.title}</Text>
-            <Text style={styles.subtitle}>{`${album.photos.length} photos · ${album.chats} chats`}</Text>
-          </View>
+    <Link href={{ pathname: '/gallery', params: { eventId } }} asChild>
+      <View style={styles.card}>
+        <Image source={{ uri: coverImageUrl || 'https://via.placeholder.com/150' }} style={styles.image} />
+        <View style={styles.textContainer}>
+          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.subtitle}>
+            {photoCount > 0 ? 'View your photos' : 'Photos coming soon'}
+          </Text>
         </View>
-      </TouchableOpacity>
+      </View>
     </Link>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
-    flexDirection: 'row',
     backgroundColor: '#1a1a1a',
-    borderRadius: 15,
-    padding: 15,
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  thumbnail: {
-    width: 80,
-    height: 80,
     borderRadius: 10,
+    overflow: 'hidden',
+  },
+  image: {
+    width: '100%',
+    height: 150,
   },
   textContainer: {
-    marginLeft: 15,
+    padding: 10,
   },
   title: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
   },
   subtitle: {
-    color: '#aaa',
+    color: '#999',
     fontSize: 14,
     marginTop: 5,
   },

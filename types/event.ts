@@ -36,6 +36,9 @@ export interface Event {
   linkedAlbumId?: string;
   createdAt: Date;
   updatedAt: Date;
+  photoCount?: number;
+  latestPhotoThumbUrl?: string;
+  latestPhotoAt?: any;
 }
 
 export type EventAttendeeStatus = 'going' | 'maybe' | 'notGoing';
