@@ -1,21 +1,26 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   View,
+  StatusBar,
+  ActivityIndicator,
 } from 'react-native';
+import { getAuth } from 'firebase/auth';
 
+import { TopNavBar, Header } from '@/components/Header';
 import EventCard from '@/components/EventCard';
-import { Header, TopNavBar } from '@/components/Header';
+import AlbumPreviewCard from '@/components/gallery/AlbumPreviewCard';
 import { useAuth } from '@/lib/context/AuthContext';
 import {
+  listenToUserUpcomingEvents,
   listenToRecommendedEvents,
   listenToTrendingEvents,
-  listenToUserUpcomingEvents,
+  getEvent,
 } from '@/lib/services/eventService';
+import { getUserAccessibleEventIds } from '@/lib/services/galleryService';
 import { Event } from '@/types/event';
 
 const HomeScreen: React.FC = () => {
@@ -26,10 +31,82 @@ const HomeScreen: React.FC = () => {
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
         <Header />
         <UpcomingEvents />
-        {/* <RecommendedEvents /> */}
+        <RecommendedEvents />
+        <YourAlbums />
         <TrendingEvents />
       </ScrollView>
       {/* <FloatingActionButton /> */}
+    </View>
+  );
+};
+
+const YourAlbums: React.FC = () => {
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+
+  useEffect(() => {
+    const fetchAlbumData = async () => {
+      if (!user) return;
+
+      try {
+        const eventIds = await getUserAccessibleEventIds(user.uid);
+
+        if (eventIds.length === 0) {
+          setLoading(false);
+          return;
+        }
+
+        const events: (Event | null)[] = await Promise.all(eventIds.map((id: string) => getEvent(id)));
+        const validEvents = events.filter((e): e is Event => e !== null);
+
+        const eventsWithPhotos = validEvents.filter(e => e.photoCount && e.photoCount > 0);
+        if (eventsWithPhotos.length > 0) {
+          eventsWithPhotos.sort((a, b) => new Date(b.latestPhotoAt).getTime() - new Date(a.latestPhotoAt).getTime());
+          setSelectedEvent(eventsWithPhotos[0]);
+        } else {
+          const upcomingEvents = validEvents.filter(e => new Date(e.startTime).getTime() > Date.now());
+          if (upcomingEvents.length > 0) {
+            setSelectedEvent(upcomingEvents[0]);
+          } else {
+            setSelectedEvent(validEvents[0] || null);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching album data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAlbumData();
+  }, [user]);
+
+  if (loading) {
+    return (
+      <View style={styles.section}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
+  if (!selectedEvent) {
+    return (
+      <View style={styles.section}>
+        <Text style={styles.placeholderText}>Your albums will appear here once you attend an event.</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Your Albums</Text>
+      <AlbumPreviewCard
+        eventId={selectedEvent.id}
+        title={selectedEvent.title}
+        coverImageUrl={selectedEvent.coverImageUrl || selectedEvent.latestPhotoThumbUrl || null}
+        photoCount={selectedEvent.photoCount || 0}
+      />
     </View>
   );
 };
@@ -118,7 +195,7 @@ const TrendingEvents: React.FC = () => {
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Trending in Events</Text>
+      <Text style={styles.sectionTitle}>Trending in NYC</Text>
       {trendingEvents.length > 0 ? (
         <ScrollView horizontal contentContainerStyle={styles.horizontalScroll}>
           {trendingEvents.map((event) => (
