@@ -19,10 +19,14 @@ type Props = {
 const PostItem: React.FC<Props> = ({ post, onLikeToggle }) => {
   return (
     <View style={styles.container}>
-      <Image
-        source={post.authorAvatarUrl ? { uri: post.authorAvatarUrl } : require('@/assets/images/avatar_placeholder.png')}
-        style={styles.avatar}
-      />
+      {post.authorAvatarUrl ? (
+        <Image
+          source={{ uri: post.authorAvatarUrl }}
+          style={styles.avatar}
+        />
+      ) : (
+        <Ionicons name="person-circle-outline" size={40} color="#A8A8A8" style={styles.avatar} />
+      )}
       <View style={styles.content}>
         <View style={styles.header}>
           <Text style={styles.authorName}>{post.authorName}</Text>
