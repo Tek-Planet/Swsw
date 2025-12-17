@@ -1,5 +1,5 @@
 
-import { PrimaryButton, SecondaryButton, ToggleSwitch } from '@/components';
+import { PrimaryButton, SecondaryButton } from '@/components';
 import SectionCard from '@/components/SectionCard';
 import { useAuth } from '@/lib/context/AuthContext';
 import { disableUserAccount } from '@/lib/firebase/userProfileService';
@@ -41,19 +41,19 @@ const ProfileSettings = ({ onSignOut }: { onSignOut: () => void }) => {
   return (
     <SectionCard>
       <Text style={styles.title}>Settings</Text>
-      <View style={styles.settingItem}>
+      {/* <View style={styles.settingItem}>
         <Text style={styles.settingLabel}>Private Account</Text>
         <ToggleSwitch value={isPrivate} onValueChange={setIsPrivate} />
-      </View>
-      <View style={styles.settingItem}>
+      </View> */}
+      {/* <View style={styles.settingItem}>
         <Text style={styles.settingLabel}>Push Notifications</Text>
         <ToggleSwitch value={notifications} onValueChange={setNotifications} />
-      </View>
+      </View> */}
       <View style={styles.buttonContainer}>
       <PrimaryButton title="Logout" onPress={onSignOut} />
       </View>
        <View style={styles.buttonContainer}>
-      <SecondaryButton title="Delete Account" onPress={handleDisableAccount} />
+      <SecondaryButton title="Delete Account" onPress={handleDisableAccount} color="red" />
       </View>
     </SectionCard>
   );
