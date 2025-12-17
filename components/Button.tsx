@@ -9,6 +9,10 @@ interface ButtonProps {
   loading?: boolean;
 }
 
+interface SecondaryButtonProps extends ButtonProps {
+    color?: 'red' | 'blue';
+}
+
 const PrimaryButton: React.FC<ButtonProps> = ({ title, onPress, disabled, loading }) => {
   return (
     <TouchableOpacity 
@@ -25,17 +29,18 @@ const PrimaryButton: React.FC<ButtonProps> = ({ title, onPress, disabled, loadin
   );
 };
 
-const SecondaryButton: React.FC<ButtonProps> = ({ title, onPress, disabled, loading }) => {
+const SecondaryButton: React.FC<SecondaryButtonProps> = ({ title, onPress, disabled, loading, color = 'blue' }) => {
+    const buttonColor = color === 'red' ? '#ff3b30' : '#6c63ff';
     return (
       <TouchableOpacity 
-        style={[styles.button, styles.secondary, (disabled || loading) && styles.disabled]} 
+        style={[styles.button, styles.secondary, { borderColor: buttonColor }, (disabled || loading) && styles.disabled]} 
         onPress={onPress} 
         disabled={disabled || loading}
       >
         {loading ? (
           <ActivityIndicator color="#6c63ff" />
         ) : (
-          <Text style={[styles.text, styles.secondaryText]}>{title}</Text>
+          <Text style={[styles.text, styles.secondaryText, { color: buttonColor }]}>{title}</Text>
         )}
       </TouchableOpacity>
     );
@@ -55,7 +60,6 @@ const styles = StyleSheet.create({
   secondary: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#6c63ff',
   },
   disabled: {
     backgroundColor: '#ccc',

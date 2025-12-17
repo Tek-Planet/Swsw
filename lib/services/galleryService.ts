@@ -1,5 +1,5 @@
 
-import { doc, getDoc, collection, query, where, onSnapshot, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, onSnapshot, addDoc, serverTimestamp, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebaseConfig';
 import { Album, Photo } from '@/types/gallery';
 
@@ -76,6 +76,26 @@ export const createPhotoDoc = async (eventId: string, albumId: string, photoData
 }
 
 export const getEventPhotoPreview = async (eventId: string): Promise<Photo | null> => {
-    console.log("getEventPhotoPreview for eventId", eventId);
-    return null;
+    try {
+        const albumId = await ensureDefaultAlbum(eventId);
+        if (!albumId) {
+            console.log("No default album found for event:", eventId);
+            return null;
+        }
+
+        const photosRef = collection(db, 'events', eventId, 'albums', albumId, 'photos');
+        const q = query(photosRef, orderBy('createdAt', 'desc'), limit(1));
+
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+            const doc = querySnapshot.docs[0];
+            return { id: doc.id, ...doc.data() } as Photo;
+        } else {
+            return null;
+        }
+    } catch (error) {
+        console.error("Error fetching event photo preview:", error);
+        return null;
+    }
 }
