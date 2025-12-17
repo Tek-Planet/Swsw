@@ -1,21 +1,20 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  ActivityIndicator,
-  TouchableOpacity,
-} from 'react-native';
-import { getAuth } from 'firebase/auth';
 import { Ionicons } from '@expo/vector-icons';
+import { getAuth } from 'firebase/auth';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  StyleSheet,
+  Text,
+  View
+} from 'react-native';
 
 import {
-  userHasEventAccess,
+  getPostLikeStatusForUser,
   listenEventPosts,
   togglePostLike,
-  getPostLikeStatusForUser,
+  userHasEventAccess,
 } from '@/lib/services/postService';
 import { Post } from '@/types/post';
 import PostComposer from './PostComposer';

@@ -1,16 +1,16 @@
 
+import { createEventPost } from '@/lib/services/postService';
+import { getAuth } from 'firebase/auth';
 import React, { useState } from 'react';
 import {
-  View,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Text,
   ActivityIndicator,
   Alert,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { getAuth } from 'firebase/auth';
-import { createEventPost } from '@/lib/services/postService';
 
 type Props = {
   eventId: string;
