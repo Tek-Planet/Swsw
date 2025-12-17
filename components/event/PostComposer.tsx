@@ -1,18 +1,18 @@
 
-import React, { useState, useEffect } from 'react';
+import { getUserProfile } from '@/lib/firebase/userProfileService';
+import { createEventPost } from '@/lib/services/postService';
+import { UserProfile } from '@/types';
+import { getAuth } from 'firebase/auth';
+import React, { useEffect, useState } from 'react';
 import {
-  View,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Text,
   ActivityIndicator,
   Alert,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { getAuth } from 'firebase/auth';
-import { createEventPost } from '@/lib/services/postService';
-import { getUserProfile } from '@/lib/firebase/userProfileService';
-import { UserProfile } from '@/types';
 
 type Props = {
   eventId: string;
@@ -41,7 +41,7 @@ const PostComposer: React.FC<Props> = ({ eventId }) => {
       await createEventPost(eventId, text, {
         uid: currentUser.uid,
         name: authorProfile.displayName || 'Anonymous',
-        avatarUrl: authorProfile.photoURL || undefined,
+        avatarUrl: authorProfile.photoUrl || undefined,
       });
       setText(''); // Clear input on success
     } catch (error) {
