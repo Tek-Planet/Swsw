@@ -17,7 +17,7 @@ export default () => ({
         }
       },
       android: {
-        googleServicesFile: "./google-services.json",
+        package: "com.techplanet.grid",
         adaptiveIcon: {
           backgroundColor: "#FFFFFF",
           foregroundImage: "./assets/images/android-icon-foreground.png",
