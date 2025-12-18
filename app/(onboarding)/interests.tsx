@@ -1,11 +1,11 @@
 
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
-import { PrimaryButton, ChipSelector, SecondaryButton } from '@/components';
+import { ChipSelector, PrimaryButton, SecondaryButton } from '@/components';
 import OnboardingContainer from '@/components/OnboardingContainer';
 import { useAuth } from '@/lib/context/AuthContext';
 import { createOrUpdateUserProfile } from '@/lib/firebase/userProfileService';
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 
 const interestsList = [
   'Music',
@@ -69,7 +69,7 @@ const InterestsScreen = () => {
         />
         <SecondaryButton
           title="Skip for now"
-          onPress={() => router.push('/(onboarding)/permissions')}
+          onPress={() => router.push('/(onboarding)/onboarding-done')}
         />
       </View>
     </OnboardingContainer>

@@ -216,6 +216,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
+   
   },
   scrollViewContent: {
     paddingBottom: 80, // To avoid being hidden by the FAB

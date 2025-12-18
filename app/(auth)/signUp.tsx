@@ -1,14 +1,13 @@
 
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
-import AuthScreenContainer from './components/AuthScreenContainer';
-import AuthTextInput from './components/AuthTextInput';
-import AuthButton from './components/AuthButton';
-import SecondaryTextButton from './components/SecondaryTextButton';
-import SocialLoginButton from './components/SocialLoginButton';
 import { ThemedText } from '@/components/themed-text';
 import { useAuth } from '@/lib/context/AuthContext';
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import AuthButton from './components/AuthButton';
+import AuthScreenContainer from './components/AuthScreenContainer';
+import AuthTextInput from './components/AuthTextInput';
+import SecondaryTextButton from './components/SecondaryTextButton';
 
 const SignUpScreen = () => {
   const router = useRouter();
@@ -39,11 +38,11 @@ const SignUpScreen = () => {
           <ThemedText type="title" style={styles.title}>Join the party.</ThemedText>
         </View>
 
-        <View style={styles.socialLoginContainer}>
+        {/* <View style={styles.socialLoginContainer}>
           <SocialLoginButton icon="logo-apple" text="Continue with Apple" onPress={() => {}} />
           <SocialLoginButton icon="logo-google" text="Continue with Google" onPress={() => {}} />
           <ThemedText style={styles.socialLoginText}>or create an account with email</ThemedText>
-        </View>
+        </View> */}
 
         <View style={styles.formContainer}>
           <AuthTextInput

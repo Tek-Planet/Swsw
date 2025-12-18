@@ -1,14 +1,14 @@
 
+import { AppHeader } from '@/components/Header';
+import { Ionicons } from '@expo/vector-icons';
+import { Link } from 'expo-router';
 import React from 'react';
 import {
-  View,
-  Text,
   StyleSheet,
-  FlatList,
+  Text,
   TouchableOpacity,
+  View
 } from 'react-native';
-import { Link } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 
 interface Bud {
     id: string;
@@ -45,13 +45,17 @@ const BudsHomePage: React.FC = () => {
 
   return (
       <View style={styles.container}>
-        <Text style={styles.header}>Your Buds</Text>
-        <FlatList
+        <AppHeader title="Buds"/>
+        <View style={styles.placeholderContainer}>
+          <Text style={styles.placeholderText}>Coming Soon.</Text>
+          
+        </View>
+        {/* <FlatList
           data={budsData}
           renderItem={renderGroupCard}
           keyExtractor={(item) => item.id}
-        />
-        <Link href="/group/create" asChild>
+        /> */}
+        <Link href="/" asChild>
             <TouchableOpacity style={styles.newGroupButton}>
               <Ionicons name="add" size={30} color="white" />
             </TouchableOpacity>
@@ -109,6 +113,19 @@ const styles = StyleSheet.create({
       shadowOpacity: 0.3,
       shadowRadius: 4,
     },
+    placeholderContainer: {
+      height: 100,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: '#1a1a1a',
+      borderRadius: 10,
+      marginHorizontal: 20,
+    },
+    placeholderText: {
+      color: '#999',
+      fontSize: 22,
+    },
+   
   });
   
   export default BudsHomePage;

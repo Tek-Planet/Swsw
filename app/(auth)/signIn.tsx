@@ -8,13 +8,12 @@ import AuthButton from './components/AuthButton';
 import AuthScreenContainer from './components/AuthScreenContainer';
 import AuthTextInput from './components/AuthTextInput';
 import SecondaryTextButton from './components/SecondaryTextButton';
-import SocialLoginButton from './components/SocialLoginButton';
 
 const SignInScreen = () => {
   const router = useRouter();
   const { signIn } = useAuth();
-  const [email, setEmail] = useState('tek@gmail.com');
-  const [password, setPassword] = useState('Password@1012');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -67,11 +66,11 @@ const SignInScreen = () => {
         />
       </View>
 
-      <View style={styles.socialLoginContainer}>
+      {/* <View style={styles.socialLoginContainer}>
         <ThemedText style={styles.socialLoginText}>or continue with</ThemedText>
         <SocialLoginButton icon="logo-apple" text="Continue with Apple" onPress={() => {}} />
         <SocialLoginButton icon="logo-google" text="Continue with Google" onPress={() => {}} />
-      </View>
+      </View> */}
 
       <SecondaryTextButton
         text="New here?"

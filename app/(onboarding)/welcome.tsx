@@ -1,9 +1,9 @@
 
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
 import { PrimaryButton } from '@/components';
 import OnboardingContainer from '@/components/OnboardingContainer';
+import { useRouter } from 'expo-router';
+import React from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
 const WelcomeScreen = () => {
   const router = useRouter();
@@ -11,7 +11,7 @@ const WelcomeScreen = () => {
   return (
     <OnboardingContainer>
       <View style={styles.content}>
-        <Text style={styles.title}>Welcome to Vibe</Text>
+        <Text style={styles.title}>Welcome to GridEvents</Text>
         <Text style={styles.subtitle}>
           The best place to find and create amazing experiences.
         </Text>

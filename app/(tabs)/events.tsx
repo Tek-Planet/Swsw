@@ -1,9 +1,9 @@
 
-import React from 'react';
-import { View, Text, StyleSheet, StatusBar, FlatList, TouchableOpacity } from 'react-native';
-import { Link } from 'expo-router';
 import { AppHeader } from '@/components/Header';
 import { Ionicons } from '@expo/vector-icons';
+import { Link } from 'expo-router';
+import React from 'react';
+import { StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const events = [
   { id: '1', title: 'Hangout at the Park', date: 'Saturday, Nov 22' },
@@ -28,13 +28,18 @@ const EventsScreen: React.FC = () => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       <AppHeader title="Events"/>
-      <FlatList
+
+      <View style={styles.placeholderContainer}>
+          <Text style={styles.placeholderText}>Coming Soon.</Text>
+          
+        </View>
+      {/* <FlatList
         data={events}
         renderItem={renderEvent}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.listContainer}
-      />
-        <Link href={{pathname: '/event/create'}} asChild>
+      /> */}
+        <Link href={{pathname: '/'}} asChild>
             <TouchableOpacity
                 style={styles.fab}
             >
@@ -49,6 +54,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#1a1a1a',
+    padding: 20,
   },
   listContainer: {
     paddingHorizontal: 20,
@@ -89,6 +95,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#6c63ff',
     borderRadius: 28,
     elevation: 8,
+  },
+  placeholderContainer: {
+    height: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#1a1a1a',
+    borderRadius: 10,
+    marginHorizontal: 20,
+  },
+  placeholderText: {
+    color: '#999',
+    fontSize: 22,
   },
 });
 

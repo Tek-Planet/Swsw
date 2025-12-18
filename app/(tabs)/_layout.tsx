@@ -1,8 +1,8 @@
 
-import React from 'react';
-import { Tabs } from 'expo-router';
-import { View, TouchableOpacity, StyleSheet, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Tabs } from 'expo-router';
+import React from 'react';
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const CustomTabBar = ({ state, descriptors, navigation }: any) => {
   const iconMap: { [key: string]: [string, string] } = {
@@ -71,6 +71,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     justifyContent: 'space-around',
     alignItems: 'center',
+    marginBottom:Platform.OS == 'android' ?10:0
   },
   tabItem: {
     alignItems: 'center',
