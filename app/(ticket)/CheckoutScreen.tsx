@@ -15,6 +15,7 @@ import {
   ActivityIndicator,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -25,7 +26,6 @@ const CheckoutScreen = () => {
   const { eventId, selectedTiers: selectedTiersJSON } = useLocalSearchParams();
   const router = useRouter();
 
-  // Optional but recommended: match your deployed region (us-central1)
   const functions = useMemo(() => getFunctions(undefined, "us-central1"), []);
 
   const eventIdStr = Array.isArray(eventId) ? eventId[0] : eventId;
@@ -35,7 +35,10 @@ const CheckoutScreen = () => {
   const [selectedTiers, setSelectedTiers] = useState<{ [key: string]: number }>(
     {}
   );
-  const [totalPrice, setTotalPrice] = useState(0);
+  const [promoCode, setPromoCode] = useState("");
+  const [subtotal, setSubtotal] = useState(0);
+  const [processingFee, setProcessingFee] = useState(0);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
 
@@ -60,7 +63,6 @@ const CheckoutScreen = () => {
     const fetchEventAndTiers = async () => {
       setLoading(true);
       try {
-        // Fetch event details
         const eventRef = doc(db, "events", eventIdStr);
         const eventSnap = await getDoc(eventRef);
         if (eventSnap.exists()) {
@@ -69,7 +71,6 @@ const CheckoutScreen = () => {
           setEvent(null);
         }
 
-        // Fetch ticket tiers
         const tiersRef = collection(db, "events", eventIdStr, "ticketTiers");
         const q = query(
           tiersRef,
@@ -82,13 +83,18 @@ const CheckoutScreen = () => {
         );
         setTicketTiers(tiers);
 
-        // Calculate total price
-        let total = 0;
+        let currentSubtotal = 0;
         for (const tierId in parsedSelectedTiers) {
           const tier = tiers.find((t) => t.id === tierId);
-          if (tier) total += tier.price * parsedSelectedTiers[tierId];
+          if (tier) {
+            currentSubtotal += tier.price * parsedSelectedTiers[tierId];
+          }
         }
-        setTotalPrice(total);
+
+        const fee = currentSubtotal > 0 ? Math.round(currentSubtotal * 0.1) : 0;
+        setSubtotal(currentSubtotal);
+        setProcessingFee(fee);
+        setTotal(currentSubtotal + fee);
       } catch (error) {
         console.error("Error fetching checkout data:", error);
       } finally {
@@ -100,9 +106,7 @@ const CheckoutScreen = () => {
   }, [eventIdStr, selectedTiersJSON]);
 
   const handlePayment = async () => {
-    if (!eventIdStr) return;
-    if (!hasSelection) return;
-    if (paying) return;
+    if (!eventIdStr || !hasSelection || paying) return;
 
     setPaying(true);
     try {
@@ -114,14 +118,24 @@ const CheckoutScreen = () => {
       const res = await createCheckoutSession({
         eventId: eventIdStr,
         selectedTiers,
+        promoCode: promoCode.trim(),
       });
 
-      const { url, orderId } = res.data as { url: string; orderId: string };
+      const { url, orderId, free, vip } = res.data as {
+        url?: string;
+        orderId: string;
+        free?: boolean;
+        vip?: boolean;
+      };
 
-      // Open Stripe checkout
-      await WebBrowser.openBrowserAsync(url);
+      if (url) {
+        await WebBrowser.openBrowserAsync(url);
+      } else if (!free && !vip) {
+        // Should not happen, but good to handle
+        throw new Error("Invalid checkout response from server.");
+      }
 
-      // Navigate to processing screen that listens for Firestore order status
+      // Navigate to processing screen for all cases
       router.push({
         pathname: "/(ticket)/PurchaseProcessingScreen",
         params: { orderId, eventId: eventIdStr },
@@ -174,11 +188,32 @@ const CheckoutScreen = () => {
           );
         })}
 
+        <View style={styles.subtotalContainer}>
+          <Text style={styles.ticketText}>Subtotal</Text>
+          <Text style={styles.ticketText}>₹{subtotal.toLocaleString()}</Text>
+        </View>
+
+        {processingFee > 0 && (
+          <View style={styles.subtotalContainer}>
+            <Text style={styles.ticketText}>Processing fee (10%)</Text>
+            <Text style={styles.ticketText}>₹{processingFee.toLocaleString()}</Text>
+          </View>
+        )}
+
         <View style={styles.totalContainer}>
           <Text style={styles.totalText}>Total</Text>
-          <Text style={styles.totalText}>₹{totalPrice.toLocaleString()}</Text>
+          <Text style={styles.totalText}>₹{total.toLocaleString()}</Text>
         </View>
       </View>
+
+      <TextInput
+        style={styles.promoInput}
+        placeholder="Promo code (optional)"
+        placeholderTextColor="#888"
+        value={promoCode}
+        onChangeText={setPromoCode}
+        autoCapitalize="characters"
+      />
 
       <TouchableOpacity
         style={[
@@ -191,7 +226,7 @@ const CheckoutScreen = () => {
         {paying ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={styles.ctaButtonText}>Pay with Card</Text>
+          <Text style={styles.ctaButtonText}>Proceed to Checkout</Text>
         )}
       </TouchableOpacity>
     </View>
@@ -220,7 +255,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#1a1a1a",
     borderRadius: 10,
     padding: 20,
-    marginBottom: 30,
+    marginBottom: 20,
   },
   eventTitle: {
     color: "#fff",
@@ -240,6 +275,11 @@ const styles = StyleSheet.create({
     color: "#aaa",
     fontSize: 16,
   },
+  subtotalContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 10,
+  },
   totalContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -252,6 +292,15 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 18,
     fontWeight: "bold",
+  },
+  promoInput: {
+    backgroundColor: "#1a1a1a",
+    borderRadius: 8,
+    color: "#fff",
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    fontSize: 16,
+    marginBottom: 20,
   },
   ctaButton: {
     backgroundColor: "#4a90e2",
