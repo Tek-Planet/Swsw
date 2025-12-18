@@ -1,13 +1,14 @@
 import { View, Text, ActivityIndicator, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect } from 'react';
-import { doc, onSnapshot, deleteDoc } from 'firebase/firestore';
+import React, { useEffect, useState } from 'react';
+import { doc, onSnapshot, getDoc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../../lib/firebase/firebaseConfig';
 import { Order } from '../../types/event';
 
 const PurchaseProcessingScreen = () => {
     const { orderId, eventId } = useLocalSearchParams<{ orderId: string, eventId: string }>();
     const router = useRouter();
+    const [showFullUI, setShowFullUI] = useState(false);
 
     useEffect(() => {
         if (!orderId || !eventId) {
@@ -22,6 +23,20 @@ const PurchaseProcessingScreen = () => {
         }
 
         const userOrderRef = doc(db, 'users', userId, 'orders', orderId);
+
+        // Immediately check the order status before setting up the listener.
+        getDoc(userOrderRef).then(docSnap => {
+            if (docSnap.exists() && docSnap.data().status === 'paid') {
+                // If already paid (e.g., free/VIP order), redirect immediately.
+                router.replace({
+                    pathname: '/(ticket)/PurchaseConfirmationScreen',
+                    params: { orderId: docSnap.id, eventId: docSnap.data().eventId },
+                });
+            } else {
+                // Otherwise, it's a pending Stripe order. Show the UI and listen for updates.
+                setShowFullUI(true);
+            }
+        });
 
         const unsubscribe = onSnapshot(userOrderRef, (docSnap) => {
             if (docSnap.exists()) {
@@ -55,7 +70,7 @@ const PurchaseProcessingScreen = () => {
                     onPress: async () => {
                         const userId = auth.currentUser?.uid;
                         if (!orderId || !eventId || !userId) return;
-                        
+
                         const userOrderRef = doc(db, 'users', userId, 'orders', orderId);
                         const eventOrderRef = doc(db, 'events', eventId, 'orders', orderId);
 
@@ -82,6 +97,17 @@ const PurchaseProcessingScreen = () => {
         router.replace({ pathname: '/event/[id]', params: { id: eventId }}); // Go to event details
     };
 
+    // Render a simple loading indicator until the initial check is complete.
+    if (!showFullUI) {
+        return (
+            <View style={styles.container}>
+                <ActivityIndicator size="large" color="#4a90e2" />
+                <Text style={styles.header}>Processing your order...</Text>
+            </View>
+        );
+    }
+
+    // If the order isn't paid yet, show the full UI with cancellation options.
     return (
         <View style={styles.container}>
             <ActivityIndicator size="large" color="#4a90e2" />
