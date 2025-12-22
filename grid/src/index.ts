@@ -1,3 +1,4 @@
+
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions/v1";
 import Stripe from "stripe";
@@ -408,3 +409,82 @@ export const stripeWebhook = functions.https.onRequest(
     res.status(200).send("ok");
   }
 );
+
+
+export const setAdminStatus = functions.https.onCall(async (data, context) => {
+  // 1. Authentication Check
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "The function must be called while authenticated."
+    );
+  }
+
+  // 2. Authorization Check: Ensure the user is an admin.
+  if (context.auth.token.admin !== true) {
+    throw new functions.https.HttpsError(
+      "permission-denied",
+      "Only admins can set other users' admin status."
+    );
+  }
+
+  const { uid, isAdmin } = data;
+
+  // 3. Data Validation
+  if (typeof uid !== "string" || typeof isAdmin !== "boolean") {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "The function must be called with a 'uid' (string) and 'isAdmin' (boolean) argument."
+    );
+  }
+
+  try {
+    // 4. Set Custom Claim
+    await admin.auth().setCustomUserClaims(uid, { admin: isAdmin });
+
+    // 5. Return a success message.
+    return {
+      message: `Success! User ${uid} has been ${isAdmin ? "made" : "removed as"} an admin.`,
+    };
+  } catch (error) {
+    console.error("Failed to set custom claims:", error);
+    throw new functions.https.HttpsError(
+      "internal",
+      "An internal error occurred while setting the custom claim."
+    );
+  }
+});
+
+export const _bootstrapAdmin = functions.https.onRequest(async (req, res) => {
+  const { uid, key } = req.query;
+  const SECRET_KEY = "bootstrap_key_12345"; // This is a one-time key.
+
+  if (key !== SECRET_KEY) {
+    res.status(403).send("Invalid secret key.");
+    return;
+  }
+
+  if (typeof uid !== "string") {
+    res.status(400).send("Please provide a 'uid' query parameter.");
+    return;
+  }
+
+  try {
+    // Set the custom claim 'admin' to true for the specified user.
+    await admin.auth().setCustomUserClaims(uid, { admin: true });
+
+    // Optional: Also update their Firestore user profile.
+    await db.collection("users").doc(uid).set(
+      {
+        isAdmin: true,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    res.status(200).send(`Success! User ${uid} is now an admin. You should now remove the '_bootstrapAdmin' function.`);
+  } catch (error) {
+    console.error("Error bootstrapping admin:", error);
+    res.status(500).send("An internal error occurred.");
+  }
+});
