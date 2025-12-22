@@ -1,0 +1,75 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // SECURE: Helper function to check if user is an admin via custom claims
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.admin == true;
+    }
+
+    // Helper function to check if user owns the resource
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Events collection
+    match /events/{eventId} {
+      allow read: if resource.data.status == 'published' || isAuthenticated();
+      allow write: if isAdmin();
+
+      match /ticketTiers/{tierId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+
+      match /posts/{postId} {
+        allow read, create, update: if isAuthenticated();
+        allow delete: if isOwner(resource.data.authorId) || isAdmin();
+
+        match /likes/{userId} {
+          allow read, write: if isAuthenticated();
+        }
+      }
+
+      match /albums/{albumId} {
+        allow read, create: if isAuthenticated();
+
+        match /photos/{photoId} {
+          allow read, create: if isAuthenticated();
+          allow delete: if isOwner(resource.data.uploaderId) || isAdmin();
+        }
+      }
+    }
+
+    // SECURE: Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId);
+      // An owner can update their profile, but NOT the isAdmin field.
+      // An admin can update any field.
+      allow update: if (isOwner(userId) && request.resource.data.isAdmin == resource.data.isAdmin) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Orders collection (top-level)
+    match /orders/{orderId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if false; // Only backend can create
+      allow update: if false; // Only backend can update
+      allow delete: if isAdmin();
+    }
+
+    // Promo codes
+    match /promoCodes/{codeId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+  }
+}

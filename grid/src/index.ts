@@ -454,37 +454,3 @@ export const setAdminStatus = functions.https.onCall(async (data, context) => {
     );
   }
 });
-
-export const _bootstrapAdmin = functions.https.onRequest(async (req, res) => {
-  const { uid, key } = req.query;
-  const SECRET_KEY = "bootstrap_key_12345"; // This is a one-time key.
-
-  if (key !== SECRET_KEY) {
-    res.status(403).send("Invalid secret key.");
-    return;
-  }
-
-  if (typeof uid !== "string") {
-    res.status(400).send("Please provide a 'uid' query parameter.");
-    return;
-  }
-
-  try {
-    // Set the custom claim 'admin' to true for the specified user.
-    await admin.auth().setCustomUserClaims(uid, { admin: true });
-
-    // Optional: Also update their Firestore user profile.
-    await db.collection("users").doc(uid).set(
-      {
-        isAdmin: true,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      },
-      { merge: true }
-    );
-
-    res.status(200).send(`Success! User ${uid} is now an admin. You should now remove the '_bootstrapAdmin' function.`);
-  } catch (error) {
-    console.error("Error bootstrapping admin:", error);
-    res.status(500).send("An internal error occurred.");
-  }
-});
