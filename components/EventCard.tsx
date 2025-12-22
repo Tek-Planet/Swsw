@@ -1,11 +1,10 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Event } from '@/types/event';
 import EnhanceGridButton from './EnhanceGridButton';
-import { auth, db } from '@/lib/firebase/firebaseConfig';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { auth } from '@/lib/firebase/firebaseConfig';
 
 interface EventCardProps {
   event: Event;
@@ -14,25 +13,14 @@ interface EventCardProps {
 
 const EventCard: React.FC<EventCardProps> = ({ event, showEnhanceGridButton }) => {
   const router = useRouter();
-  const [hasPurchased, setHasPurchased] = useState(false);
   const user = auth.currentUser;
 
-  useEffect(() => {
-    if (!user || !event) {
-      return;
+  const hasPurchased = useMemo(() => {
+    if (!user || !event.attendeeIds) {
+      return false;
     }
-
-    const ordersQuery = query(
-      collection(db, 'events', event.id, 'orders'),
-      where('userId', '==', user.uid)
-    );
-
-    const unsubscribe = onSnapshot(ordersQuery, (snapshot) => {
-      setHasPurchased(!snapshot.empty);
-    });
-
-    return () => unsubscribe();
-  }, [user, event]);
+    return event.attendeeIds.includes(user.uid);
+  }, [user, event.attendeeIds]);
 
   if (!event) {
     return null;
