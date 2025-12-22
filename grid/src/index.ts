@@ -5,7 +5,7 @@ import Stripe from "stripe";
 admin.initializeApp();
 const db = admin.firestore();
 const stripe = new Stripe(functions.config().stripe.secret_key, {
-  apiVersion: "2025-11-17.clover",
+  apiVersion: "2023-10-16",
 });
 
 type SelectedTiers = Record<string, number>;
@@ -247,6 +247,9 @@ export const createCheckoutSession = functions.https.onCall(
         const tiersColRef = db.collection("events").doc(eventId).collection("ticketTiers");
 
         tx.set(orderRef, orderDoc);
+        
+        // Add attendee to event
+        tx.update(eventRef, { attendeeIds: admin.firestore.FieldValue.arrayUnion(uid) });
 
         // Increment sold counts for selected tiers
         for (const item of itemsForOrder) {
@@ -372,12 +375,16 @@ export const stripeWebhook = functions.https.onRequest(
     }
 
     const order = orderSnap.data() as any;
+    const eventRef = db.doc(`events/${eventId}`);
 
     await db.runTransaction(async (tx) => {
       const now = admin.firestore.FieldValue.serverTimestamp();
 
       // Update order status in top-level orders collection
       tx.set(orderRef, { status: "paid", updatedAt: now }, { merge: true });
+
+      // Add attendee to event
+      tx.update(eventRef, { attendeeIds: admin.firestore.FieldValue.arrayUnion(userId) });
 
       const tiersCol = db.collection("events").doc(eventId).collection("ticketTiers");
 

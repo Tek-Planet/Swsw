@@ -24,8 +24,8 @@ const EventTicketsScreen = () => {
 
     const fetchOrders = async () => {
       try {
-        const ordersRef = collection(db, 'users', userId, 'orders');
-        const q = query(ordersRef, where('eventId', '==', eventId));
+        const ordersRef = collection(db, 'orders');
+        const q = query(ordersRef, where('eventId', '==', eventId), where('userId', '==', userId));
         const querySnapshot = await getDocs(q);
         const fetchedOrders = querySnapshot.docs.map(doc => ({ orderId: doc.id, ...doc.data() } as Order));
         setOrders(fetchedOrders);

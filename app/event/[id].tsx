@@ -8,8 +8,7 @@ import {
   Text,
   View
 } from 'react-native';
-import { auth, db } from '../../lib/firebase/firebaseConfig';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { auth } from '../../lib/firebase/firebaseConfig';
 
 import { getProfilesForUserIds, listenToEvent } from '@/lib/services/eventService';
 import { Event } from '@/types/event';
@@ -28,9 +27,7 @@ const EventDetailScreen: React.FC = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [event, setEvent] = useState<Event | null>(null);
   const [ticketHolders, setTicketHolders] = useState<TicketHolder[]>([]);
-  const [totalTicketHolders, setTotalTicketHolders] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [hasTicket, setHasTicket] = useState(false);
   const userId = auth.currentUser?.uid;
 
   useEffect(() => {
@@ -42,6 +39,7 @@ const EventDetailScreen: React.FC = () => {
     const unsubscribeEvent = listenToEvent(id, (fetchedEvent) => {
       if (fetchedEvent) {
         setEvent(fetchedEvent);
+        setLoading(false);
       } else {
         setEvent(null);
         setLoading(false);
@@ -52,40 +50,28 @@ const EventDetailScreen: React.FC = () => {
   }, [id]);
 
   useEffect(() => {
-    if (!id) return;
+    if (!event || !event.attendeeIds || event.attendeeIds.length === 0) {
+      setTicketHolders([]);
+      return;
+    }
 
-    const ordersQuery = query(collection(db, 'events', id, 'orders'), where('status', '==', 'paid'));
-
-    const unsubscribeOrders = onSnapshot(ordersQuery, async (snapshot) => {
-      setTotalTicketHolders(snapshot.size);
-
-      if (snapshot.empty) {
-        setTicketHolders([]);
-        setHasTicket(false);
-        setLoading(false);
-        return;
-      }
-
-      const userIds = snapshot.docs.map(doc => doc.data().userId);
-      if (userId) {
-        setHasTicket(userIds.includes(userId));
-      }
-
-      const uniqueUserIds = [...new Set(userIds)];
-      const profilesMap = await getProfilesForUserIds(uniqueUserIds);
-      
+    const fetchTicketHolderProfiles = async () => {
+      const profilesMap = await getProfilesForUserIds(event.attendeeIds);
       const holdersList = Array.from(profilesMap.entries()).map(([profId, profile]) => ({
         id: profId,
         avatar: profile.photoUrl || `https://i.pravatar.cc/150?u=${profId}`,
         firstName: profile.displayName,
       }));
-      
       setTicketHolders(holdersList);
-      setLoading(false);
-    });
+    };
 
-    return () => unsubscribeOrders();
-  }, [id, userId]);
+    fetchTicketHolderProfiles();
+  }, [event]);
+
+  const hasTicket = useMemo(() => {
+    if (!userId || !event || !event.attendeeIds) return false;
+    return event.attendeeIds.includes(userId);
+  }, [userId, event]);
 
   const memoizedTicketHolders = useMemo(() => ticketHolders, [ticketHolders]);
 
@@ -98,7 +84,7 @@ const EventDetailScreen: React.FC = () => {
   }
 
   const eventDate = event.startTime.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
-  const eventTime = `${event.startTime.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true })} – ${event.endTime.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+  const eventTime = `${event.startTime.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true })} - ${event.endTime.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true })}`;
   const host = { name: event.hostName, photoUrl: event.hostAvatarUrl };
 
   return (
@@ -109,7 +95,7 @@ const EventDetailScreen: React.FC = () => {
         <EventMetaCard date={eventDate} time={eventTime} location={event.location.address || 'TBD'} address={event.location.city} />
         <HostInfo host={host} />
         <DescriptionBlock text={event.description} />
-        <TicketHoldersList ticketHolders={memoizedTicketHolders} total={totalTicketHolders} />
+        <TicketHoldersList ticketHolders={memoizedTicketHolders} total={event.attendeeIds?.length || 0} />
         <PhotoAlbum eventId={id} />
         <ActivityFeed eventId={id} />
       </ScrollView>
