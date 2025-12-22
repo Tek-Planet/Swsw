@@ -30,19 +30,27 @@ const TicketScreen = () => {
 
     const fetchTicketData = async () => {
         try {
-            const orderRef = doc(db, 'users', userId, 'orders', orderId);
+            const orderRef = doc(db, 'orders', orderId);
             const eventRef = doc(db, 'events', eventId);
 
             const [orderSnap, eventSnap] = await Promise.all([getDoc(orderRef), getDoc(eventRef)]);
 
             if (orderSnap.exists()) {
                 const orderData = orderSnap.data();
-                const convertedOrder: Order = {
-                    orderId: orderSnap.id,
-                    ...orderData,
-                    createdAt: (orderData.createdAt as Timestamp).toDate(),
-                } as Order;
-                setOrder(convertedOrder);
+
+                if (orderData.userId !== userId) {
+                    Alert.alert('Access Denied', 'You do not have permission to view this ticket.');
+                    setOrder(null);
+                } else {
+                    const convertedOrder: Order = {
+                        orderId: orderSnap.id,
+                        ...orderData,
+                        createdAt: (orderData.createdAt as Timestamp).toDate(),
+                        updatedAt: (orderData.updatedAt as Timestamp).toDate(),
+                        eventDate: orderData.eventDate ? (orderData.eventDate as Timestamp).toDate() : undefined,
+                    } as Order;
+                    setOrder(convertedOrder);
+                }
             } else {
                 Alert.alert('Error', 'Could not find your order details.');
             }
@@ -53,13 +61,15 @@ const TicketScreen = () => {
                     id: eventSnap.id,
                     ...eventData,
                     startTime: (eventData.startTime as Timestamp).toDate(),
-                } as Event;
+                    endTime: (eventData.endTime as Timestamp).toDate(),
+                    latestPhotoAt: eventData.latestPhotoAt ? (eventData.latestPhotoAt as Timestamp).toDate() : undefined,
+                  } as Event;
                 setEvent(convertedEvent);
             } else {
                 Alert.alert('Error', 'Could not find event details.');
             }
         } catch (err) {
-            console.error(err);
+            console.error("Error fetching ticket data:", err);
             Alert.alert('Error', 'There was a problem fetching your ticket.');
         } finally {
             setLoading(false);
@@ -89,7 +99,6 @@ const TicketScreen = () => {
 
   return (
     <ScrollView style={styles.container}>
-       
         <View style={styles.ticketCard}>
             <View style={styles.ticketHeader}>
                 <Text style={styles.eventTitle}>{event.title}</Text>
@@ -107,11 +116,11 @@ const TicketScreen = () => {
                 <View style={styles.detailsContainer}>
                     <View style={styles.detailRow}>
                         <Ionicons name="calendar-outline" size={18} color="#aaa" />
-                        <Text style={styles.detailText}>{new Date(event.startTime).toLocaleDateString()}</Text>
+                        <Text style={styles.detailText}>{event.startTime.toLocaleDateString()}</Text>
                     </View>
                     <View style={styles.detailRow}>
                         <Ionicons name="time-outline" size={18} color="#aaa" />
-                        <Text style={styles.detailText}>{new Date(event.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                        <Text style={styles.detailText}>{event.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
                     </View>
                     <View style={styles.detailRow}>
                         <Ionicons name="location-outline" size={18} color="#aaa" />
@@ -127,6 +136,30 @@ const TicketScreen = () => {
                             <Text style={styles.itemPrice}>₹{(item.unitPrice * item.quantity).toLocaleString()}</Text>
                         </View>
                     ))}
+                </View>
+
+                <View style={styles.summaryContainer}>
+                    <View style={styles.summaryRow}>
+                        <Text style={styles.summaryLabel}>Subtotal</Text>
+                        <Text style={styles.summaryValue}>₹{order.subtotal.toLocaleString()}</Text>
+                    </View>
+
+                    {order.processingFee !== undefined && (
+                        <View style={styles.summaryRow}>
+                            <Text style={styles.summaryLabel}>Processing Fee</Text>
+                            <Text style={styles.summaryValue}>₹{order.processingFee.toLocaleString()}</Text>
+                        </View>
+                    )}
+
+                    {order.total !== undefined && (
+                        <>
+                            <View style={styles.divider} />
+                            <View style={[styles.summaryRow, styles.summaryTotalRow]}>
+                                <Text style={styles.summaryTotalLabel}>Total</Text>
+                                <Text style={styles.summaryTotalValue}>₹{order.total.toLocaleString()}</Text>
+                            </View>
+                        </>
+                    )}
                 </View>
             </View>
 
@@ -155,6 +188,7 @@ const TicketScreen = () => {
   );
 };
 
+
 const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -170,31 +204,13 @@ const styles = StyleSheet.create({
         color: '#ff4444',
         fontSize: 16,
     },
-    headerContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 20,
-        paddingTop: 40,
-    },
-    backButton: {
-        position: 'absolute',
-        top: 40,
-        left: 20,
-        zIndex: 1,
-    },
-    headerTitle: {
-        color: '#fff',
-        fontSize: 22,
-        fontWeight: 'bold',
-        textAlign: 'center',
-        flex: 1,
-    },
     ticketCard: {
         marginHorizontal: 20,
         backgroundColor: '#1E1E1E',
         borderRadius: 20,
         overflow: 'hidden',
         marginTop: 20,
+        marginBottom: 20,
     },
     ticketHeader: {
         backgroundColor: '#6C63FF',
@@ -242,7 +258,9 @@ const styles = StyleSheet.create({
         fontSize: 16,
         marginLeft: 10,
     },
-    itemsContainer: {},
+    itemsContainer: {
+        paddingBottom: 10,
+    },
     itemsTitle: {
         color: '#fff',
         fontSize: 18,
@@ -263,6 +281,43 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
     },
+    divider: {
+        height: 1,
+        backgroundColor: '#444',
+        marginVertical: 10,
+    },
+    summaryContainer: {
+        marginTop: 10,
+        paddingTop: 10,
+        borderTopWidth: 1,
+        borderTopColor: '#333',
+    },
+    summaryRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    summaryLabel: {
+        color: '#aaa',
+        fontSize: 16,
+    },
+    summaryValue: {
+        color: '#fff',
+        fontSize: 16,
+    },
+    summaryTotalRow: {
+        marginTop: 5,
+    },
+    summaryTotalLabel: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: 'bold',
+    },
+    summaryTotalValue: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: 'bold',
+    },
     ticketFooter: {
         backgroundColor: '#333',
         padding: 15,
@@ -273,7 +328,8 @@ const styles = StyleSheet.create({
         fontSize: 12,
     },
     actionButtonsContainer: {
-        padding: 20,
+        paddingHorizontal: 20,
+        paddingBottom: 20,
     },
     actionButton: {
         backgroundColor: '#4a90e2',
