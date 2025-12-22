@@ -1,5 +1,7 @@
 # Firebase
-scripts/serviceAccountKey.json
+scripts/serviceAccountKey*
+scripts/seedEventTickets.ts
+
 
 # Node dependencies
 node_modules/
@@ -33,6 +35,5 @@ yarn-error.log
 
 expo-env.d.ts
 # @end expo-cli
-
-
 rules.txt
+useful_stuffs.txt

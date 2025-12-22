@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "prod": "tekplanet-c25f6",
+    "dev": "gridevent"
+  },
+  "targets": {},
+  "etags": {}
+}

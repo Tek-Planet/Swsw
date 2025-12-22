@@ -115,6 +115,7 @@ const UpcomingEvents: React.FC = () => {
   const { user } = useAuth();
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
 
+  
   useEffect(() => {
     if (user) {
       const unsubscribe = listenToUserUpcomingEvents(user.uid, (events: Event[]) => {
@@ -192,6 +193,7 @@ const TrendingEvents: React.FC = () => {
     });
     return () => unsubscribe();
   }, []);
+  console.log(trendingEvents)
 
   return (
     <View style={styles.section}>

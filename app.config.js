@@ -1,3 +1,5 @@
+import 'expo-env';
+
 export default () => ({
     expo: {
       name: "Grid",

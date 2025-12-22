@@ -5,7 +5,7 @@ import Stripe from "stripe";
 admin.initializeApp();
 const db = admin.firestore();
 const stripe = new Stripe(functions.config().stripe.secret_key, {
-  apiVersion: "2023-10-16",
+  apiVersion: "2025-11-17.clover",
 });
 
 type SelectedTiers = Record<string, number>;
