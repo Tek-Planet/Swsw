@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { doc, getDoc, Timestamp } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import { auth, db } from '../../lib/firebase/firebaseConfig';
 import { Event, Order } from '../../types/event';
 
@@ -107,8 +108,13 @@ const TicketScreen = () => {
 
             <View style={styles.ticketBody}>
                 <View style={styles.qrContainer}>
-                    <View style={styles.qrPlaceholder}>
-                        <Ionicons name="qr-code" size={100} color="#fff" />
+                    <View style={styles.qrCodeBackground}>
+                        <QRCode
+                            value={order.orderId}
+                            size={180}
+                            backgroundColor='white'
+                            color='black'
+                        />
                     </View>
                     <Text style={styles.scanText}>Show this at the entrance</Text>
                 </View>
@@ -164,7 +170,7 @@ const TicketScreen = () => {
             </View>
 
             <View style={styles.ticketFooter}>
-                 <Text style={styles.orderId}>Order ID: {order.orderId}</Text>
+                 <Text style={styles.orderId}>Order ID: {order.orderId.toUpperCase()}</Text>
             </View>
         </View>
 
@@ -231,19 +237,17 @@ const styles = StyleSheet.create({
     },
     qrContainer: {
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: 30,
     },
-    qrPlaceholder: {
-        width: 150,
-        height: 150,
-        backgroundColor: '#333',
-        borderRadius: 15,
-        justifyContent: 'center',
-        alignItems: 'center',
+    qrCodeBackground: {
+        backgroundColor: 'white',
+        padding: 20,
+        borderRadius: 20,
     },
     scanText: {
         color: '#aaa',
-        marginTop: 10,
+        marginTop: 15,
+        fontSize: 14,
     },
     detailsContainer: {
         marginBottom: 20,
@@ -326,6 +330,7 @@ const styles = StyleSheet.create({
     orderId: {
         color: '#aaa',
         fontSize: 12,
+        fontFamily: 'monospace', 
     },
     actionButtonsContainer: {
         paddingHorizontal: 20,
