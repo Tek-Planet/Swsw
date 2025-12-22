@@ -18,8 +18,8 @@ android/
 dist/
 
 # Environment variables
-.env
-.env.*
+
+.env*
 
 # IDE-specific
 .idea/
