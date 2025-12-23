@@ -218,7 +218,7 @@ export const createCheckoutSession = functions.https.onCall(async (data, context
     subtotal: subtotalCharged, feeBase,
     processingFee: shouldBypassStripe ? 0 : processingFee,
     total: shouldBypassStripe ? 0 : total,
-    currency: "aed", // Currency updated to AED as per gpay snippet
+    currency: "INR", 
     promoCode: appliedPromo,
     status: shouldBypassStripe ? "paid" : "pending",
     paymentMethod: "stripe_checkout",
@@ -241,7 +241,7 @@ export const createCheckoutSession = functions.https.onCall(async (data, context
     .filter(item => item.chargeAmount > 0)
     .map(item => ({
       price_data: {
-        currency: "aed",
+        currency: "inr",
         product_data: { name: `${event.title} - ${item.name}` },
         unit_amount: Math.round(item.chargeAmount * 100),
       },
@@ -251,7 +251,7 @@ export const createCheckoutSession = functions.https.onCall(async (data, context
   if (processingFee > 0) {
     line_items.push({
       price_data: {
-        currency: "aed",
+        currency: "inr",
         product_data: { name: "Processing fee (10%)" },
         unit_amount: Math.round(processingFee * 100),
       },
@@ -281,7 +281,7 @@ export const createCheckoutSession = functions.https.onCall(async (data, context
 });
 
 /**
- * [NEW] Handles direct Google Pay charges using the PAYMENT_GATEWAY method.
+ * [CORRECTED] Handles direct Google Pay charges, ensuring consistent data saving.
  */
 export const gpayCharge = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -294,55 +294,54 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("invalid-argument", "Missing required fields: eventId, selectedTiers, paymentMethodId.");
   }
   
-  // 1. Calculate order details using the shared helper function.
-  const { event, eventRef, itemsForOrder, total } = await _calculateOrderDetails(eventId, selectedTiers);
-  const orderId = db.collection("_").doc().id; // Generate a unique order ID
+  // Calculate order details using the shared helper function.
+  const { event, eventRef, itemsForOrder, subtotalCharged, feeBase, processingFee, total } = await _calculateOrderDetails(eventId, selectedTiers);
+  const orderId = db.collection("_").doc().id; 
   
-  // Note: Your gpayCharge snippet didn't include promo code logic.
-  // For simplicity, we assume gpayCharge doesn't use promos or free tiers.
-  // If it should, that logic would be added here.
   if (total === 0) {
       throw new functions.https.HttpsError("invalid-argument", "Free orders should use the standard checkout flow, not Google Pay.");
   }
 
   try {
-    // 2. Create a PaymentIntent with the Stripe PaymentMethod from Google Pay.
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(total * 100), // Convert to cents
-      currency: "aed",
-      payment_method: paymentMethodId, // This comes directly from the Google Pay token
-      confirm: true, // Confirm and charge immediately
-      automatic_payment_methods: { // Required for some cards
+      amount: Math.round(total * 100), 
+      currency: "inr",
+      payment_method_data: {
+        type: 'card',
+        card: {
+          token: paymentMethodId, 
+        },
+      } as any,
+      confirm: true, 
+      automatic_payment_methods: {
         enabled: true,
-        allow_redirects: "never", // Fail if 3D Secure is required
+        allow_redirects: "never",
       },
       metadata: { orderId, eventId, userId: uid },
     });
 
-    // 3. If payment is successful, fulfill the order.
     if (paymentIntent.status === "succeeded") {
       await db.runTransaction(async (tx) => {
         const now = admin.firestore.FieldValue.serverTimestamp();
         const orderDoc = {
             orderId, eventId, eventTitle: event.title || "Event", userId: uid, items: itemsForOrder,
-            total, currency: "aed", promoCode, status: "paid", // Status is immediately 'paid'
+            subtotal: subtotalCharged, // [FIXED] Added missing field
+            feeBase: feeBase,         // [FIXED] Added missing field
+            processingFee: processingFee, // Ensure fee is stored
+            total, currency: "INR", promoCode, status: "paid",
             paymentMethod: "gpay_direct",
             stripePaymentIntentId: paymentIntent.id,
             createdAt: now, updatedAt: now,
         };
-        // Create the order doc within the transaction
         tx.set(db.doc(`orders/${orderId}`), orderDoc);
-        // Fulfill the order using the shared helper
         await _fulfillOrder(tx, { eventId, eventRef, userId: uid, orderId, items: itemsForOrder, promoCode });
       });
       return { success: true, orderId };
     } else {
-       // This case is rare with `confirm:true` but handled for completeness.
       throw new functions.https.HttpsError("internal", "Payment failed with status: " + paymentIntent.status);
     }
   } catch (error: any) {
       console.error("Google Pay charge failed:", error);
-      // Pass a more specific error message to the client if it's from Stripe
       const stripeErrorMessage = error.raw ? error.raw.message : "An internal error occurred during payment.";
       throw new functions.https.HttpsError("internal", stripeErrorMessage, { orderId });
   }
