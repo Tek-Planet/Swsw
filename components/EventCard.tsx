@@ -1,10 +1,10 @@
 
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Event } from '@/types/event';
-import EnhanceGridButton from './EnhanceGridButton';
 import { auth } from '@/lib/firebase/firebaseConfig';
+import { Event } from '@/types/event';
+import { useRouter } from 'expo-router';
+import React, { useMemo } from 'react';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import EnhanceGridButton from './EnhanceGridButton';
 
 interface EventCardProps {
   event: Event;
@@ -69,7 +69,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, showEnhanceGridButton }) =
           )}
         </View>
       )}
-      {showEnhanceGridButton && (
+      {showEnhanceGridButton && false && (
         <>
           <View style={styles.divider} />
           <EnhanceGridButton onPress={handleEnhanceGridPress} />

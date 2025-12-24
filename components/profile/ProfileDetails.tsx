@@ -1,14 +1,14 @@
 
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
-import { TextInputField, ChipSelector, PrimaryButton } from '@/components';
-import { HelperText } from '@/components/Validation';
+import { ChipSelector, PrimaryButton, TextInputField } from '@/components';
 import SectionCard from '@/components/SectionCard';
-import { UserProfile } from '@/types';
-import { updateUserProfile } from '@/lib/firebase/userProfileService';
+import { HelperText } from '@/components/Validation';
 import { useAuth } from '@/lib/context/AuthContext';
+import { updateUserProfile } from '@/lib/firebase/userProfileService';
+import { UserProfile } from '@/types';
+import React, { useMemo, useState } from 'react';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 
-const baseInterests = ['Music', 'Art', 'Photography', 'Sports', 'Travel', 'Food', 'Movies', 'Gaming', 'Reading', 'Fitness', 'Fashion', 'Technology', 'Outdoors'];
+const baseInterests = ['Fashion', 'Technology', 'Outdoors'];
 
 interface ProfileDetailsProps {
   userProfile: UserProfile;

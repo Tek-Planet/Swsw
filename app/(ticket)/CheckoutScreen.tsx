@@ -35,8 +35,6 @@ const CheckoutScreen = () => {
 
   const functions = useMemo(() => getFunctions(), []);
 
-  console.log(functions)
-
   const eventIdStr = Array.isArray(eventId) ? eventId[0] : eventId;
 
   const [event, setEvent] = useState<Event | null>(null);
