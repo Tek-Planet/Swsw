@@ -1,6 +1,7 @@
 
+import { Feather } from '@expo/vector-icons';
+import { useStripe } from '@stripe/stripe-react-native';
 import { useLocalSearchParams, useRouter } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
 import {
   collection,
   doc,
@@ -14,28 +15,27 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
-  Alert,
-  Platform
+  View
 } from "react-native";
 import TopNavBar from "../../components/TopNavBar";
 import { ThemedView } from "../../components/themed-view";
 import { db } from "../../lib/firebase/firebaseConfig";
 import { Event, TicketTier } from "../../types/event";
-import { useStripe } from '@stripe/stripe-react-native';
-import { Feather } from '@expo/vector-icons';
 
 const CheckoutScreen = () => {
   const { eventId, selectedTiers: selectedTiersJSON } = useLocalSearchParams();
   const router = useRouter();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
-  const functions = useMemo(() => getFunctions(undefined, "us-central1"), []);
+  const functions = useMemo(() => getFunctions(), []);
+
+  console.log(functions)
 
   const eventIdStr = Array.isArray(eventId) ? eventId[0] : eventId;
 
@@ -150,6 +150,8 @@ const CheckoutScreen = () => {
           router.push({ pathname: "/(ticket)/PurchaseConfirmationScreen", params: { orderId } });
           return;
       }
+
+ 
       
       if (!clientSecret) {
           throw new Error("Payment intent not created successfully.");
@@ -160,7 +162,7 @@ const CheckoutScreen = () => {
           merchantDisplayName: "Grid",
           paymentIntentClientSecret: clientSecret,
           allowsDelayedPaymentMethods: true,
-          returnURL: 'grid-app://stripe-redirect', // Required for some payment methods
+          returnURL: 'https://grideventsapp.com', // Required for some payment methods
       });
 
       if (initError) {

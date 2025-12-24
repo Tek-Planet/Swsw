@@ -6,8 +6,8 @@ import Stripe from "stripe";
 admin.initializeApp();
 const db = admin.firestore();
 const stripe = new Stripe(functions.config().stripe.secret_key, {
-  apiVersion: "2025-11-17.clover", // Ensure your API version is correct
-});
+  apiVersion: "2023-10-16",// Corrected API version
+} as any);
 
 type SelectedTiers = Record<string, number>;
 
@@ -175,6 +175,107 @@ async function validateGridVip(eventId: string) {
 //================================================================================
 // PUBLIC CLOUD FUNCTIONS
 //================================================================================
+
+/**
+ * [NEW] Creates a Payment Intent for use with the mobile app's Payment Sheet.
+ */
+export const createPaymentIntent = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Must be logged in.");
+  }
+  const userId = context.auth.uid;
+
+  const { eventId, selectedTiers, promoCode } = data as {
+    eventId?: string;
+    selectedTiers?: SelectedTiers;
+    promoCode?: string;
+  };
+
+  if (!eventId || !selectedTiers) {
+    throw new functions.https.HttpsError("invalid-argument", "Missing eventId or selectedTiers.");
+  }
+
+  // Use the existing helper to calculate totals and validate tiers
+  const { event, eventRef, itemsForOrder, subtotalCharged, feeBase, processingFee, total } = await _calculateOrderDetails(
+    eventId,
+    selectedTiers
+  );
+
+  // --- Promo Code Logic ---
+  const normalizedPromo = (promoCode || "").trim().toUpperCase();
+  const isGridVip = normalizedPromo === "GRIDVIP2207";
+  let appliedPromo: string | null = null;
+
+  if (isGridVip) {
+    const promo = await validateGridVip(eventId);
+    if (!promo.ok) {
+      throw new functions.https.HttpsError("failed-precondition", "Invalid or expired promo code.");
+    }
+    appliedPromo = "GRIDVIP2207";
+  }
+
+  const shouldBypassStripe = appliedPromo === "GRIDVIP2207" || total === 0;
+  const orderId = db.collection("_").doc().id;
+  const now = admin.firestore.FieldValue.serverTimestamp();
+
+  // --- Create Order Document ---
+  const orderDoc: any = {
+    orderId,
+    eventId,
+    eventTitle: event.title || "Event",
+    userId,
+    items: itemsForOrder,
+    subtotal: subtotalCharged,
+    feeBase,
+    processingFee: shouldBypassStripe ? 0 : processingFee,
+    total: shouldBypassStripe ? 0 : total,
+    currency: "INR",
+    promoCode: appliedPromo,
+    status: shouldBypassStripe ? "paid" : "pending",
+    paymentMethod: "stripe_payment_sheet", // Identify mobile payments
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  // --- Handle Free/VIP Orders ---
+  if (shouldBypassStripe) {
+    await db.runTransaction(async (tx) => {
+      tx.set(db.doc(`orders/${orderId}`), orderDoc);
+      await _fulfillOrder(tx, { eventId, eventRef, userId, orderId, items: itemsForOrder, promoCode: appliedPromo });
+    });
+    // Return a specific response for free/VIP orders
+    return { orderId, free: total === 0, vip: appliedPromo === "GRIDVIP2207" };
+  }
+
+  // --- Create Pending Order and Stripe Payment Intent for Paid Orders ---
+  await db.doc(`orders/${orderId}`).set(orderDoc);
+
+  const paymentIntent = await stripe.paymentIntents.create({
+    amount: Math.round(orderDoc.total * 100), // Use the final total from the order doc
+    currency: "inr",
+    automatic_payment_methods: {
+      enabled: true,
+    },
+    metadata: {
+      orderId,
+      eventId,
+      userId,
+    },
+  });
+
+  if (!paymentIntent.client_secret) {
+    throw new functions.https.HttpsError("internal", "Failed to create a Payment Intent.");
+  }
+  
+  // Update the order with the Payment Intent ID
+  await db.doc(`orders/${orderId}`).update({ stripePaymentIntentId: paymentIntent.id });
+
+  // Return the client secret to the app
+  return {
+    orderId,
+    clientSecret: paymentIntent.client_secret,
+  };
+});
 
 export const helloWorld = functions.https.onRequest((_req, res) => {
   res.send("Hello from Tekplanet!");
