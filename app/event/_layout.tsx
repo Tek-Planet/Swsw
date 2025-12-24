@@ -1,8 +1,8 @@
 
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
 import StepIndicator from '@/components/StepIndicator';
 import { Slot, usePathname } from 'expo-router';
+import React from 'react';
+import { StyleSheet, View } from 'react-native';
 
 const steps = [
     '/event/create',
@@ -27,7 +27,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
-    padding: 20,
+    padding: 10,
   },
 });
 

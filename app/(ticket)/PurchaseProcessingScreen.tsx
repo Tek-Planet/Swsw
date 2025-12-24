@@ -1,8 +1,9 @@
-import { View, Text, ActivityIndicator, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import TopNavBar from '@/components/TopNavBar';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { deleteDoc, doc, getDoc, onSnapshot } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import { doc, onSnapshot, getDoc, deleteDoc } from 'firebase/firestore';
-import { db, auth } from '../../lib/firebase/firebaseConfig';
+import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { auth, db } from '../../lib/firebase/firebaseConfig';
 import { Order } from '../../types/event';
 
 const PurchaseProcessingScreen = () => {
@@ -101,8 +102,11 @@ const PurchaseProcessingScreen = () => {
     if (!showFullUI) {
         return (
             <View style={styles.container}>
-                <ActivityIndicator size="large" color="#4a90e2" />
+            <TopNavBar title="Order Summary" onBackPress={() => router.back()} />
+<View style={{marginTop:50}}>
+<ActivityIndicator size="large" color="#4a90e2" />
                 <Text style={styles.header}>Processing your order...</Text>
+</View>
             </View>
         );
     }
@@ -110,6 +114,7 @@ const PurchaseProcessingScreen = () => {
     // If the order isn't paid yet, show the full UI with cancellation options.
     return (
         <View style={styles.container}>
+             <TopNavBar title="Order Summary" onBackPress={() => router.back()} />
             <ActivityIndicator size="large" color="#4a90e2" />
             <Text style={styles.header}>Waiting for Payment</Text>
             <Text style={styles.subText}>
@@ -136,9 +141,7 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#121212',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20,
+        padding: 10,
     },
     header: {
         color: '#fff',

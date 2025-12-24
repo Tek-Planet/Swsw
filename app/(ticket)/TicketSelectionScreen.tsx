@@ -1,12 +1,12 @@
 
+import TopNavBar from '@/components/TopNavBar';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { collection, doc, getDoc, getDocs, orderBy, query, where } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ThemedView } from '../../components/themed-view';
 import { db } from '../../lib/firebase/firebaseConfig'; // Assuming you have a firebaseConfig file
 import { Event, TicketTier } from '../../types/event';
-import TopNavBar from '../../components/TopNavBar';
-import { ThemedView } from '../../components/themed-view';
 
 const TicketSelectionScreen = () => {
   const { eventId } = useLocalSearchParams();
@@ -96,14 +96,18 @@ const TicketSelectionScreen = () => {
   }
 
   return (
-    <ThemedView style={styles.container} darkColor="#000">
-        <TopNavBar title={event.title} onBackPress={() => router.back()} />
+    <ThemedView style={styles.container}>
+       <View style={{paddingHorizontal:20}}>
+       <TopNavBar title={'Select Ticket'} onBackPress={() => router.back()} />
 
+       </View>
+       
       <FlatList
         data={ticketTiers}
         renderItem={renderTier}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.listContainer}
+        
       />
       <View style={styles.stickyFooter}>
         <Text style={styles.totalPrice}>Total: ₹{totalPrice.toLocaleString()}</Text>
@@ -122,19 +126,16 @@ const TicketSelectionScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#000',
+    
   },
   text: {
     color: '#fff',
     fontSize: 24,
     textAlign: 'center',
-    marginTop: 150,
   },
-  listContainer: {
-    paddingTop: 100, // To account for the absolute positioned TopNavBar
-    paddingBottom: 120, // To avoid being hidden by the footer
-  },
+
   tierCard: {
-   
     backgroundColor: '#1a1a1a',
     borderRadius: 10,
     padding: 15,
@@ -212,6 +213,10 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  listContainer: {
+    paddingTop: 10, // To account for the absolute positioned TopNavBar
+    paddingBottom: 100, // To avoid being hidden by the footer
   },
 });
 

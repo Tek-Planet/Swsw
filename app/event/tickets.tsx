@@ -1,14 +1,14 @@
 
-import React, { useEffect, useState } from 'react';
-import { FlatList, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db, auth } from '../../lib/firebase/firebaseConfig';
-import { Order } from '../../types/event';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, StyleSheet } from 'react-native';
 import TicketCard from '../../components/TicketCard';
 import TopNavBar from '../../components/TopNavBar';
-import { ThemedView } from '../../components/themed-view';
 import { ThemedText } from '../../components/themed-text';
+import { ThemedView } from '../../components/themed-view';
+import { auth, db } from '../../lib/firebase/firebaseConfig';
+import { Order } from '../../types/event';
 
 const EventTicketsScreen = () => {
   const { eventId } = useLocalSearchParams<{ eventId: string }>();
@@ -51,7 +51,7 @@ const EventTicketsScreen = () => {
   }
 
   return (
-    <ThemedView style={styles.container} darkColor="#000">
+    <ThemedView style={styles.container}>
       <TopNavBar title="Your Tickets" onBackPress={() => router.back()} />
       {orders.length > 0 ? (
         <FlatList
@@ -70,6 +70,7 @@ const EventTicketsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#000',
   },
   centered: {
     flex: 1,
@@ -78,8 +79,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
   },
   listContent: {
-    paddingTop: 100, // To account for the absolute positioned TopNavBar
-    paddingHorizontal: 20,
+    paddingTop: 10, 
   },
   noTicketsText: {
     textAlign: 'center',

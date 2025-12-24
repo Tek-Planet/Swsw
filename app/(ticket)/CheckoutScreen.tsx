@@ -14,17 +14,17 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  ScrollView,
 } from "react-native";
-import { db } from "../../lib/firebase/firebaseConfig";
-import { Event, TicketTier } from "../../types/event";
 import TopNavBar from "../../components/TopNavBar";
 import { ThemedView } from "../../components/themed-view";
+import { db } from "../../lib/firebase/firebaseConfig";
+import { Event, TicketTier } from "../../types/event";
 
 const CheckoutScreen = () => {
   const { eventId, selectedTiers: selectedTiersJSON } = useLocalSearchParams();
@@ -169,7 +169,7 @@ const CheckoutScreen = () => {
   }
 
   return (
-    <ThemedView style={styles.container} darkColor="#000">
+    <ThemedView style={styles.container}>
         <TopNavBar title="Order Summary" onBackPress={() => router.back()} />
         <ScrollView contentContainerStyle={styles.scrollContent}>
 
@@ -242,16 +242,14 @@ const CheckoutScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#000',
+    padding:10
   },
   centeredContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     backgroundColor: '#000',
   },
   scrollContent: {
-    paddingTop: 100, // For TopNavBar
-    padding: 20,
+    paddingTop: 10, 
   },
   text: {
     color: "#fff",
