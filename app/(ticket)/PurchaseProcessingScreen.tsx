@@ -114,7 +114,7 @@ const PurchaseProcessingScreen = () => {
     // If the order isn't paid yet, show the full UI with cancellation options.
     return (
         <View style={styles.container}>
-             <TopNavBar title="Order Summary" onBackPress={() => router.back()} />
+             <TopNavBar title="Order Summary" onBackPress={() => router.back()} />x
             <ActivityIndicator size="large" color="#4a90e2" />
             <Text style={styles.header}>Waiting for Payment</Text>
             <Text style={styles.subText}>
