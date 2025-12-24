@@ -1,7 +1,7 @@
 
-import { StripeProvider } from '@stripe/stripe-react-native';
 import { Stack } from 'expo-router';
 import React from 'react';
+import { StripeProvider } from '@stripe/stripe-react-native';
 
 export default function TicketLayout() {
   // It's best practice to load your key from environment variables.
@@ -12,13 +12,13 @@ export default function TicketLayout() {
     // This log is important for debugging purposes.
     console.error("Stripe publishable key is not set. Payment features will be disabled.");
   }
- 
+  
   return (
     // The publishableKey is required for Stripe to work. 
     // A fallback key is used here to prevent the app from crashing during development
     // if the environment variable is not set.
     <StripeProvider 
-      publishableKey={stripePublishableKey || ''} 
+      publishableKey={stripePublishableKey || "pk_test_YOUR_KEY_HERE"} 
     >
       <Stack>
         <Stack.Screen name="TicketSelectionScreen" options={{ headerShown: false }} />

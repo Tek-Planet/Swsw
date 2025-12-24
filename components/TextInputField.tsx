@@ -1,20 +1,21 @@
 
 import React from 'react';
-import { TextInput, StyleSheet } from 'react-native';
+import { TextInput, StyleSheet, StyleProp, ViewStyle, TextInputProps } from 'react-native';
 
-interface TextInputFieldProps {
-  placeholder?: string;
-  value?: string;
-  onChangeText?: (text: string) => void;
-  secureTextEntry?: boolean;
+// We can extend the base TextInputProps from React Native to inherit all its properties,
+// including 'multiline' and 'numberOfLines', and then add our own custom ones if needed.
+interface TextInputFieldProps extends TextInputProps {
+  // You can add any custom props specific to your component here
+  // For now, we just want to ensure all standard TextInput props are accepted.
 }
 
-const TextInputField: React.FC<TextInputFieldProps> = (props) => {
+const TextInputField: React.FC<TextInputFieldProps> = ({ style, ...rest }) => {
   return (
     <TextInput
-      style={styles.input}
+      // Combine the default styles with any custom styles passed in via props
+      style={[styles.input, style]}
       placeholderTextColor="#aaa"
-      {...props}
+      {...rest} // Pass all other props down to the TextInput
     />
   );
 };
