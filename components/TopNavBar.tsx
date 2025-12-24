@@ -5,24 +5,20 @@ import { Ionicons } from '@expo/vector-icons';
 
 interface TopNavBarProps {
   title: string;
-  onBackPress: () => void;
+  onBackPress?: () => void;
+  rightContent?: React.ReactNode;
 }
 
-const TopNavBar: React.FC<TopNavBarProps> = ({ title, onBackPress }) => {
+const TopNavBar: React.FC<TopNavBarProps> = ({ title, onBackPress, rightContent }) => {
   return (
     <View style={styles.container}>
-      <TouchableOpacity onPress={onBackPress}>
-        <Ionicons name="arrow-back" size={24} color="#fff" />
-      </TouchableOpacity>
+      {onBackPress && (
+        <TouchableOpacity onPress={onBackPress}>
+          <Ionicons name="arrow-back" size={24} color="#fff" />
+        </TouchableOpacity>
+      )}
       <Text style={styles.title}>{title}</Text>
-      <View style={styles.rightIcons}>
-        <TouchableOpacity>
-          <Ionicons name="share-social-outline" size={24} color="#fff" />
-        </TouchableOpacity>
-        <TouchableOpacity>
-          <Ionicons name="ellipsis-vertical" size={24} color="#fff" />
-        </TouchableOpacity>
-      </View>
+      <View style={styles.rightIcons}>{rightContent}</View>
     </View>
   );
 };
@@ -40,7 +36,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)', // semi-transparent background
+    backgroundColor: 'transparent', 
   },
   title: {
     color: '#fff',

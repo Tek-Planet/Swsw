@@ -1,9 +1,12 @@
+
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { collection, doc, getDoc, getDocs, orderBy, query, where } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../../lib/firebase/firebaseConfig'; // Assuming you have a firebaseConfig file
 import { Event, TicketTier } from '../../types/event';
+import TopNavBar from '../../components/TopNavBar';
+import { ThemedView } from '../../components/themed-view';
 
 const TicketSelectionScreen = () => {
   const { eventId } = useLocalSearchParams();
@@ -89,19 +92,13 @@ const TicketSelectionScreen = () => {
   const isContinueDisabled = Object.keys(selectedTiers).length === 0;
 
   if (!event) {
-    return <View style={styles.container}><Text style={styles.text}>Loading...</Text></View>;
+    return <ThemedView style={styles.container}><Text style={styles.text}>Loading...</Text></ThemedView>;
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.eventHeader}>
-        <Text style={styles.eventTitle}>{event.title}</Text>
-        {event.startTime && event.location.address && (
-          <Text style={styles.eventDetails}>
-            {new Date(event.startTime).toLocaleDateString()} at {event.location.address}
-          </Text>
-        )}
-      </View>
+    <ThemedView style={styles.container} darkColor="#000">
+        <TopNavBar title={event.title} onBackPress={() => router.back()} />
+
       <FlatList
         data={ticketTiers}
         renderItem={renderTier}
@@ -118,37 +115,22 @@ const TicketSelectionScreen = () => {
           <Text style={styles.ctaButtonText}>Continue to Pay</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </ThemedView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
   },
   text: {
     color: '#fff',
     fontSize: 24,
     textAlign: 'center',
-    marginTop: 50,
-  },
-  eventHeader: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
-  eventTitle: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  eventDetails: {
-    color: '#aaa',
-    fontSize: 16,
-    marginTop: 5,
+    marginTop: 150,
   },
   listContainer: {
+    paddingTop: 100, // To account for the absolute positioned TopNavBar
     paddingBottom: 120, // To avoid being hidden by the footer
   },
   tierCard: {

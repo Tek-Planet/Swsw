@@ -1,3 +1,4 @@
+
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import {
@@ -18,9 +19,12 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ScrollView,
 } from "react-native";
 import { db } from "../../lib/firebase/firebaseConfig";
 import { Event, TicketTier } from "../../types/event";
+import TopNavBar from "../../components/TopNavBar";
+import { ThemedView } from "../../components/themed-view";
 
 const CheckoutScreen = () => {
   const { eventId, selectedTiers: selectedTiersJSON } = useLocalSearchParams();
@@ -150,101 +154,104 @@ const CheckoutScreen = () => {
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <ThemedView style={styles.centeredContainer}>
         <ActivityIndicator size="large" color="#fff" />
-      </View>
+      </ThemedView>
     );
   }
 
   if (!event) {
     return (
-      <View style={styles.container}>
+      <ThemedView style={styles.centeredContainer}>
         <Text style={styles.text}>Event not found.</Text>
-      </View>
+      </ThemedView>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>Order Summary</Text>
+    <ThemedView style={styles.container} darkColor="#000">
+        <TopNavBar title="Order Summary" onBackPress={() => router.back()} />
+        <ScrollView contentContainerStyle={styles.scrollContent}>
 
-      <View style={styles.summaryCard}>
-        <Text style={styles.eventTitle}>{event.title}</Text>
+            <View style={styles.summaryCard}>
+                <Text style={styles.eventTitle}>{event.title}</Text>
 
-        {Object.keys(selectedTiers).map((tierId) => {
-          const tier = ticketTiers.find((t) => t.id === tierId);
-          const quantity = selectedTiers[tierId];
-          if (!tier) return null;
+                {Object.keys(selectedTiers).map((tierId) => {
+                const tier = ticketTiers.find((t) => t.id === tierId);
+                const quantity = selectedTiers[tierId];
+                if (!tier) return null;
 
-          return (
-            <View key={tierId} style={styles.ticketItem}>
-              <Text style={styles.ticketText}>
-                {tier.name} x {quantity}
-              </Text>
-              <Text style={styles.ticketText}>
-                ₹{(tier.price * quantity).toLocaleString()}
-              </Text>
+                return (
+                    <View key={tierId} style={styles.ticketItem}>
+                    <Text style={styles.ticketText}>
+                        {tier.name} x {quantity}
+                    </Text>
+                    <Text style={styles.ticketText}>
+                        ₹{(tier.price * quantity).toLocaleString()}
+                    </Text>
+                    </View>
+                );
+                })}
+
+                <View style={styles.subtotalContainer}>
+                <Text style={styles.ticketText}>Subtotal</Text>
+                <Text style={styles.ticketText}>₹{subtotal.toLocaleString()}</Text>
+                </View>
+
+                {processingFee > 0 && (
+                <View style={styles.subtotalContainer}>
+                    <Text style={styles.ticketText}>Processing fee (10%)</Text>
+                    <Text style={styles.ticketText}>₹{processingFee.toLocaleString()}</Text>
+                </View>
+                )}
+
+                <View style={styles.totalContainer}>
+                <Text style={styles.totalText}>Total</Text>
+                <Text style={styles.totalText}>₹{total.toLocaleString()}</Text>
+                </View>
             </View>
-          );
-        })}
 
-        <View style={styles.subtotalContainer}>
-          <Text style={styles.ticketText}>Subtotal</Text>
-          <Text style={styles.ticketText}>₹{subtotal.toLocaleString()}</Text>
-        </View>
+            <TextInput
+                style={styles.promoInput}
+                placeholder="Promo code (optional)"
+                placeholderTextColor="#888"
+                value={promoCode}
+                onChangeText={setPromoCode}
+                autoCapitalize="characters"
+            />
 
-        {processingFee > 0 && (
-          <View style={styles.subtotalContainer}>
-            <Text style={styles.ticketText}>Processing fee (10%)</Text>
-            <Text style={styles.ticketText}>₹{processingFee.toLocaleString()}</Text>
-          </View>
-        )}
-
-        <View style={styles.totalContainer}>
-          <Text style={styles.totalText}>Total</Text>
-          <Text style={styles.totalText}>₹{total.toLocaleString()}</Text>
-        </View>
-      </View>
-
-      <TextInput
-        style={styles.promoInput}
-        placeholder="Promo code (optional)"
-        placeholderTextColor="#888"
-        value={promoCode}
-        onChangeText={setPromoCode}
-        autoCapitalize="characters"
-      />
-
-      <TouchableOpacity
-        style={[
-          styles.ctaButton,
-          (!hasSelection || paying) && { opacity: 0.6 },
-        ]}
-        onPress={handlePayment}
-        disabled={!hasSelection || paying}
-      >
-        {paying ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.ctaButtonText}>Proceed to Checkout</Text>
-        )}
-      </TouchableOpacity>
-    </View>
+            <TouchableOpacity
+                style={[
+                styles.ctaButton,
+                (!hasSelection || paying) && { opacity: 0.6 },
+                ]}
+                onPress={handlePayment}
+                disabled={!hasSelection || paying}
+            >
+                {paying ? (
+                <ActivityIndicator color="#fff" />
+                ) : (
+                <Text style={styles.ctaButtonText}>Proceed to Checkout</Text>
+                )}
+            </TouchableOpacity>
+        </ScrollView>
+    </ThemedView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#121212",
-    padding: 20,
   },
-  header: {
-    color: "#fff",
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 20,
-    textAlign: "center",
+  centeredContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#000',
+  },
+  scrollContent: {
+    paddingTop: 100, // For TopNavBar
+    padding: 20,
   },
   text: {
     color: "#fff",

@@ -1,12 +1,14 @@
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+import { FlatList, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '../../lib/firebase/firebaseConfig';
 import { Order } from '../../types/event';
 import TicketCard from '../../components/TicketCard';
-import { Ionicons } from '@expo/vector-icons';
+import TopNavBar from '../../components/TopNavBar';
+import { ThemedView } from '../../components/themed-view';
+import { ThemedText } from '../../components/themed-text';
 
 const EventTicketsScreen = () => {
   const { eventId } = useLocalSearchParams<{ eventId: string }>();
@@ -41,61 +43,47 @@ const EventTicketsScreen = () => {
   }, [userId, eventId]);
 
   if (loading) {
-    return <ActivityIndicator style={styles.centered} size="large" color="#fff" />;
+    return (
+        <ThemedView style={styles.centered}>
+            <ActivityIndicator size="large" color="#fff" />
+        </ThemedView>
+    );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.headerContainer}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="white" />
-        </TouchableOpacity>
-        <Text style={styles.header}>Your Tickets</Text>
-      </View>
+    <ThemedView style={styles.container} darkColor="#000">
+      <TopNavBar title="Your Tickets" onBackPress={() => router.back()} />
       {orders.length > 0 ? (
         <FlatList
           data={orders}
           keyExtractor={item => item.orderId}
           renderItem={({ item }) => <TicketCard order={item} />}
+          contentContainerStyle={styles.listContent}
         />
       ) : (
-        <Text style={styles.noTicketsText}>You have no tickets for this event.</Text>
+        <ThemedText style={styles.noTicketsText}>You have no tickets for this event.</ThemedText>
       )}
-    </View>
+    </ThemedView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
-    paddingTop: 40,
   },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#000',
   },
-  headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  listContent: {
+    paddingTop: 100, // To account for the absolute positioned TopNavBar
     paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  backButton: {
-    marginRight: 20,
-  },
-  header: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    textAlign: 'center',
-    flex: 1,
   },
   noTicketsText: {
-    color: '#aaa',
     textAlign: 'center',
-    marginTop: 50,
+    marginTop: 150,
     fontSize: 16,
   },
 });
