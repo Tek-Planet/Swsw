@@ -1,3 +1,4 @@
+
 import { Timestamp } from 'firebase/firestore';
 
 export type EventVisibility = 'public' | 'private' | 'buds';
@@ -58,6 +59,7 @@ export interface TicketTier {
   id: string;
   name: string;
   price: number;
+  chargeAmount?: number; // Added to match backend logic
   currency: string;
   type: TicketTierType;
   description?: string;
@@ -70,6 +72,7 @@ export interface TicketTier {
 }
 
 export type FirestoreTicketTier = Omit<TicketTier, 'id' | 'createdAt' | 'updatedAt'> & {
+    chargeAmount?: number; // Added to match backend logic
     createdAt: Timestamp;
     updatedAt: Timestamp;
 };
