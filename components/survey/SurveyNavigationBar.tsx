@@ -1,25 +1,31 @@
 
 import React from 'react';
-import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-native';
 
 interface SurveyNavigationBarProps {
   onNext: () => void;
   onBack: () => void;
   isNextDisabled?: boolean;
+  isLast?: boolean;
+  isSubmitting?: boolean;
 }
 
-const SurveyNavigationBar: React.FC<SurveyNavigationBarProps> = ({ onNext, onBack, isNextDisabled }) => {
+const SurveyNavigationBar: React.FC<SurveyNavigationBarProps> = ({ onNext, onBack, isNextDisabled, isLast, isSubmitting }) => {
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.button} onPress={onBack}>
         <Text style={styles.buttonText}>Back</Text>
       </TouchableOpacity>
       <TouchableOpacity
-        style={[styles.button, styles.primaryButton, isNextDisabled && styles.disabledButton]}
+        style={[styles.button, styles.primaryButton, (isNextDisabled || isSubmitting) && styles.disabledButton]}
         onPress={onNext}
-        disabled={isNextDisabled}
+        disabled={isNextDisabled || isSubmitting}
       >
-        <Text style={styles.buttonText}>Next</Text>
+        {isSubmitting ? (
+          <ActivityIndicator size="small" color="#fff" />
+        ) : (
+          <Text style={styles.buttonText}>{isLast ? 'Submit' : 'Next'}</Text>
+        )}
       </TouchableOpacity>
     </View>
   );

@@ -123,3 +123,11 @@ export interface Order {
   promoCode?: string;
   tableContactDetails?: TableContactDetails;
 }
+
+export interface SurveyQuestion {
+  id: string;
+  order: number;
+  type: 'multiple-choice' | 'single-choice' | 'free-text';
+  question: string;
+  options?: string[];
+}

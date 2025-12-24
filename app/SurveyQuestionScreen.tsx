@@ -1,117 +1,142 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
-import SurveyContainer from '@/components/survey/SurveyContainer';
-import { AppHeader } from '@/components/Header';
-import SurveyQuestionCard from '@/components/survey/SurveyQuestionCard';
-import SurveySingleChoice from '@/components/survey/SurveySingleChoice';
-import SurveyMultiChoice from '@/components/survey/SurveyMultiChoice';
-import SurveyProgressIndicator from '@/components/survey/SurveyProgressIndicator';
-import SurveyNavigationBar from '@/components/survey/SurveyNavigationBar';
-import AnimatedSlideContainer from '@/components/survey/AnimatedSlideContainer';
+
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+import { collection, getDocs } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { db } from '../lib/firebase/firebaseConfig';
+import { SurveyQuestion } from '../types/event';
 
-const surveyData = [
-    {
-      id: 1,
-      question: 'What’s your vibe for this event?',
-      type: 'single',
-      options: ['Chill', 'High-Energy', 'Social', 'Low-Key', 'Networking'],
-    },
-    {
-      id: 2,
-      question: 'Who do you want to meet?',
-      type: 'multi',
-      options: ['New friends', 'People with similar interests', 'Creatives', 'Professionals', 'Anyone fun'],
-    },
-    {
-      id: 3,
-      question: 'What are you looking forward to?',
-      type: 'single',
-      options: ['Dancing', 'Drinking', 'Deep conversations', 'Games', 'Exploring the venue'],
-    },
-  ];
+import SurveyContainer from '../components/survey/SurveyContainer';
+import SurveyQuestionCard from '../components/survey/SurveyQuestionCard';
+import SurveyNavigationBar from '../components/survey/SurveyNavigationBar';
 
-interface AnimatedSlideContainerRef {
-  slideIn: () => void;
-  slideOut: () => void;
+// Define the structure for answers being collected
+interface Answer {
+  questionId: string;
+  answer: string | string[];
 }
 
-const SurveyQuestionScreen = () => {
+export default function SurveyQuestionScreen() {
   const router = useRouter();
-  const { questionId } = useLocalSearchParams<{ questionId: string }>();
-  const [answers, setAnswers] = useState<{[key: number]: string | string[]}>({});
-  const animatedSlideRef = useRef<AnimatedSlideContainerRef>(null);
+  const params = useLocalSearchParams<{ eventId: string; questionIndex?: string }>();
+  const eventId = params.eventId as string;
+  const initialIndex = params.questionIndex ? parseInt(params.questionIndex, 10) : 0;
 
-  const currentQuestionIndex = surveyData.findIndex(q => q.id === parseInt(questionId || "1"));
+  const [questions, setQuestions] = useState<SurveyQuestion[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [answers, setAnswers] = useState<Answer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Fetch questions for the event when the screen loads
   useEffect(() => {
-    if (animatedSlideRef.current) {
-      animatedSlideRef.current.slideIn();
-    }
-  }, [currentQuestionIndex]);
+    if (!eventId) return;
+    const fetchQuestions = async () => {
+      setLoading(true);
+      try {
+        const questionsRef = collection(db, 'events', eventId, 'survey');
+        const snapshot = await getDocs(questionsRef);
+        const fetchedQuestions = snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() } as SurveyQuestion))
+            .sort((a, b) => a.order - b.order);
+        setQuestions(fetchedQuestions);
+      } catch (error) {
+        console.error("Error fetching survey questions:", error);
+        Alert.alert("Error", "Could not load survey questions. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchQuestions();
+  }, [eventId]);
+
+  const handleAnswer = (questionId: string, answer: string | string[]) => {
+    setAnswers(prev => {
+      const existingAnsIndex = prev.findIndex(a => a.questionId === questionId);
+      if (existingAnsIndex > -1) {
+        const updated = [...prev];
+        updated[existingAnsIndex] = { questionId, answer };
+        return updated;
+      } else {
+        return [...prev, { questionId, answer }];
+      }
+    });
+  };
 
   const handleNext = () => {
-    if (currentQuestionIndex < surveyData.length - 1) {
-      router.push(`/SurveyQuestionScreen?questionId=${surveyData[currentQuestionIndex + 1].id}`);
-    } else {
-      router.push('/SurveyResultsScreen');
+    if (currentIndex < questions.length - 1) {
+      setCurrentIndex(currentIndex + 1);
     }
   };
 
   const handleBack = () => {
-    if (currentQuestionIndex > 0) {
-        router.push(`/SurveyQuestionScreen?questionId=${surveyData[currentQuestionIndex - 1].id}`);
-    } else {
-        router.back();
+    if (currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1);
     }
   };
 
-  const handleAnswer = (questionId: number, answer: string | string[]) => {
-    setAnswers({ ...answers, [questionId]: answer });
-  };
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    try {
+        const functions = getFunctions();
+        const processSurvey = httpsCallable(functions, 'processSurveyAndFindMatches');
+        
+        await processSurvey({ eventId, answers });
 
-  const currentQuestion = surveyData[currentQuestionIndex];
+        // Navigate to the results screen after successful submission
+        router.replace({ 
+            pathname: '/SurveyResultsScreen', 
+            params: { eventId } 
+        });
+
+    } catch (error: any) {
+        console.error("Error submitting survey:", error);
+        Alert.alert("Submission Failed", error.message || "An unexpected error occurred. Please try again.");
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
+  
+  if (loading) {
+    return <SurveyContainer><ActivityIndicator size="large" color="#fff" /></SurveyContainer>;
+  }
+
+  if (questions.length === 0) {
+    return (
+        <SurveyContainer>
+            <Text style={styles.errorText}>No survey questions found for this event.</Text>
+            <TouchableOpacity onPress={() => router.back()}><Text style={{color: '#4a90e2'}}>Go Back</Text></TouchableOpacity>
+        </SurveyContainer>
+    );
+  }
+
+  const currentQuestion = questions[currentIndex];
+  const currentAnswer = answers.find(a => a.questionId === currentQuestion.id)?.answer;
+  const isLastQuestion = currentIndex === questions.length - 1;
 
   return (
     <SurveyContainer>
-        <AppHeader title="Event Survey" />
-      <SurveyProgressIndicator
-        current={currentQuestionIndex + 1}
-        total={surveyData.length}
-      />
-      <AnimatedSlideContainer ref={animatedSlideRef}>
-        <SurveyQuestionCard question={{text: currentQuestion.question}} onAnswer={() => {}} />
-        <View style={styles.optionsContainer}>
-          {currentQuestion.type === 'single' ? (
-            <SurveySingleChoice
-              options={currentQuestion.options}
-              onSelect={(option: string) => handleAnswer(currentQuestion.id, option)}
-              selectedOption={answers[currentQuestion.id] as string}
-            />
-          ) : (
-            <SurveyMultiChoice
-              options={currentQuestion.options}
-              onSelect={(selectedOptions: string[]) => handleAnswer(currentQuestion.id, selectedOptions)}
-              selectedOptions={(answers[currentQuestion.id] as string[]) || []}
-            />
-          )}
-        </View>
-      </AnimatedSlideContainer>
-      <SurveyNavigationBar
-        onNext={handleNext}
-        onBack={handleBack}
-        isNextDisabled={!answers[currentQuestion.id]}
-      />
+        <SurveyQuestionCard 
+            question={currentQuestion}
+            answer={currentAnswer}
+            onAnswer={(answer) => handleAnswer(currentQuestion.id, answer)}
+        />
+        <SurveyNavigationBar
+            onBack={handleBack}
+            onNext={isLastQuestion ? handleSubmit : handleNext}
+            isLast={isLastQuestion}
+            isSubmitting={isSubmitting}
+        />
     </SurveyContainer>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  optionsContainer: {
-    alignItems: 'center',
-    width: '100%',
-    paddingHorizontal: 20,
-  },
+    errorText: {
+        color: '#d9534f',
+        fontSize: 16,
+        textAlign: 'center',
+        marginBottom: 20
+    },
 });
-
-export default SurveyQuestionScreen;

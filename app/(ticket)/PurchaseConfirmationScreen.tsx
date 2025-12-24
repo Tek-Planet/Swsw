@@ -1,12 +1,23 @@
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, Timestamp } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { ThemedView } from '../../components/themed-view';
 import { auth, db } from '../../lib/firebase/firebaseConfig';
 import { Order } from '../../types/event';
+
+// We need to ensure the fetched data is correctly cast to the Order type.
+// This includes handling the Firestore Timestamp conversion.
+const toOrder = (data: any, id: string): Order => {
+    return {
+        orderId: id,
+        ...data,
+        createdAt: (data.createdAt as Timestamp).toDate(),
+        updatedAt: (data.updatedAt as Timestamp).toDate(),
+    } as Order;
+}
 
 const PurchaseConfirmationScreen = () => {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
@@ -36,11 +47,12 @@ const PurchaseConfirmationScreen = () => {
       try {
         const docSnap = await getDoc(orderRef);
         if (docSnap.exists()) {
-          const orderData = docSnap.data() as Order;
+          const orderData = docSnap.data();
           if (orderData.userId !== userId) {
             setError("You do not have permission to view this order.");
           } else {
-            setOrder(orderData);
+            // Convert the Firestore data to our Order type
+            setOrder(toOrder(orderData, docSnap.id));
           }
         } else {
           setError("This order could not be found.");
@@ -57,19 +69,22 @@ const PurchaseConfirmationScreen = () => {
   }, [orderId]);
 
   const handleViewTicket = () => {
-    if (!order) return;
+    if (!order || !order.eventId) {
+        Alert.alert('Error', 'Cannot locate the event for this ticket.');
+        return;
+    }
     router.push({
       pathname: '/(ticket)/TicketScreen',
-      params: { orderId: order.orderId },
+      // We must pass both orderId and eventId to the next screen
+      params: { orderId: order.orderId, eventId: order.eventId },
     });
   };
 
   const handleBackToEvent = () => {
-      if (!order) {
-          router.replace('/');
+      if (!order || !order.eventId) {
+          router.replace('/'); // Fallback to home if no eventId
           return;
       };
-      // Correctly typed path for Expo Router
       router.replace({ pathname: '/event/[id]', params: { id: order.eventId } });
   };
 
