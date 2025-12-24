@@ -39,7 +39,7 @@ const InterestsScreen = () => {
       await createOrUpdateUserProfile(user.uid, {
         interests: selectedInterests,
       });
-      router.push('/(onboarding)/permissions');
+      router.push('/(onboarding)/onboarding-done');
     } catch (error) {
       console.error(error);
       Alert.alert('Error', 'Could not update interests. Please try again.');

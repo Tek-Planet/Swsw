@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { doc, getDoc, collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, orderBy, query, where } from 'firebase/firestore';
+import React, { useEffect, useState } from 'react';
+import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../../lib/firebase/firebaseConfig'; // Assuming you have a firebaseConfig file
 import { Event, TicketTier } from '../../types/event';
 
@@ -61,7 +61,7 @@ const TicketSelectionScreen = () => {
 
     return (
       <View style={styles.tierCard}>
-        <View>
+      <View style={styles.tierInfo}>
           <Text style={styles.tierName}>{item.name}</Text>
           <Text style={styles.tierPrice}>₹{item.price.toLocaleString()}</Text>
           {item.description && <Text style={styles.tierDescription}>{item.description}</Text>}
@@ -152,6 +152,7 @@ const styles = StyleSheet.create({
     paddingBottom: 120, // To avoid being hidden by the footer
   },
   tierCard: {
+   
     backgroundColor: '#1a1a1a',
     borderRadius: 10,
     padding: 15,
@@ -176,6 +177,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 5,
   },
+  tierInfo: { flex: 1, // take available space 
+    marginRight: 10, // add spacing before buttons 
+    },
   quantitySelector: {
     flexDirection: 'row',
     alignItems: 'center',

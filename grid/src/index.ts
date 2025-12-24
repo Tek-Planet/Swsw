@@ -421,3 +421,17 @@ export const setAdminStatus = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("internal", "An error occurred while setting the custom claim.");
   }
 });
+
+/**
+ * Temporary admin setup function.
+ */
+export const tempSetAdmins = functions.https.onRequest(async (_req, res) => {
+  const uids = [''];
+  try {
+    await Promise.all(uids.map(uid => admin.auth().setCustomUserClaims(uid, { admin: true })));
+    res.send("Admins set!");
+  } catch (error) {
+    console.error("Failed to set admins:", error);
+    res.status(500).send("Error setting admins");
+  }
+});

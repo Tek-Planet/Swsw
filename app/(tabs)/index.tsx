@@ -193,7 +193,7 @@ const TrendingEvents: React.FC = () => {
     });
     return () => unsubscribe();
   }, []);
-  console.log(trendingEvents)
+
 
   return (
     <View style={styles.section}>
