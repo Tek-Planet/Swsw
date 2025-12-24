@@ -2,7 +2,6 @@
 import { useAuth } from '@/lib/context/AuthContext';
 import { listenToUserProfile } from '@/lib/firebase/userProfileService';
 import { UserProfile } from '@/types';
-import { Ionicons as Icon } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
@@ -34,11 +33,11 @@ export const Header: React.FC = () => {
       <Text style={styles.greeting}>
         {userProfile ? `It's time to have fun, ${userProfile.displayName}` : 'Loading...'}
       </Text>
-      <View style={styles.headerActions}>
+      {/* <View style={styles.headerActions}>
           <Text style={styles.partyGenie}>Party Genie</Text>
           <Icon name="help-circle-outline" size={24} color="#fff" />
       </View>
-  
+   */}
     </View>
   );
 };

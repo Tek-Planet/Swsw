@@ -1,7 +1,7 @@
 
-import React from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
 import { UserProfile } from '@/types';
+import React from 'react';
+import { Image, StyleSheet, Text, View } from 'react-native';
 
 interface ProfileHeaderProps {
   userProfile: UserProfile;
@@ -12,6 +12,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({ userProfile }) => {
     <View style={styles.container}>
       <Image source={{ uri: userProfile.photoUrl }} style={styles.image} />
       <Text style={styles.name}>{userProfile.displayName}</Text>
+      <Text style={styles.email}>{userProfile.email}</Text>
     </View>
   );
 };
@@ -30,6 +31,10 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 24,
     fontWeight: 'bold',
+    color: '#fff',
+    marginTop: 10,
+  },
+  email: {
     color: '#fff',
     marginTop: 10,
   },

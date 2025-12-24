@@ -1,12 +1,13 @@
 
+import { StripeProvider } from '@stripe/stripe-react-native';
 import { Stack } from 'expo-router';
 import React from 'react';
-import { StripeProvider } from '@stripe/stripe-react-native';
 
 export default function TicketLayout() {
   // It's best practice to load your key from environment variables.
   // Make sure to set this variable in your project configuration (e.g., .env file).
   const stripePublishableKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+
 
   if (!stripePublishableKey) {
     // This log is important for debugging purposes.
