@@ -183,19 +183,21 @@ const CheckoutScreen = () => {
                   const tier = ticketTiers.find((t) => t.id === tierId);
                   if (!tier) return null;
                   return (
-                      <View key={tierId} style={styles.ticketItem}>
-                          <Text style={styles.ticketText}>{tier.name} x {selectedTiers[tierId]}</Text>
-                          <Text style={styles.ticketText}>₹{(tier.price * selectedTiers[tierId]).toLocaleString()}</Text>
+                      <View key={tierId} style={styles.itemRow}>
+                          <View style={styles.itemDetails}>
+                             <Text style={styles.itemName}>{tier.name} x {selectedTiers[tierId]}</Text>
+                          </View>
+                          <Text style={styles.itemPrice}>₹{(tier.price * selectedTiers[tierId]).toLocaleString()}</Text>
                       </View>
                   );
                 })}
 
-                <View style={styles.subtotalContainer}><Text style={styles.ticketText}>Subtotal</Text><Text style={styles.ticketText}>₹{pricing.subtotal.toLocaleString()}</Text></View>
+                <View style={styles.subtotalContainer}><Text style={styles.summaryText}>Subtotal</Text><Text style={styles.summaryText}>₹{pricing.subtotal.toLocaleString()}</Text></View>
 
                 {pricing.processingFee > 0 && !promoApplied && (
                     <View style={styles.subtotalContainer}>
-                        <Text style={styles.ticketText}>Processing fee (10%)</Text>
-                        <Text style={styles.ticketText}>₹{pricing.processingFee.toLocaleString()}</Text>
+                        <Text style={styles.summaryText}>Processing fee (10%)</Text>
+                        <Text style={styles.summaryText}>₹{pricing.processingFee.toLocaleString()}</Text>
                     </View>
                 )}
                 {promoApplied && <Text style={styles.promoAppliedText}>🎉 VIP promo applied!</Text>}
@@ -251,8 +253,29 @@ const styles = StyleSheet.create({
   text: { color: "#fff", fontSize: 18, textAlign: "center" },
   summaryCard: { backgroundColor: "#1a1a1a", borderRadius: 10, padding: 20, marginBottom: 20 },
   eventTitle: { color: "#fff", fontSize: 20, fontWeight: "bold", borderBottomWidth: 1, borderBottomColor: "#333", paddingBottom: 15, marginBottom: 15 },
-  ticketItem: { flexDirection: "row", justifyContent: "space-between", marginBottom: 10 },
-  ticketText: { color: "#aaa", fontSize: 16 },
+  
+  itemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start', // Use flex-start to align items at the top
+    marginBottom: 12,
+  },
+  itemDetails: {
+    flex: 1,
+    marginRight: 10,
+  },
+  itemName: {
+    color: '#ddd',
+    fontSize: 16,
+    flexShrink: 1, // This is crucial to allow text to wrap
+  },
+  itemPrice: {
+    color: '#ddd',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  summaryText: { color: "#aaa", fontSize: 16 },
+
   subtotalContainer: { flexDirection: "row", justifyContent: "space-between", marginTop: 10 },
   promoAppliedText: { color: '#4CAF50', fontSize: 16, textAlign: 'center', marginVertical: 10 },
   totalContainer: { flexDirection: "row", justifyContent: "space-between", borderTopWidth: 1, borderTopColor: "#333", paddingTop: 15, marginTop: 15 },

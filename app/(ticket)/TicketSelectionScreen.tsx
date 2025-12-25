@@ -79,16 +79,22 @@ const TicketSelectionScreen = () => {
   const renderTier = ({ item }: { item: TicketTier }) => {
     const maxQuantity = item.type === 'table' ? 1 : 10;
     const currentQuantity = selectedTiers[item.id] || 0;
-    const chargeAmount = item.type === 'table' && item.chargeAmount != null ? item.chargeAmount : item.price;
+    
+    const isTableWithDeposit = item.type === 'table' && item.chargeAmount != null && item.chargeAmount < item.price;
 
     return (
       <View style={styles.tierCard}>
         <View style={styles.tierInfo}>
           <Text style={styles.tierName}>{item.name}</Text>
-          <View style={{flexDirection: 'row', alignItems:'center', gap: 5}}>
-            <Text style={styles.tierPrice}>₹{chargeAmount.toLocaleString()}</Text>
-            {item.type === 'table' && <Text style={styles.depositLabel}>(Deposit)</Text>}
-          </View>
+
+          <Text style={styles.tierPrice}>₹{item.price.toLocaleString()}</Text>
+
+          {isTableWithDeposit && item.chargeAmount != null && (
+            <Text style={styles.depositLabel}>
+              (A deposit of ₹{item.chargeAmount.toLocaleString()} will be charged at checkout)
+            </Text>
+          )}
+          
           {item.description && <Text style={styles.tierDescription}>{item.description}</Text>}
         </View>
         <View style={styles.quantitySelector}>
