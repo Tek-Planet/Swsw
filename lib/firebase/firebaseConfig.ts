@@ -10,6 +10,7 @@ const firebaseConfig = Constants?.expoConfig?.extra?.firebase; if (!firebaseConf
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
+
 let auth: Auth;
 
 try {

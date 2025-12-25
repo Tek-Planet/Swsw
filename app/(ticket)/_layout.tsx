@@ -1,19 +1,20 @@
 
 import { StripeProvider } from '@stripe/stripe-react-native';
+import Constants from "expo-constants";
 import { Stack } from 'expo-router';
 import React from 'react';
 
 export default function TicketLayout() {
   // It's best practice to load your key from environment variables.
   // Make sure to set this variable in your project configuration (e.g., .env file).
-  const stripePublishableKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY;
-
-
+  const stripePublishableKey = Constants?.expoConfig?.extra?.stripe_publishable_key;
+  
+  
   if (!stripePublishableKey) {
     // This log is important for debugging purposes.
     console.error("Stripe publishable key is not set. Payment features will be disabled.");
   }
-  
+    
   return (
     // The publishableKey is required for Stripe to work. 
     // A fallback key is used here to prevent the app from crashing during development
