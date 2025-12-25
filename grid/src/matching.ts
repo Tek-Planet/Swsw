@@ -1,8 +1,8 @@
 
-import * as admin from "firebase-admin";
+
 import * as functions from "firebase-functions/v1";
 
-const db = admin.firestore();
+import { admin, db } from "./lib/firebase";
 
 // Define types for clarity
 interface SurveyAnswer {

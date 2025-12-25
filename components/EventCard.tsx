@@ -28,6 +28,13 @@ const EventCard: React.FC<EventCardProps> = ({ event, showEnhanceGridButton }) =
 
   const handleEnhanceGridPress = () => {
     router.push('/enhance-grid-survey');
+
+
+    router.push({
+      pathname: '/enhance-grid-survey',
+      // We must pass both orderId and eventId to the next screen
+      params: { eventId: event.id},
+    });
   };
 
   const imageUrl = event.coverImageUrl || 'https://via.placeholder.com/150';
@@ -69,7 +76,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, showEnhanceGridButton }) =
           )}
         </View>
       )}
-      {showEnhanceGridButton && false && (
+      {showEnhanceGridButton && (
         <>
           <View style={styles.divider} />
           <EnhanceGridButton onPress={handleEnhanceGridPress} />

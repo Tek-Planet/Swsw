@@ -1,13 +1,11 @@
 
-import * as admin from "firebase-admin";
 import * as functions from "firebase-functions/v1";
 import Stripe from "stripe";
+import { admin, db } from "./lib/firebase";
 
 // Import the new matching function
 import { processSurveyAndFindMatches } from "./matching";
 
-admin.initializeApp();
-const db = admin.firestore();
 const stripe = new Stripe(functions.config().stripe.secret_key, {
   apiVersion: "2023-10-16",
 } as any);
