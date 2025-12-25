@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import SurveySingleChoice from './SurveySingleChoice';
+import { StyleSheet, Text, View } from 'react-native';
 import SurveyMultiChoice from './SurveyMultiChoice';
+import SurveySingleChoice from './SurveySingleChoice';
 
 interface SurveyQuestionCardProps {
   question: any;
@@ -24,7 +24,7 @@ const SurveyQuestionCard: React.FC<SurveyQuestionCardProps> = ({ question, onAns
 
   return (
     <View style={styles.card}>
-      <Text style={styles.questionText}>{question.text}</Text>
+      <Text style={styles.questionText}>{question.question}</Text>
       {renderAnswerComponent()}
     </View>
   );
