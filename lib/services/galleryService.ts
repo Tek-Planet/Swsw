@@ -12,6 +12,7 @@ import {
   addDoc,
   serverTimestamp,
   collectionGroup,
+  getDoc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebaseConfig';
 import { Album, Photo } from '@/types/gallery';
@@ -166,5 +167,47 @@ export async function getEventCoverPhotoUrl(eventId: string): Promise<string | n
   } catch (error) {
       console.error(`Failed to get cover photo for event ${eventId}:`, error);
       return null;
+  }
+}
+
+/**
+ * Fetches the latest album cover photo and photo count for an event.
+ */
+export async function getEventAlbumPreview(eventId: string): Promise<{ coverPhotoUrl: string | null; photoCount: number }> {
+  try {
+    const albumId = await ensureDefaultAlbum(eventId);
+    const albumRef = doc(db, 'events', eventId, 'albums', albumId);
+
+    const photosQuery = query(
+      collection(db, 'events', eventId, 'albums', albumId, 'photos'),
+      orderBy('createdAt', 'desc'),
+      limit(1)
+    );
+
+    const [albumSnapshot, photoSnapshot] = await Promise.all([
+      getDoc(albumRef),
+      getDocs(photosQuery),
+    ]);
+
+    let coverPhotoUrl: string | null = null;
+    if (!photoSnapshot.empty) {
+      const latestPhoto = photoSnapshot.docs[0].data();
+      coverPhotoUrl = latestPhoto.thumbUrl || latestPhoto.url || null;
+    }
+
+    let photoCount = 0;
+    if (albumSnapshot.exists()) {
+      photoCount = albumSnapshot.data().photoCount || 0;
+    }
+
+    if (coverPhotoUrl && photoCount === 0) {
+      photoCount = 1;
+    }
+
+    return { coverPhotoUrl, photoCount };
+
+  } catch (error) {
+    console.error(`Failed to get event album preview for event ${eventId}:`, error);
+    return { coverPhotoUrl: null, photoCount: 0 };
   }
 }

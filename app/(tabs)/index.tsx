@@ -19,7 +19,7 @@ import {
   listenToTrendingEvents,
   listenToUserUpcomingEvents,
 } from '@/lib/services/eventService';
-import { getUserAccessibleEventIds } from '@/lib/services/galleryService';
+import { getEventAlbumPreview, getUserAccessibleEventIds } from '@/lib/services/galleryService';
 import { Event } from '@/types/event';
 
 const HomeScreen: React.FC = () => {
@@ -44,12 +44,17 @@ const YourAlbums: React.FC = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [albumPreview, setAlbumPreview] = useState<{ coverPhotoUrl: string | null; photoCount: number } | null>(null);
 
   useEffect(() => {
     const fetchAlbumData = async () => {
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
       try {
+        setLoading(true);
         const eventIds = await getUserAccessibleEventIds(user.uid);
 
         if (eventIds.length === 0) {
@@ -60,18 +65,29 @@ const YourAlbums: React.FC = () => {
         const events: (Event | null)[] = await Promise.all(eventIds.map((id: string) => getEvent(id)));
         const validEvents = events.filter((e): e is Event => e !== null);
 
+        let eventToShow: Event | null = null;
         const eventsWithPhotos = validEvents.filter(e => e.photoCount && e.photoCount > 0);
         if (eventsWithPhotos.length > 0) {
           eventsWithPhotos.sort((a, b) => new Date(b.latestPhotoAt).getTime() - new Date(a.latestPhotoAt).getTime());
-          setSelectedEvent(eventsWithPhotos[0]);
+          eventToShow = eventsWithPhotos[0];
         } else {
           const upcomingEvents = validEvents.filter(e => new Date(e.startTime).getTime() > Date.now());
           if (upcomingEvents.length > 0) {
-            setSelectedEvent(upcomingEvents[0]);
-          } else {
-            setSelectedEvent(validEvents[0] || null);
+            upcomingEvents.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+            eventToShow = upcomingEvents[0];
+          } else if (validEvents.length > 0) {
+            validEvents.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            eventToShow = validEvents[0];
           }
         }
+        
+        setSelectedEvent(eventToShow);
+
+        if (eventToShow) {
+          const preview = await getEventAlbumPreview(eventToShow.id);
+          setAlbumPreview(preview);
+        }
+
       } catch (error) {
         console.error("Error fetching album data:", error);
       } finally {
@@ -98,15 +114,23 @@ const YourAlbums: React.FC = () => {
     );
   }
 
+  const hasPhotos = albumPreview && albumPreview.photoCount > 0;
+
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Your Albums</Text>
-      <AlbumPreviewCard
-        eventId={selectedEvent.id}
-        title={selectedEvent.title}
-        coverImageUrl={selectedEvent.coverImageUrl || selectedEvent.latestPhotoThumbUrl || null}
-        photoCount={selectedEvent.photoCount || 0}
-      />
+      {hasPhotos && albumPreview ? (
+         <AlbumPreviewCard
+            eventId={selectedEvent.id}
+            title={selectedEvent.title}
+            coverImageUrl={albumPreview.coverPhotoUrl}
+            photoCount={albumPreview.photoCount}
+          />
+      ) : (
+        <View style={styles.placeholderContainer}>
+            <Text style={styles.placeholderText}>Photos coming soon for {selectedEvent.title}.</Text>
+        </View>
+      )}
     </View>
   );
 };
@@ -257,11 +281,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#1a1a1a',
     borderRadius: 10,
-    marginHorizontal: 20,
+    padding: 20,
   },
   placeholderText: {
     color: '#999',
     fontSize: 16,
+    textAlign: 'center',
   },
   placeholderSubText: {
     color: '#666',
