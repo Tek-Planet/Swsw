@@ -14,7 +14,6 @@ import {
   getPostLikeStatusForUser,
   listenEventPosts,
   togglePostLike,
-  userHasEventAccess,
 } from '@/lib/services/postService';
 import { Post } from '@/types/post';
 import PostComposer from './PostComposer';
@@ -22,31 +21,23 @@ import PostItem from './PostItem';
 
 type Props = {
   eventId: string;
+  hasAccess: boolean;
 };
 
-const ActivityFeed: React.FC<Props> = ({ eventId }) => {
-  const [hasAccess, setHasAccess] = useState(false);
+const ActivityFeed: React.FC<Props> = ({ eventId, hasAccess }) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const auth = getAuth();
   const userId = auth.currentUser?.uid;
 
   useEffect(() => {
-    if (!userId) {
+    if (!hasAccess || !userId) {
       setLoading(false);
       return;
     }
-    userHasEventAccess(userId, eventId).then((access) => {
-      setHasAccess(access);
-      setLoading(false);
-    });
-  }, [userId, eventId]);
 
-  useEffect(() => {
-    if (!hasAccess || !userId) return;
-
+    setLoading(true);
     const unsubscribe = listenEventPosts(eventId, async (newPosts) => {
-      // Check if user has liked each post
       const postsWithLikes = await Promise.all(
         newPosts.map(async (post) => ({
           ...post,
@@ -54,9 +45,13 @@ const ActivityFeed: React.FC<Props> = ({ eventId }) => {
         }))
       );
       setPosts(postsWithLikes);
+      setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      setLoading(false);
+    }
   }, [hasAccess, eventId, userId]);
 
   const handleLikeToggle = useCallback(
@@ -71,12 +66,6 @@ const ActivityFeed: React.FC<Props> = ({ eventId }) => {
     [eventId, userId]
   );
 
-  if (loading) {
-    return (
-      <View style={styles.center}><ActivityIndicator size="large" color="#fff" /></View>
-    );
-  }
-
   if (!hasAccess) {
     return (
       <View style={styles.lockedContainer}>
@@ -86,10 +75,16 @@ const ActivityFeed: React.FC<Props> = ({ eventId }) => {
     );
   }
 
+  if (loading) {
+    return (
+      <View style={styles.center}><ActivityIndicator size="large" color="#fff" /></View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <PostComposer eventId={eventId} />
-      {posts?.length === 0 ? (
+      {posts.length === 0 ? (
         <View style={styles.center}>
           <Text style={styles.emptyText}>No posts yet. Be the first!</Text>
         </View>

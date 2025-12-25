@@ -97,7 +97,7 @@ const EventDetailScreen: React.FC = () => {
         <DescriptionBlock text={event.description} />
         <TicketHoldersList ticketHolders={memoizedTicketHolders} total={event.attendeeIds?.length || 0} />
         <PhotoAlbum eventId={id} />
-        <ActivityFeed eventId={id} />
+        <ActivityFeed eventId={id} hasAccess={hasTicket} />
       </ScrollView>
       <FloatingRSVPBar eventId={id} hasTicket={hasTicket} />
     </View>

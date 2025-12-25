@@ -29,27 +29,32 @@ service cloud.firestore {
     }
 
     //================================================================================
-    // USER PROFILES
+    // USER PROFILES & SUBCOLLECTIONS
     //================================================================================
 
-    // Users can read anyone's profile.
-    // Users can only create and update their own profile.
     match /users/{userId} {
+      // Users can read anyone's profile.
       allow read: if isSignedIn();
+      // Users can only create and update their own profile.
       allow create, update: if isOwner(userId);
+
+      // Users can read their own orders subcollection to find events they have access to.
+      match /orders/{orderId} {
+        allow read: if isOwner(userId);
+      }
     }
 
     //================================================================================
     // EVENTS & SUBCOLLECTIONS
     //================================================================================
 
-    // Any signed-in user can read published events.
-    // Admins can create, update, and delete any event.
     match /events/{eventId} {
+      // Any signed-in user can read published events.
       allow read: if isSignedIn() && resource.data.status == 'published';
+      // Admins can create, update, and delete any event.
       allow create, update, delete: if isAdmin();
       
-      // [NEW RULE] Allow any signed-in user to read survey questions for an event.
+      // Any signed-in user to read survey questions for an event.
       match /survey/{surveyId} {
         allow read: if isSignedIn();
       }
@@ -60,17 +65,34 @@ service cloud.firestore {
         allow read: if isSignedIn();
         allow create, update, delete: if isAdmin();
       }
+      
+      // Rules for Event Albums and Photos
+      match /albums/{albumId} {
+        allow read, create: if isSignedIn();
+
+        match /photos/{photoId} {
+            allow read, create: if isSignedIn();
+        }
+      }
+
+      // Rules for Event Posts (Activity Feed)
+      match /posts/{postId} {
+        allow read, create: if isSignedIn();
+
+        match /likes/{userId} {
+          allow read: if isSignedIn();
+          allow create, delete: if isOwner(userId);
+        }
+      }
     }
 
     //================================================================================
-    // ORDERS & PAYMENTS
+    // ORDERS (GLOBAL COLLECTION - For admin use)
     //================================================================================
 
-    // Users can read and update their own orders.
-    // Admins can read any order.
+    // This is a separate root collection for orders, potentially for admin access.
     match /orders/{orderId} {
-      allow read, update: if isSignedIn() && request.auth.uid == resource.data.userId;
-      allow read: if isAdmin();
+      allow read, update: if isAdmin();
     }
     
     //================================================================================
@@ -88,7 +110,6 @@ service cloud.firestore {
     //================================================================================
     
     // Users can only read their own result grid.
-    // The Cloud Function (running as admin) is the only thing that can write to this.
     match /event_grids/{eventId}/grids/{userId} {
       allow read: if isOwner(userId);
       allow write: if false; // Protect from client-side writes
@@ -99,7 +120,6 @@ service cloud.firestore {
     //================================================================================
     
     // Users can create their own submission.
-    // Only the Cloud Function (admin) should read these.
     match /event_surveys/{eventId}/submissions/{userId} {
         allow create: if isOwner(userId);
         allow read, write: if false; // Protect from client-side access
