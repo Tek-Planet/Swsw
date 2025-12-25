@@ -1,9 +1,9 @@
 
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ThemedView } from '../components/themed-view';
-import { Ionicons } from '@expo/vector-icons';
 
 /**
  * This screen serves as the landing page for the "Enhance Your Grid" survey.
@@ -39,7 +39,7 @@ export default function SurveyStartScreen() {
                 <Text style={styles.startButtonText}>Let's Go!</Text>
             </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.closeButton} onPress={() => router.push('/(tabs)')}>
             <Ionicons name="close" size={24} color="#aaa" />
         </TouchableOpacity>
     </ThemedView>
