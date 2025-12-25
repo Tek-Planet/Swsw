@@ -11,6 +11,7 @@ import {
   doc,
   addDoc,
   serverTimestamp,
+  collectionGroup,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebaseConfig';
 import { Album, Photo } from '@/types/gallery';
@@ -127,19 +128,17 @@ export async function createPhotoDoc(
 }
 
 /**
- * Retrieves a list of event IDs for which the user has a paid order.
+ * Retrieves a list of event IDs for which the user is an attendee.
  */
 export async function getUserAccessibleEventIds(uid: string): Promise<string[]> {
-  const ordersRef = collection(db, 'users', uid, 'orders');
-  const q = query(ordersRef, where('status', '==', 'paid'), orderBy('createdAt', 'desc'));
-  const snapshot = await getDocs(q);
+  const eventsQuery = query(collection(db, 'events'), where('attendeeIds', 'array-contains', uid));
+  const snapshot = await getDocs(eventsQuery);
 
   if (snapshot.empty) {
     return [];
   }
 
-  const eventIds = snapshot.docs.map(doc => doc.data().eventId as string);
-  // Return unique event IDs
+  const eventIds = snapshot.docs.map(doc => doc.id as string);
   return [...new Set(eventIds)];
 }
 

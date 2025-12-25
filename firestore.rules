@@ -49,8 +49,8 @@ service cloud.firestore {
     //================================================================================
 
     match /events/{eventId} {
-      // Any signed-in user can read published events.
-      allow read: if isSignedIn() && resource.data.status == 'published';
+      // Allow read if event is published OR user is an attendee.
+      allow read: if isSignedIn() && (resource.data.status == 'published' || request.auth.uid in resource.data.attendeeIds);
       // Admins can create, update, and delete any event.
       allow create, update, delete: if isAdmin();
       
