@@ -1,15 +1,14 @@
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { doc, getDoc, Timestamp } from 'firebase/firestore';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { ThemedView } from '../../components/themed-view';
 import { auth, db } from '../../lib/firebase/firebaseConfig';
 import { Order } from '../../types/event';
+import TableContactForm from '../../components/TableContactForm'; // Import the new form
 
-// We need to ensure the fetched data is correctly cast to the Order type.
-// This includes handling the Firestore Timestamp conversion.
 const toOrder = (data: any, id: string): Order => {
     return {
         orderId: id,
@@ -26,6 +25,11 @@ const PurchaseConfirmationScreen = () => {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [detailsSubmitted, setDetailsSubmitted] = useState(false);
+
+  const hasTableBooking = useMemo(() => {
+    return order?.items.some(item => item.type === 'table') ?? false;
+  }, [order]);
 
   useEffect(() => {
     if (!orderId) {
@@ -51,8 +55,11 @@ const PurchaseConfirmationScreen = () => {
           if (orderData.userId !== userId) {
             setError("You do not have permission to view this order.");
           } else {
-            // Convert the Firestore data to our Order type
-            setOrder(toOrder(orderData, docSnap.id));
+            const fetchedOrder = toOrder(orderData, docSnap.id);
+            setOrder(fetchedOrder);
+            if (fetchedOrder.tableContactDetails) {
+                setDetailsSubmitted(true);
+            }
           }
         } else {
           setError("This order could not be found.");
@@ -68,6 +75,10 @@ const PurchaseConfirmationScreen = () => {
     fetchOrder();
   }, [orderId]);
 
+  const handleDetailsSubmitted = () => {
+    setDetailsSubmitted(true);
+  };
+
   const handleViewTicket = () => {
     if (!order || !order.eventId) {
         Alert.alert('Error', 'Cannot locate the event for this ticket.');
@@ -75,14 +86,13 @@ const PurchaseConfirmationScreen = () => {
     }
     router.push({
       pathname: '/(ticket)/TicketScreen',
-      // We must pass both orderId and eventId to the next screen
       params: { orderId: order.orderId, eventId: order.eventId },
     });
   };
 
   const handleBackToEvent = () => {
       if (!order || !order.eventId) {
-          router.replace('/'); // Fallback to home if no eventId
+          router.replace('/');
           return;
       };
       router.replace({ pathname: '/event/[id]', params: { id: order.eventId } });
@@ -126,6 +136,19 @@ const PurchaseConfirmationScreen = () => {
             <View style={styles.orderInfo}>
                 <Text style={styles.orderInfoText}>Order ID: {orderId}</Text>
             </View>
+
+            {/* Conditionally render the table contact form */}
+            {hasTableBooking && !detailsSubmitted && orderId && (
+                <TableContactForm orderId={orderId} onSubmitSuccess={handleDetailsSubmitted} />
+            )}
+            
+            {/* Show a message if details have been submitted */}
+            {hasTableBooking && detailsSubmitted && (
+                <View style={styles.submittedContainer}>
+                    <Feather name="info" size={20} color="#4a90e2" />
+                    <Text style={styles.submittedText}>Your table contact details have been saved. The host will reach out to you soon.</Text>
+                </View>
+            )}
 
             <TouchableOpacity style={styles.primaryButton} onPress={handleViewTicket}>
                 <Text style={styles.primaryButtonText}>View My Tickets</Text>
@@ -171,10 +194,7 @@ const styles = StyleSheet.create({
         padding: 30,
         alignItems: 'center',
         shadowColor: "#000",
-        shadowOffset: {
-            width: 0,
-            height: 4,
-        },
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.30,
         shadowRadius: 4.65,
         elevation: 8,
@@ -207,6 +227,20 @@ const styles = StyleSheet.create({
         color: '#E0E0E0',
         fontSize: 14,
         fontFamily: 'monospace',
+    },
+    submittedContainer: {
+        flexDirection: 'row',
+        backgroundColor: 'rgba(74, 144, 226, 0.1)',
+        borderRadius: 10,
+        padding: 15,
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    submittedText: {
+        color: '#B0B0B0',
+        fontSize: 14,
+        marginLeft: 10,
+        flex: 1,
     },
     primaryButton: {
         backgroundColor: '#4a90e2',

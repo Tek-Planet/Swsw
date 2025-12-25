@@ -97,11 +97,12 @@ export interface OrderItem {
 // Updated OrderStatus to include 'failed'
 export type OrderStatus = 'pending' | 'paid' | 'canceled' | 'failed';
 
-// Added for table bookings as per the new Order type
+// Updated to match web app for table bookings
 export interface TableContactDetails {
-    name?: string;
-    email?: string;
-    phone?: string;
+    fullName: string;
+    email: string;
+    phone: string;
+    notes?: string;
 }
 
 // Updated Order type to match web app, using Date for app consistency
@@ -111,15 +112,18 @@ export interface Order {
   userId: string;
   items: OrderItem[];
   subtotal: number;
+  feeBase: number;
+  processingFee: number;
+  total: number;
   currency: string;
   status: OrderStatus;
   createdAt: Date; // Converted in app code
   updatedAt: Date; // Converted in app code
   stripeSessionId?: string;
+  stripePaymentIntentId?: string;
+  paymentMethod?: string;
   eventTitle?: string;
   eventDate?: Date; // Converted in app code
-  processingFee?: number;
-  total?: number;
   promoCode?: string;
   tableContactDetails?: TableContactDetails;
 }

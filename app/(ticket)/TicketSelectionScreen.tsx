@@ -5,7 +5,7 @@ import { collection, doc, getDoc, getDocs, orderBy, query, where } from 'firebas
 import React, { useEffect, useState } from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ThemedView } from '../../components/themed-view';
-import { db } from '../../lib/firebase/firebaseConfig'; // Assuming you have a firebaseConfig file
+import { db } from '../../lib/firebase/firebaseConfig';
 import { Event, TicketTier } from '../../types/event';
 
 const TicketSelectionScreen = () => {
@@ -14,7 +14,7 @@ const TicketSelectionScreen = () => {
   const [event, setEvent] = useState<Event | null>(null);
   const [ticketTiers, setTicketTiers] = useState<TicketTier[]>([]);
   const [selectedTiers, setSelectedTiers] = useState<{ [key: string]: number }>({});
-  const [totalPrice, setTotalPrice] = useState(0);
+  const [pricing, setPricing] = useState({ subtotal: 0, feeBase: 0, processingFee: 0, total: 0 });
 
   useEffect(() => {
     if (!eventId) return;
@@ -41,32 +41,54 @@ const TicketSelectionScreen = () => {
 
   const handleQuantityChange = (tierId: string, quantity: number) => {
     const newSelectedTiers = { ...selectedTiers, [tierId]: quantity };
-    if (quantity === 0) {
+    if (quantity <= 0) {
       delete newSelectedTiers[tierId];
     }
     setSelectedTiers(newSelectedTiers);
   };
 
   useEffect(() => {
-    let total = 0;
-    for (const tierId in selectedTiers) {
-      const tier = ticketTiers.find(t => t.id === tierId);
-      if (tier) {
-        total += tier.price * selectedTiers[tierId];
-      }
-    }
-    setTotalPrice(total);
+    const getChargeAmount = (tier: TicketTier): number => {
+        if (tier.type === 'table' && tier.chargeAmount != null) {
+          return tier.chargeAmount; // Tables charge deposit, not full price
+        }
+        return tier.price;
+    };
+
+    let subtotalCharged = 0;
+    let feeBase = 0;
+
+    Object.entries(selectedTiers).forEach(([tierId, qty]) => {
+        const tier = ticketTiers.find(t => t.id === tierId);
+        if (tier && qty > 0) {
+            const chargeAmount = getChargeAmount(tier);
+            subtotalCharged += chargeAmount * qty;
+
+            if (tier.type !== 'table') {
+                feeBase += chargeAmount * qty;
+            }
+        }
+    });
+
+    const processingFee = feeBase > 0 ? Math.round(feeBase * 0.10) : 0;
+    const total = subtotalCharged + processingFee;
+
+    setPricing({ subtotal: subtotalCharged, feeBase, processingFee, total });
   }, [selectedTiers, ticketTiers]);
 
   const renderTier = ({ item }: { item: TicketTier }) => {
     const maxQuantity = item.type === 'table' ? 1 : 10;
     const currentQuantity = selectedTiers[item.id] || 0;
+    const chargeAmount = item.type === 'table' && item.chargeAmount != null ? item.chargeAmount : item.price;
 
     return (
       <View style={styles.tierCard}>
-      <View style={styles.tierInfo}>
+        <View style={styles.tierInfo}>
           <Text style={styles.tierName}>{item.name}</Text>
-          <Text style={styles.tierPrice}>₹{item.price.toLocaleString()}</Text>
+          <View style={{flexDirection: 'row', alignItems:'center', gap: 5}}>
+            <Text style={styles.tierPrice}>₹{chargeAmount.toLocaleString()}</Text>
+            {item.type === 'table' && <Text style={styles.depositLabel}>(Deposit)</Text>}
+          </View>
           {item.description && <Text style={styles.tierDescription}>{item.description}</Text>}
         </View>
         <View style={styles.quantitySelector}>
@@ -85,7 +107,11 @@ const TicketSelectionScreen = () => {
   const handleContinueToPay = () => {
     router.push({
       pathname: '/(ticket)/CheckoutScreen',
-      params: { eventId: eventId as string, selectedTiers: JSON.stringify(selectedTiers) },
+      params: { 
+        eventId: eventId as string, 
+        selectedTiers: JSON.stringify(selectedTiers),
+        pricing: JSON.stringify(pricing),
+      },
     });
   };
 
@@ -99,18 +125,15 @@ const TicketSelectionScreen = () => {
     <ThemedView style={styles.container}>
        <View style={{paddingHorizontal:20}}>
        <TopNavBar title={'Select Ticket'} onBackPress={() => router.back()} />
-
        </View>
-       
       <FlatList
         data={ticketTiers}
         renderItem={renderTier}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.listContainer}
-        
       />
       <View style={styles.stickyFooter}>
-        <Text style={styles.totalPrice}>Total: ₹{totalPrice.toLocaleString()}</Text>
+        <Text style={styles.totalPrice}>Total: ₹{pricing.total.toLocaleString()}</Text>
         <TouchableOpacity 
           style={[styles.ctaButton, isContinueDisabled && styles.ctaButtonDisabled]}
           onPress={handleContinueToPay}
@@ -127,14 +150,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
-    
   },
   text: {
     color: '#fff',
     fontSize: 24,
     textAlign: 'center',
   },
-
   tierCard: {
     backgroundColor: '#1a1a1a',
     borderRadius: 10,
@@ -155,14 +176,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 5,
   },
+  depositLabel: {
+    color: '#aaa',
+    fontSize: 14,
+    fontStyle: 'italic',
+    marginTop: 5,
+  },
   tierDescription: {
     color: '#888',
     fontSize: 14,
     marginTop: 5,
   },
-  tierInfo: { flex: 1, // take available space 
-    marginRight: 10, // add spacing before buttons 
-    },
+  tierInfo: { 
+    flex: 1, 
+    marginRight: 10, 
+  },
   quantitySelector: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -215,7 +243,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   listContainer: {
-    paddingTop: 10, // To account for the absolute positioned TopNavBar
+    paddingTop: 10,
     paddingBottom: 100, // To avoid being hidden by the footer
   },
 });

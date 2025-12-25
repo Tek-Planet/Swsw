@@ -29,7 +29,7 @@ import { db } from "../../lib/firebase/firebaseConfig";
 import { Event, TicketTier } from "../../types/event";
 
 const CheckoutScreen = () => {
-  const { eventId, selectedTiers: selectedTiersJSON } = useLocalSearchParams();
+  const { eventId, selectedTiers: selectedTiersJSON, pricing: pricingJSON } = useLocalSearchParams();
   const router = useRouter();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
@@ -40,6 +40,7 @@ const CheckoutScreen = () => {
   const [event, setEvent] = useState<Event | null>(null);
   const [ticketTiers, setTicketTiers] = useState<TicketTier[]>([]);
   const [selectedTiers, setSelectedTiers] = useState<{ [key: string]: number }>({});
+  const [pricing, setPricing] = useState({ subtotal: 0, feeBase: 0, processingFee: 0, total: 0 });
   
   const [promoCode, setPromoCode] = useState("");
   const [promoApplied, setPromoApplied] = useState(false);
@@ -48,45 +49,25 @@ const CheckoutScreen = () => {
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Memoized calculation for totals
-  const { subtotal, processingFee, total } = useMemo(() => {
-    if (!ticketTiers.length) return { subtotal: 0, processingFee: 0, total: 0 };
-    
-    let currentSubtotal = 0;
-    let feeBase = 0;
-
-    for (const tierId in selectedTiers) {
-        const tier = ticketTiers.find((t) => t.id === tierId);
-        if (tier) {
-            const chargeAmount = tier.chargeAmount ?? tier.price;
-            currentSubtotal += chargeAmount * selectedTiers[tierId];
-             if (tier.type !== "table") {
-                feeBase += chargeAmount * selectedTiers[tierId];
-            }
-        }
-    }
-
-    const fee = feeBase > 0 ? Math.round(feeBase * 0.1) : 0;
-    const finalTotal = promoApplied ? 0 : currentSubtotal + fee;
-
-    return { subtotal: currentSubtotal, processingFee: fee, total: finalTotal };
-  }, [selectedTiers, ticketTiers, promoApplied]);
+  const total = promoApplied ? 0 : pricing.total;
 
   const hasSelection = Object.keys(selectedTiers).length > 0;
   const isFreeOrder = total === 0;
 
   useEffect(() => {
-    if (!eventIdStr || !selectedTiersJSON) {
+    if (!eventIdStr || !selectedTiersJSON || !pricingJSON) {
       setLoading(false);
       return;
     }
 
-    let parsedSelectedTiers: { [key: string]: number } = {};
     try {
-      parsedSelectedTiers = JSON.parse(selectedTiersJSON as string);
+      const parsedSelectedTiers = JSON.parse(selectedTiersJSON as string);
       setSelectedTiers(parsedSelectedTiers);
+
+      const parsedPricing = JSON.parse(pricingJSON as string);
+      setPricing(parsedPricing);
     } catch (e) {
-      console.error("Invalid selectedTiers JSON:", e);
+      console.error("Invalid JSON from params:", e);
       setLoading(false);
       return;
     }
@@ -117,7 +98,7 @@ const CheckoutScreen = () => {
     };
 
     fetchEventAndTiers();
-  }, [eventIdStr, selectedTiersJSON]);
+  }, [eventIdStr, selectedTiersJSON, pricingJSON]);
 
   // Main payment handler
   const handlePayment = async () => {
@@ -128,12 +109,12 @@ const CheckoutScreen = () => {
     setIsProcessing(true);
 
     try {
-      // Use the modern Payment Sheet flow
       const createPaymentIntent = httpsCallable(functions, "createPaymentIntent");
       const res = await createPaymentIntent({ 
           eventId: eventIdStr, 
           selectedTiers, 
           promoCode: promoCode.trim().toUpperCase() || undefined,
+          pricing, // Pass the correct pricing object
       });
 
       const { orderId, clientSecret, free, vip } = res.data as { 
@@ -144,42 +125,34 @@ const CheckoutScreen = () => {
       };
 
       if (free || vip) {
-          // If the order is free (e.g., VIP promo), skip payment and go to confirmation.
           router.push({ pathname: "/(ticket)/PurchaseConfirmationScreen", params: { orderId } });
           return;
       }
-
- 
       
       if (!clientSecret) {
           throw new Error("Payment intent not created successfully.");
       }
 
-      // 1. Initialize the Payment Sheet
       const { error: initError } = await initPaymentSheet({
           merchantDisplayName: "Grid",
           paymentIntentClientSecret: clientSecret,
           allowsDelayedPaymentMethods: true,
-          returnURL: 'https://grideventsapp.com', // Required for some payment methods
+          returnURL: 'https://grideventsapp.com',
       });
 
       if (initError) {
           throw new Error(`Failed to initialize payment sheet: ${initError.message}`);
       }
       
-      // 2. Present the Payment Sheet
       const { error: presentError } = await presentPaymentSheet();
       
       if (presentError) {
           if (presentError.code === 'Canceled') {
-              // User cancelled the payment sheet.
-              // Optional: You can call a function here to cancel the order on the backend.
               console.log("Payment cancelled by user.");
           } else {
               throw new Error(`Payment failed: ${presentError.message}`);
           }
       } else {
-          // 3. Payment succeeded. Navigate to confirmation.
           router.push({ pathname: "/(ticket)/PurchaseConfirmationScreen", params: { orderId } });
       }
 
@@ -217,12 +190,12 @@ const CheckoutScreen = () => {
                   );
                 })}
 
-                <View style={styles.subtotalContainer}><Text style={styles.ticketText}>Subtotal</Text><Text style={styles.ticketText}>₹{subtotal.toLocaleString()}</Text></View>
+                <View style={styles.subtotalContainer}><Text style={styles.ticketText}>Subtotal</Text><Text style={styles.ticketText}>₹{pricing.subtotal.toLocaleString()}</Text></View>
 
-                {processingFee > 0 && !promoApplied && (
+                {pricing.processingFee > 0 && !promoApplied && (
                     <View style={styles.subtotalContainer}>
                         <Text style={styles.ticketText}>Processing fee (10%)</Text>
-                        <Text style={styles.ticketText}>₹{processingFee.toLocaleString()}</Text>
+                        <Text style={styles.ticketText}>₹{pricing.processingFee.toLocaleString()}</Text>
                     </View>
                 )}
                 {promoApplied && <Text style={styles.promoAppliedText}>🎉 VIP promo applied!</Text>}

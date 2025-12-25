@@ -284,6 +284,61 @@ export const createPaymentIntent = functions.https.onCall(async (data, context) 
   };
 });
 
+/**
+ * [NEW] Updates an order with table contact details. This is callable by EITHER web or mobile.
+ */
+export const updateOrderContactDetails = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "You must be logged in to update an order.");
+    }
+    const userId = context.auth.uid;
+    const { orderId, contactDetails } = data as {
+        orderId: string;
+        contactDetails: { fullName: string; email: string; phone: string; notes?: string };
+    };
+
+    if (!orderId || !contactDetails || !contactDetails.fullName || !contactDetails.email || !contactDetails.phone) {
+        throw new functions.https.HttpsError("invalid-argument", "Missing required fields: orderId and full contact details.");
+    }
+
+    const orderRef = db.doc(`orders/${orderId}`);
+
+    try {
+        const docSnap = await orderRef.get();
+        if (!docSnap.exists) {
+            throw new functions.https.HttpsError("not-found", "Order not found.");
+        }
+
+        const orderData = docSnap.data();
+        if (orderData?.userId !== userId) {
+            throw new functions.https.HttpsError("permission-denied", "You do not have permission to update this order.");
+        }
+
+        // This is a security check to ensure the client is not trying to update other fields
+        const updatePayload = {
+            tableContactDetails: {
+                fullName: contactDetails.fullName,
+                email: contactDetails.email,
+                phone: contactDetails.phone,
+                notes: contactDetails.notes || null,
+            },
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        }
+
+        await orderRef.update(updatePayload);
+
+        return { success: true, message: "Contact details updated successfully." };
+
+    } catch (error) {
+        console.error("Error updating contact details:", error);
+        if (error instanceof functions.https.HttpsError) {
+            throw error; // Re-throw HttpsError directly
+        }
+        throw new functions.https.HttpsError("internal", "An unexpected error occurred while processing your request.");
+    }
+});
+
+
 export const helloWorld = functions.https.onRequest((_req, res) => {
   res.send("Hello from Tekplanet!");
 });
