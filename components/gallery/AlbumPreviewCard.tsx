@@ -1,7 +1,7 @@
 
 import { Link } from 'expo-router';
 import React from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 interface AlbumPreviewCardProps {
   eventId: string;
@@ -13,15 +13,17 @@ interface AlbumPreviewCardProps {
 const AlbumPreviewCard: React.FC<AlbumPreviewCardProps> = ({ eventId, title, coverImageUrl, photoCount }) => {
   return (
     <Link href={{ pathname: '/gallery', params: { eventId } }} asChild>
-      <View style={styles.card}>
-        <Image source={{ uri: coverImageUrl || 'https://via.placeholder.com/150' }} style={styles.image} />
-        <View style={styles.textContainer}>
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.subtitle}>
-            {photoCount > 0 ? 'View your photos' : 'Photos coming soon'}
-          </Text>
+      <Pressable>
+        <View style={styles.card}>
+          <Image source={{ uri: coverImageUrl || 'https://via.placeholder.com/150' }} style={styles.image} />
+          <View style={styles.textContainer}>
+            <Text style={styles.title}>{title}</Text>
+            <Text style={styles.subtitle}>
+              {photoCount > 0 ? 'View your photos' : 'Photos coming soon'}
+            </Text>
+          </View>
         </View>
-      </View>
+      </Pressable>
     </Link>
   );
 };
