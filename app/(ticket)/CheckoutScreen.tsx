@@ -182,12 +182,18 @@ const CheckoutScreen = () => {
                 {Object.keys(selectedTiers).map((tierId) => {
                   const tier = ticketTiers.find((t) => t.id === tierId);
                   if (!tier) return null;
+
+                  // Use chargeAmount for tables for correct line item display
+                  const displayAmount = (tier.type === 'table' && tier.chargeAmount != null)
+                    ? tier.chargeAmount
+                    : tier.price;
+
                   return (
                       <View key={tierId} style={styles.itemRow}>
                           <View style={styles.itemDetails}>
                              <Text style={styles.itemName}>{tier.name} x {selectedTiers[tierId]}</Text>
                           </View>
-                          <Text style={styles.itemPrice}>₹{(tier.price * selectedTiers[tierId]).toLocaleString()}</Text>
+                          <Text style={styles.itemPrice}>₹{(displayAmount * selectedTiers[tierId]).toLocaleString()}</Text>
                       </View>
                   );
                 })}
