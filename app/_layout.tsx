@@ -43,7 +43,7 @@ function RootLayoutNav() {
   // The useEffect above will handle redirecting to the correct URL.
   // All screens have the header hidden by default.
   return (
-    <Stack  screenOptions={{ headerShown: false, contentStyle: { paddingTop:10 } }}>
+    <Stack  screenOptions={{ headerShown: false, contentStyle: { paddingTop:20 } }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(onboarding)" />

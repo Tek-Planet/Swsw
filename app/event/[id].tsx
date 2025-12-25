@@ -13,15 +13,15 @@ import { auth } from '../../lib/firebase/firebaseConfig';
 import { getProfilesForUserIds, listenToEvent } from '@/lib/services/eventService';
 import { Event } from '@/types/event';
 
-import ActivityFeed from '@/components/event/ActivityFeed';
 import DescriptionBlock from '@/components/DescriptionBlock';
+import ActivityFeed from '@/components/event/ActivityFeed';
 import EventHeroCard from '@/components/EventHeroCard';
 import EventMetaCard from '@/components/EventMetaCard';
 import FloatingRSVPBar from '@/components/FloatingRSVPBar';
-import TicketHoldersList, { TicketHolder } from '@/components/TicketHoldersList';
 import HostInfo from '@/components/HostInfo';
 import PhotoAlbum from '@/components/PhotoAlbum';
 import StickyTopBar from '@/components/StickyTopBar';
+import TicketHoldersList, { TicketHolder } from '@/components/TicketHoldersList';
 
 const EventDetailScreen: React.FC = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -105,7 +105,7 @@ const EventDetailScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
+  container: { flex: 1, backgroundColor: '#000', paddingTop:10, paddingBottom:60 },
   scrollContentContainer: { paddingHorizontal: 1 },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   errorText: { color: '#fff', fontSize: 18, textAlign: 'center', marginTop: 50 },
