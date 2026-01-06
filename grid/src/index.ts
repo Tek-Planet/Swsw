@@ -6,6 +6,7 @@ import { admin, db } from "./lib/firebase";
 // Import the new matching function
 import { processSurveyAndFindMatches } from "./matching";
 import { onPhotoCreated, indexUserProfilePicture } from "./face-recognition";
+import { generateS3UploadUrl } from "./s3-uploads";
 
 const stripe = new Stripe(functions.config().stripe.secret_key, {
   apiVersion: "2023-10-16",
@@ -18,6 +19,7 @@ const stripe = new Stripe(functions.config().stripe.secret_key, {
 export { processSurveyAndFindMatches };
 export { onPhotoCreated };
 export { indexUserProfilePicture };
+export { generateS3UploadUrl };
 
 type SelectedTiers = Record<string, number>;
 
