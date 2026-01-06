@@ -5,16 +5,19 @@ import { admin, db } from "./lib/firebase";
 
 // Import the new matching function
 import { processSurveyAndFindMatches } from "./matching";
+import { onPhotoCreated, indexUserProfilePicture } from "./face-recognition";
 
 const stripe = new Stripe(functions.config().stripe.secret_key, {
   apiVersion: "2023-10-16",
 } as any);
 
 //================================================================================
-// EXPORT NEW MATCHING FUNCTION
+// EXPORT FUNCTIONS
 //================================================================================
 
 export { processSurveyAndFindMatches };
+export { onPhotoCreated };
+export { indexUserProfilePicture };
 
 type SelectedTiers = Record<string, number>;
 

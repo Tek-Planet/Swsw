@@ -28,76 +28,86 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
 
+
     //================================================================================
-    // USER PROFILES & SUBCOLLECTIONS
+    // USER DATA
     //================================================================================
 
     match /users/{userId} {
-      // Users can read anyone's profile.
-      allow read: if isSignedIn();
-      // Users can only create and update their own profile.
-      allow create, update: if isOwner(userId);
+        // Public user data (e.g., profiles) can be read by anyone.
+        allow read: if true;
 
-      // Users can read their own orders subcollection to find events they have access to.
-      match /orders/{orderId} {
-        allow read: if isOwner(userId);
-      }
+        // Users can only create and modify their own documents.
+        allow create, update, delete: if isOwner(userId);
+
+        // Only the user can access their private subcollections.
+        match /private/{docId} {
+          allow read, write: if isOwner(userId);
+        }
+        
+        // Anyone can view a user's connections. Only the user can edit them.
+        match /connections/{connectionId} {
+          allow read: if true;
+          allow write: if isOwner(userId);
+        }
     }
 
     //================================================================================
-    // EVENTS & SUBCOLLECTIONS
+    // EVENTS
     //================================================================================
 
     match /events/{eventId} {
-      // Allow read if event is published OR user is an attendee.
-      allow read: if isSignedIn() && (resource.data.status == 'published' || request.auth.uid in resource.data.attendeeIds);
-      // Admins can create, update, and delete any event.
-      allow create, update, delete: if isAdmin();
-      
-      // Any signed-in user to read survey questions for an event.
-      match /survey/{surveyId} {
-        allow read: if isSignedIn();
-      }
+          // Allow read if event is published OR user is an attendee.
+          allow read: if (resource.data.status == 'published') || (isSignedIn() && (request.auth.uid in resource.data.attendeeIds));
+          // Admins can create, update, and delete any event.
+          allow create, update, delete: if isAdmin();
+          
+          // Any signed-in user to read survey questions for an event.
+          match /survey/{surveyId} {
+            allow read: if isSignedIn();
+          }
 
-      // Ticket tiers can be read by any signed-in user.
-      // Only admins can modify ticket tiers.
-      match /ticketTiers/{tierId} {
-        allow read: if isSignedIn();
-        allow create, update, delete: if isAdmin();
-      }
-      
-      // Rules for Event Albums and Photos
-      match /albums/{albumId} {
-        allow read, create: if isSignedIn();
-
-        match /photos/{photoId} {
+          // Ticket tiers can be read by anyone.
+          // Only admins can modify ticket tiers.
+          match /ticketTiers/{tierId} {
+            allow read: if true;
+            allow create, update, delete: if isAdmin();
+          }
+          
+          // Rules for Event Albums and Photos
+          match /albums/{albumId} {
             allow read, create: if isSignedIn();
-        }
-      }
 
-      // Rules for Event Posts (Activity Feed)
-      match /posts/{postId} {
-        allow read, create: if isSignedIn();
-
-        match /likes/{userId} {
-          allow read: if isSignedIn();
-          allow create, delete: if isOwner(userId);
-        }
-      }
+            match /photos/{photoId} {
+                allow read, create: if isSignedIn();
+            }
+          }
     }
 
     //================================================================================
-    // ORDERS (GLOBAL COLLECTION - For admin use)
+    // ORDERS & TICKETS
     //================================================================================
 
-    // This is a separate root collection for orders, potentially for admin access.
     match /orders/{orderId} {
-      allow read, update: if isAdmin();
+        // Users can get their own specific order. Admins can get any order.
+        allow get: if isOwner(resource.data.userId) || isAdmin();
+
+        // Users can query for their own orders. Your client-side query MUST
+        // include `.where('userId', '==', currentUser.uid)`.
+        allow list: if isSignedIn() || isAdmin();
+
+        // Users can create their own orders.
+        allow create: if isOwner(request.resource.data.userId);
+
+        // Allow admins to update or delete orders.
+        allow update, delete: if isAdmin();
+
+        // Users can read tickets if they own the order.
+        match /tickets/{ticketId} {
+            allow read: if isSignedIn() && get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid;
+            allow write: if isAdmin();
+        }
     }
-    
-    //================================================================================
-    // PROMO CODES
-    //================================================================================
     
     // Promo codes are read-only for clients, modifiable by admins.
     match /promoCodes/{codeId} {
@@ -120,9 +130,27 @@ service cloud.firestore {
     //================================================================================
     
     // Users can create their own submission.
+    // Admins can read any submission.
     match /event_surveys/{eventId}/submissions/{userId} {
-        allow create: if isOwner(userId);
-        allow read, write: if false; // Protect from client-side access
+      allow create: if isOwner(userId);
+      allow read: if isOwner(userId) || isAdmin();
+    }
+    
+    //================================================================================
+    // NOTIFICATIONS
+    //================================================================================
+    
+    // Users can only manage their own notifications.
+    match /notifications/{userId}/user_notifications/{notificationId} {
+        allow read, write: if isOwner(userId);
+    }
+
+    //================================================================================
+    // USER RECOGNIZED PHOTOS
+    //================================================================================
+    match /user_photos/{userId}/my_photos/{photoId} {
+        allow read: if isOwner(userId);
+        allow write: if false; // To be written by backend services only
     }
   }
 }
