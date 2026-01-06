@@ -1,7 +1,7 @@
 
 // scripts/seed-survey.js
 const admin = require('firebase-admin');
-const serviceAccount = require('./serviceAccountKey.json'); // Adjust the path if necessary
+const serviceAccount = require('./serviceAccountKeyDev.json'); // Adjust the path if necessary
 
 // The survey data from your app
 const surveyData = [
@@ -66,4 +66,4 @@ async function seedSurveyForEvent(eventId) {
 
 // Get the event ID from the command-line arguments
 const eventId = process.argv[2];
-seedSurveyForEvent('YFetQljqj3pl6rR3FoZk');
+seedSurveyForEvent('hIn7DP1V5XeuwIO09QUQ');

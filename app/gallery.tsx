@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
-    paddingTop: 50,
+    paddingTop: 30,
   },
   center: {
     flex: 1,
@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: 'absolute',
-    top: 50,
+    top: 15,
     left: 20,
     zIndex: 10,
     backgroundColor: 'rgba(0,0,0,0.5)',

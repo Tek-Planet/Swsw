@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
-import CTAButton from './CTAButton';
+import { Image, StyleSheet, Text, View } from 'react-native';
 
 interface ProfileMiniCardProps {
   user: {
@@ -15,7 +14,7 @@ const ProfileMiniCard: React.FC<ProfileMiniCardProps> = ({ user }) => (
     <Image source={{ uri: user.avatar }} style={styles.avatar} />
     <Text style={styles.name}>{user.name}</Text>
     <Text style={styles.descriptor}>{user.descriptor}</Text>
-    <CTAButton title="Say Hi" onPress={() => {}} />
+    {/* <CTAButton title="Say Hi" onPress={() => {}} /> */}
   </View>
 );
 

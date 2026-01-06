@@ -1,14 +1,13 @@
 
-import React, { useState, useEffect } from 'react';
-import { Text, StyleSheet, ActivityIndicator, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
-import { db } from '../lib/firebase/firebaseConfig';
-import { auth } from '../lib/firebase/firebaseConfig';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { auth, db } from '../lib/firebase/firebaseConfig';
 
-import SurveyContainer from '../components/survey/SurveyContainer';
-import RecommendationList from '../components/recommendations/RecommendationList';
 import CTAButton from '../components/recommendations/CTAButton';
+import RecommendationList from '../components/recommendations/RecommendationList';
+import SurveyContainer from '../components/survey/SurveyContainer';
 import { UserProfile } from '../types/user';
 
 interface Match {
@@ -98,7 +97,7 @@ const SurveyResultsScreen: React.FC = () => {
             <Text style={styles.noMatchesSubText}>Check back later as more people take the survey.</Text>
         </View>
       )}
-      <CTAButton title="Explore More People" onPress={() => router.replace('/(tabs)/buds')} />
+      <CTAButton title="Explore More People" onPress={() => router.replace('/(tabs)')} />
     </SurveyContainer>
   );
 }
