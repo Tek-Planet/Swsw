@@ -1,10 +1,7 @@
+
 import AWS from "aws-sdk";
 import * as functions from "firebase-functions/v1";
 import { admin } from "./lib/firebase";
-
-/* -------------------------------------------------------------------------- */
-/*                               AWS CONFIG                                   */
-/* -------------------------------------------------------------------------- */
 
 const s3Bucket = functions.config().aws.s3_bucket;
 const rekognitionCollectionId = functions.config().rekognition.collection_id;
@@ -15,16 +12,9 @@ const rekognition = new AWS.Rekognition({
   secretAccessKey: functions.config().aws.secret_access_key,
 });
 
-/* -------------------------------------------------------------------------- */
-/*                        HELPER: SAFE STRING CHECK                            */
-/* -------------------------------------------------------------------------- */
-
 const isNonEmptyString = (value?: unknown): value is string =>
   typeof value === "string" && value.trim().length > 0;
 
-/* -------------------------------------------------------------------------- */
-/* 1️⃣ INDEX USER PROFILE PICTURE (FACE REGISTRATION)                           */
-/* -------------------------------------------------------------------------- */
 
 export const indexUserProfilePicture = functions.firestore
   .document("users/{userId}")
@@ -38,46 +28,47 @@ export const indexUserProfilePicture = functions.firestore
       return null;
     }
 
-    // Only run if profile picture changed
-    if (before.photoUrl === after.photoUrl) {
+    // --- TRIGGER ---
+    // Only run if the S3 key for the profile picture has been set or changed.
+    if (before.profilePictureS3Key === after.profilePictureS3Key) {
+      console.log("Profile picture S3 key has not changed.");
       return null;
     }
 
-    if (!isNonEmptyString(after.photoUrl)) {
-      console.log(`User ${userId} has no S3 profile picture key`);
+    const s3ObjectKey = after.profilePictureS3Key;
+
+    // If the key is removed, we don't need to do anything.
+    if (!isNonEmptyString(s3ObjectKey)) {
+      console.log(`S3 profile picture key was removed for user ${userId}.`);
       return null;
     }
 
-    const s3ObjectKey = after.photoUrl;
-
+    // --- CONSTRUCT URL ---
+    // Construct the public URL immediately. We will save this at the end.
+    const photoUrl = `https://${s3Bucket}.s3.${functions.config().aws.region}.amazonaws.com/${s3ObjectKey}`;
+    
     console.log(
-      `Indexing face for user ${userId}`,
-      " with ",
-      s3ObjectKey,
-      "on Kollection ",
-      rekognitionCollectionId,
-      "Using bucket ",
-      s3Bucket,
-      "in region",
-      functions.config().aws.region
+      `Indexing face for user ${userId} from s3://${s3Bucket}/${s3ObjectKey}`
     );
 
     try {
-      // Remove old faces for this user (idempotency)
-      await rekognition
-        .deleteFaces({
-          CollectionId: rekognitionCollectionId,
-          FaceIds: [], // optional: skip if you want to keep history
-        })
-        .promise()
-        .catch(() => null);
+      // --- DELETE OLD FACE (if exists) ---
+      // This makes the function idempotent and handles profile picture changes correctly.
+      if (isNonEmptyString(before.faceId)) {
+        await rekognition
+          .deleteFaces({
+            CollectionId: rekognitionCollectionId,
+            FaceIds: [before.faceId],
+          })
+          .promise();
+        console.log(`Successfully deleted old face (${before.faceId}) for user ${userId}`);
+      }
 
-      console.log("Pass One", "Deleted old faces");
-
+      // --- INDEX NEW FACE ---
       const response = await rekognition
         .indexFaces({
           CollectionId: rekognitionCollectionId,
-          ExternalImageId: userId,
+          ExternalImageId: userId, // Link this face to our user's ID
           DetectionAttributes: [],
           Image: {
             S3Object: {
@@ -88,31 +79,46 @@ export const indexUserProfilePicture = functions.firestore
         })
         .promise();
 
-      console.log("Pass two ", "Done indexing");
-
       if (!response.FaceRecords || response.FaceRecords.length === 0) {
-        console.warn(`No face detected for user ${userId}`);
+        console.warn(`No face could be detected in the image for user ${userId}.`);
+        // We will still save the photoUrl so the image can be displayed.
+        await admin.firestore().doc(`users/${userId}`).update({
+          photoUrl: photoUrl,
+          faceId: null, // Ensure no old faceId remains
+          faceIndexedAt: null, // Indicate indexing was not successful
+        });
         return null;
+      }
+      
+      const faceRecord = response.FaceRecords[0];
+      const newFaceId = faceRecord.Face?.FaceId;
+
+      if (!isNonEmptyString(newFaceId)) {
+          throw new Error("indexFaces response did not include a FaceId.");
       }
 
       console.log(
-        `Successfully indexed ${response.FaceRecords.length} face(s) for ${userId}`
+        `Successfully indexed new face (${newFaceId}) for user ${userId}`
       );
 
+      // --- SAVE RESULTS TO FIRESTORE ---
       await admin.firestore().doc(`users/${userId}`).update({
+        photoUrl: photoUrl, // The new public URL for display
+        faceId: newFaceId, // The new ID for future deletions
         faceIndexedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
       return null;
     } catch (error) {
       console.error(`Face indexing failed for user ${userId}`, error);
+      // Even if indexing fails, let's try to set the photoUrl so it's not broken.
+      // This helps with debugging and user experience.
+      await admin.firestore().doc(`users/${userId}`).update({
+        photoUrl: photoUrl,
+      }).catch(e => console.error("Failed to write fallback photoUrl", e));
       return null;
     }
   });
-
-/* -------------------------------------------------------------------------- */
-/* 2️⃣ EVENT PHOTO FACE MATCHING + TAGGING                                     */
-/* -------------------------------------------------------------------------- */
 
 export const onPhotoCreated = functions.firestore
   .document("events/{eventId}/albums/{albumId}/photos/{photoId}")
