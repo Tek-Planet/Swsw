@@ -17,7 +17,7 @@ import { getAuth } from 'firebase/auth';
 import { serverTimestamp } from 'firebase/firestore';
 
 import { getEventPhotoPreview, ensureDefaultAlbum, createPhotoDoc } from '@/lib/services/galleryService';
-import { uploadImageAndGetDownloadURL } from '@/lib/firebase/storageService';
+import { uploadImageAndGetS3Key } from '@/lib/firebase/storageService'; // [UPDATED] Import the correct S3 upload service
 import { Photo } from '@/types/gallery';
 
 interface Props {
@@ -35,6 +35,7 @@ const PhotoAlbum: React.FC<Props> = ({ eventId }) => {
   const fetchPreview = async () => {
     try {
       setLoading(true);
+      // This function will be updated next to construct the full URL from the s3Key
       const { previewPhotos } = await getEventPhotoPreview(eventId, 6);
       setPhotos(previewPhotos);
     } catch (error) {
@@ -62,19 +63,18 @@ const PhotoAlbum: React.FC<Props> = ({ eventId }) => {
     const uri = result.assets[0].uri;
 
     try {
-      const albumId = await ensureDefaultAlbum(eventId);
-      const photoId = `${Date.now()}`;
-      const storagePath = `events/${eventId}/albums/${albumId}/photos/${photoId}.jpg`;
+      // [UPDATED] Use the S3 upload service
+      const s3Key = await uploadImageAndGetS3Key(uri);
 
-      const downloadURL = await uploadImageAndGetDownloadURL(uri, storagePath);
-
-      if (!downloadURL) {
-        throw new Error('Image upload failed, download URL is null.');
+      if (!s3Key) {
+        throw new Error('Image upload failed, S3 key is null.');
       }
 
+      const albumId = await ensureDefaultAlbum(eventId);
+      
+      // [UPDATED] Create a photo document with the s3Key, not a downloadURL
       const photoData: Omit<Photo, 'id'> = {
-        url: downloadURL,
-        thumbUrl: downloadURL, // For simplicity, using the same URL for thumbnail
+        s3Key: s3Key, // This is the crucial change that triggers the backend
         uploadedBy: 'user',
         uploaderId: userId,
         createdAt: serverTimestamp(),
@@ -82,7 +82,8 @@ const PhotoAlbum: React.FC<Props> = ({ eventId }) => {
       };
 
       await createPhotoDoc(eventId, albumId, photoData);
-      await fetchPreview(); // Refresh the preview list
+      await fetchPreview(); // Refresh the preview list to show the new photo
+
     } catch (error) {
       console.error('Upload failed:', error);
       Alert.alert('Upload Failed', 'Could not upload your photo. Please try again.');
@@ -122,38 +123,32 @@ const PhotoAlbum: React.FC<Props> = ({ eventId }) => {
     router.push({ pathname: '/gallery', params: { eventId } });
   };
 
-  const renderHeader = () => (
-    <View style={styles.headerContainer}>
-      <Text style={styles.title}>Photo Album</Text>
-      <View style={styles.iconsContainer}>
-        <TouchableOpacity onPress={handlePickFromCamera} disabled={uploading}>
-          <Ionicons name="camera-outline" size={28} color="#A855F7" />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={handlePickFromLibrary} disabled={uploading} style={{ marginLeft: 16 }}>
-          <Ionicons name="images-outline" size={28} color="#A855F7" />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-
-  if (loading) {
-    return (
-      <View style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" color="#fff" />
-      </View>
-    );
-  }
+  // ... The rest of the component (render logic) remains the same ...
 
   return (
     <View style={styles.container}>
-      {renderHeader()}
+      <View style={styles.headerContainer}>
+        <Text style={styles.title}>Photo Album</Text>
+        <View style={styles.iconsContainer}>
+          <TouchableOpacity onPress={handlePickFromCamera} disabled={uploading}>
+            <Ionicons name="camera-outline" size={28} color="#A855F7" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handlePickFromLibrary} disabled={uploading} style={{ marginLeft: 16 }}>
+            <Ionicons name="images-outline" size={28} color="#A855F7" />
+          </TouchableOpacity>
+        </View>
+      </View>
+
       {uploading && (
         <View style={styles.uploadingOverlay}>
           <ActivityIndicator size="large" color="#fff" />
           <Text style={styles.uploadingText}>Uploading...</Text>
         </View>
       )}
-      {photos.length === 0 ? (
+
+      {loading ? (
+          <ActivityIndicator color="#fff" style={{ height: 100 }}/>
+      ) : photos.length === 0 ? (
         <Text style={styles.emptyText}>No photos yet. Be the first to share!</Text>
       ) : (
         <>

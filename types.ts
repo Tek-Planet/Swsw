@@ -13,6 +13,9 @@ export interface UserProfile {
   updatedAt: Timestamp;
   interests?: string[];
   bio?: string;
+  profilePictureS3Key?: string;
+  faceId?: string;
+  faceIndexedAt?: Timestamp;
 }
 
 export type AppUser = FirebaseUser & UserProfile;
