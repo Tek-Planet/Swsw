@@ -2,7 +2,7 @@
 import React from 'react';
 import { View, StyleSheet, FlatList, Image, TouchableOpacity, Dimensions } from 'react-native';
 import { router } from 'expo-router';
-import { Photo } from '@/data/gallery';
+import { Photo } from '@/types/gallery'; // [FIXED] Corrected the import path
 
 interface AlbumPhotosSectionProps {
   photos: Photo[];
@@ -18,6 +18,7 @@ const AlbumPhotoGrid: React.FC<AlbumPhotosSectionProps> = ({ photos }) => {
 
   const renderPhoto = ({ item }: { item: Photo }) => (
     <TouchableOpacity onPress={() => router.push({ pathname: '/photo-viewer', params: { photoUrl: item.url }})}>
+      {/* The optional chaining ?. is important here because 'url' can be undefined */}
       <Image source={{ uri: item.url }} style={styles.photo} />
     </TouchableOpacity>
   );

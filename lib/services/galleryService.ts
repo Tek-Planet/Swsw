@@ -11,41 +11,31 @@ import {
   doc,
   addDoc,
   serverTimestamp,
-  collectionGroup,
   getDoc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebaseConfig';
 import { Album, Photo } from '@/types/gallery';
 
-// --- [NEW] S3 Configuration. Replace with your actual bucket details.
-// It's safe to expose the bucket name and region on the client-side for public-read objects.
 const S3_BUCKET_NAME = 'photobooth-23f98.appspot.com';
 const S3_REGION = 'us-east-1';
 
-// --- [NEW] Helper to construct the public URL from an S3 key.
 const getPublicUrlFromS3Key = (s3Key: string) => {
-  return `https://${S3_BUCKET_NAME}.s3.${S3_REGION}.amazonaws.com/${s3Key}`;
+    if (!s3Key) return undefined;
+    return `https://${S3_BUCKET_NAME}.s3.${S3_REGION}.amazonaws.com/${s3Key}`;
 };
 
-/**
- * Maps a Firestore document to a Photo object, constructing the display URL.
- */
 const mapDocToPhoto = (doc: any): Photo => {
   const data = doc.data();
   const photo: Photo = {
     id: doc.id,
     s3Key: data.s3Key,
-    // Dynamically generate the URL for the UI
     url: getPublicUrlFromS3Key(data.s3Key),
-    thumbUrl: getPublicUrlFromS3Key(data.s3Key), // Use the same for simplicity
+    thumbUrl: getPublicUrlFromS3Key(data.s3Key),
     ...data,
   };
   return photo;
 };
 
-/**
- * Listens for real-time updates to the photos within a specific album.
- */
 export function listenAlbumPhotos(
   eventId: string,
   albumId: string,
@@ -57,14 +47,11 @@ export function listenAlbumPhotos(
   );
 
   return onSnapshot(photosQuery, (snapshot) => {
-    const photos = snapshot.docs.map(mapDocToPhoto); // [UPDATED]
+    const photos = snapshot.docs.map(mapDocToPhoto);
     callback(photos);
   });
 }
 
-/**
- * Fetches a preview of photos for an event.
- */
 export async function getEventPhotoPreview(
   eventId: string,
   limitPhotos: number = 6
@@ -91,14 +78,11 @@ export async function getEventPhotoPreview(
   );
 
   const photoSnapshot = await getDocs(photosQuery);
-  const previewPhotos = photoSnapshot.docs.map(mapDocToPhoto); // [UPDATED]
+  const previewPhotos = photoSnapshot.docs.map(mapDocToPhoto);
 
   return { albums, previewPhotos, initialAlbumId };
 }
 
-/**
- * Ensures a default album exists for an event, creating one if necessary.
- */
 export async function ensureDefaultAlbum(eventId: string): Promise<string> {
     const albumsRef = collection(db, 'events', eventId, 'albums');
     const q = query(albumsRef, where('title', '==', 'Event Photos'), limit(1));
@@ -119,9 +103,6 @@ export async function ensureDefaultAlbum(eventId: string): Promise<string> {
     }
 }
 
-/**
- * Creates a new photo document in a specific album.
- */
 export async function createPhotoDoc(
     eventId: string,
     albumId: string,
@@ -131,4 +112,65 @@ export async function createPhotoDoc(
     await addDoc(photosRef, photoData);
 }
 
-// Other functions like listenEventAlbums, getUserAccessibleEventIds, etc. remain unchanged.
+// [FIXED] This function is now type-safe and uses the s3Key.
+export async function getEventCoverPhotoUrl(eventId: string): Promise<string | null> {
+    try {
+        const albumId = await ensureDefaultAlbum(eventId);
+        const photosQuery = query(
+            collection(db, 'events', eventId, 'albums', albumId, 'photos'),
+            orderBy('createdAt', 'desc'),
+            limit(1)
+        );
+        const photoSnapshot = await getDocs(photosQuery);
+
+        if (photoSnapshot.empty) return null;
+
+        const photo = photoSnapshot.docs[0].data();
+        return getPublicUrlFromS3Key(photo.s3Key) ?? null;
+
+    } catch (error) {
+        console.error(`Failed to get cover photo for event ${eventId}:`, error);
+        return null;
+    }
+}
+
+// [FIXED] This function is now type-safe and uses the s3Key.
+export async function getEventAlbumPreview(eventId: string): Promise<{ coverPhotoUrl: string | null; photoCount: number }> {
+    try {
+        const albumId = await ensureDefaultAlbum(eventId);
+        const albumRef = doc(db, 'events', eventId, 'albums', albumId);
+        const photosQuery = query(
+            collection(db, 'events', eventId, 'albums', albumId, 'photos'),
+            orderBy('createdAt', 'desc'),
+            limit(1)
+        );
+
+        const [albumSnapshot, photoSnapshot] = await Promise.all([
+            getDoc(albumRef),
+            getDocs(photosQuery),
+        ]);
+
+        let coverPhotoUrl: string | null = null;
+        if (!photoSnapshot.empty) {
+            const latestPhoto = photoSnapshot.docs[0].data();
+            coverPhotoUrl = getPublicUrlFromS3Key(latestPhoto.s3Key) ?? null;
+        }
+
+        const photoCount = albumSnapshot.exists() ? albumSnapshot.data().photoCount || 0 : 0;
+
+        return { coverPhotoUrl, photoCount };
+
+    } catch (error) {
+        console.error(`Failed to get event album preview for event ${eventId}:`, error);
+        return { coverPhotoUrl: null, photoCount: 0 };
+    }
+}
+
+export async function getUserAccessibleEventIds(uid: string): Promise<string[]> {
+    const eventsQuery = query(collection(db, 'events'), where('attendeeIds', 'array-contains', uid));
+    const snapshot = await getDocs(eventsQuery);
+  
+    if (snapshot.empty) return [];
+
+    return snapshot.docs.map(doc => doc.id as string);
+}
