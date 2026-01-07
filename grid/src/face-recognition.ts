@@ -1,60 +1,66 @@
-import AWS from 'aws-sdk';
-import * as functions from 'firebase-functions/v1';
-import { admin, } from "./lib/firebase";
+import AWS from "aws-sdk";
+import * as functions from "firebase-functions/v1";
+import { admin } from "./lib/firebase";
 
 /* -------------------------------------------------------------------------- */
 /*                               AWS CONFIG                                   */
 /* -------------------------------------------------------------------------- */
 
-const awsRegion = functions.config().aws.region;
 const s3Bucket = functions.config().aws.s3_bucket;
-const rekognitionCollectionId =
-  functions.config().rekognition.collection_id;
+const rekognitionCollectionId = functions.config().rekognition.collection_id;
 
-AWS.config.update({
-  region: awsRegion,
+const rekognition = new AWS.Rekognition({
+  region: functions.config().aws.region,
   accessKeyId: functions.config().aws.access_key_id,
   secretAccessKey: functions.config().aws.secret_access_key,
 });
-
-const rekognition = new AWS.Rekognition();
 
 /* -------------------------------------------------------------------------- */
 /*                        HELPER: SAFE STRING CHECK                            */
 /* -------------------------------------------------------------------------- */
 
 const isNonEmptyString = (value?: unknown): value is string =>
-  typeof value === 'string' && value.trim().length > 0;
+  typeof value === "string" && value.trim().length > 0;
 
 /* -------------------------------------------------------------------------- */
 /* 1️⃣ INDEX USER PROFILE PICTURE (FACE REGISTRATION)                           */
 /* -------------------------------------------------------------------------- */
 
 export const indexUserProfilePicture = functions.firestore
-  .document('users/{userId}')
+  .document("users/{userId}")
   .onUpdate(async (change, context) => {
     const userId = context.params.userId;
     const before = change.before.data();
     const after = change.after.data();
 
     if (!before || !after) {
-      console.warn('User document missing');
+      console.log("User document missing");
       return null;
     }
 
     // Only run if profile picture changed
-    if (before.profilePictureS3Key === after.profilePictureS3Key) {
+    if (before.photoUrl === after.photoUrl) {
       return null;
     }
 
-    if (!isNonEmptyString(after.profilePictureS3Key)) {
-      console.warn(`User ${userId} has no S3 profile picture key`);
+    if (!isNonEmptyString(after.photoUrl)) {
+      console.log(`User ${userId} has no S3 profile picture key`);
       return null;
     }
 
-    const s3ObjectKey = after.profilePictureS3Key;
+    const s3ObjectKey = after.photoUrl;
 
-    console.log(`Indexing face for user ${userId}`);
+    console.log(
+      `Indexing face for user ${userId}`,
+      " with ",
+      s3ObjectKey,
+      "on Kollection ",
+      rekognitionCollectionId,
+      "Using bucket ",
+      s3Bucket,
+      "in region",
+      functions.config().aws.region
+    );
 
     try {
       // Remove old faces for this user (idempotency)
@@ -65,6 +71,8 @@ export const indexUserProfilePicture = functions.firestore
         })
         .promise()
         .catch(() => null);
+
+      console.log("Pass One", "Deleted old faces");
 
       const response = await rekognition
         .indexFaces({
@@ -79,6 +87,8 @@ export const indexUserProfilePicture = functions.firestore
           },
         })
         .promise();
+
+      console.log("Pass two ", "Done indexing");
 
       if (!response.FaceRecords || response.FaceRecords.length === 0) {
         console.warn(`No face detected for user ${userId}`);
@@ -105,13 +115,13 @@ export const indexUserProfilePicture = functions.firestore
 /* -------------------------------------------------------------------------- */
 
 export const onPhotoCreated = functions.firestore
-  .document('events/{eventId}/albums/{albumId}/photos/{photoId}')
+  .document("events/{eventId}/albums/{albumId}/photos/{photoId}")
   .onCreate(async (snap, context) => {
     const photo = snap.data();
     const { eventId, photoId } = context.params;
 
     if (!photo) {
-      console.warn('Photo document missing');
+      console.warn("Photo document missing");
       return null;
     }
 
@@ -140,29 +150,25 @@ export const onPhotoCreated = functions.firestore
         .promise();
 
       if (!response.FaceMatches || response.FaceMatches.length === 0) {
-        console.log('No faces recognized');
+        console.log("No faces recognized");
         return null;
       }
 
-      const recognizedUserIds = response.FaceMatches
-        .map(match => match.Face?.ExternalImageId)
-        .filter(isNonEmptyString);
+      const recognizedUserIds = response.FaceMatches.map(
+        (match) => match.Face?.ExternalImageId
+      ).filter(isNonEmptyString);
 
       if (recognizedUserIds.length === 0) {
-        console.log('Faces detected but no valid user matches');
+        console.log("Faces detected but no valid user matches");
         return null;
       }
 
-      console.log(
-        `Recognized users in photo ${photoId}:`,
-        recognizedUserIds
-      );
+      console.log(`Recognized users in photo ${photoId}:`, recognizedUserIds);
 
       // Update photo document
       await snap.ref.update({
         recognizedUserIds,
-        recognitionProcessedAt:
-          admin.firestore.FieldValue.serverTimestamp(),
+        recognitionProcessedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
       // Fan-out writes
@@ -171,9 +177,9 @@ export const onPhotoCreated = functions.firestore
       for (const userId of recognizedUserIds) {
         const userPhotoRef = admin
           .firestore()
-          .collection('user_photos')
+          .collection("user_photos")
           .doc(userId)
-          .collection('my_photos')
+          .collection("my_photos")
           .doc(photoId);
 
         batch.set(
@@ -196,12 +202,7 @@ export const onPhotoCreated = functions.firestore
 
       return null;
     } catch (error) {
-      console.error(
-        `Face recognition failed for photo ${photoId}`,
-        error
-      );
+      console.error(`Face recognition failed for photo ${photoId}`, error);
       return null;
     }
   });
-
-  
