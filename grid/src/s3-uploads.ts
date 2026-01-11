@@ -46,7 +46,7 @@ export const generateS3UploadUrl = functions.https.onCall(
       Key: s3Key,
       ContentType: fileType,
       Expires: 60 * 5, // URL expires in 5 minutes
-      // ACL: 'public-read', // Or adjust as needed
+      // ACL: 'public-read', // [REMOVED] The bucket does not support ACLs. Public access is handled by a bucket policy.
     };
 
     try {

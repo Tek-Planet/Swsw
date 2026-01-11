@@ -40,6 +40,10 @@ export interface Event {
   photoCount?: number;
   latestPhotoThumbUrl?: string;
   latestPhotoAt?: any;
+
+  // [NEW] Fields for dynamic currency and booking fee
+  currency: string; // e.g., 'INR', 'USD'
+  bookingFeePercent: number; // e.g., 10 for 10%
 }
 
 export type EventAttendeeStatus = 'going' | 'maybe' | 'notGoing';

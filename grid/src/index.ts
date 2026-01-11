@@ -49,6 +49,10 @@ async function _calculateOrderDetails(eventId: string, selectedTiers: SelectedTi
     throw new functions.https.HttpsError("failed-precondition", "Event is not available.");
   }
 
+  // [NEW] Get dynamic fee and currency, with defaults for safety
+  const bookingFeePercent = event.bookingFeePercent ?? 10;
+  const currency = event.currency ?? "INR";
+
   const tierIds = Object.keys(selectedTiers);
   if (tierIds.length === 0) {
     throw new functions.https.HttpsError("invalid-argument", "No ticket tiers selected.");
@@ -112,10 +116,11 @@ async function _calculateOrderDetails(eventId: string, selectedTiers: SelectedTi
     }
   }
 
-  const processingFee = feeBase > 0 ? Math.round(feeBase * 0.1) : 0;
+  // [MODIFIED] Calculate processing fee using dynamic percentage
+  const processingFee = feeBase > 0 ? Math.round(feeBase * (bookingFeePercent / 100)) : 0;
   const total = subtotalCharged + processingFee;
 
-  return { event, eventRef, itemsForOrder, subtotalCharged, feeBase, processingFee, total };
+  return { event, eventRef, itemsForOrder, subtotalCharged, feeBase, processingFee, total, currency, bookingFeePercent };
 }
 
 /**
@@ -207,8 +212,8 @@ export const createPaymentIntent = functions.https.onCall(async (data, context) 
     throw new functions.https.HttpsError("invalid-argument", "Missing eventId or selectedTiers.");
   }
 
-  // Use the existing helper to calculate totals and validate tiers
-  const { event, eventRef, itemsForOrder, subtotalCharged, feeBase, processingFee, total } = await _calculateOrderDetails(
+  // [MODIFIED] Get dynamic currency from the calculation
+  const { event, eventRef, itemsForOrder, subtotalCharged, feeBase, processingFee, total, currency, bookingFeePercent } = await _calculateOrderDetails(
     eventId,
     selectedTiers
   );
@@ -241,10 +246,10 @@ export const createPaymentIntent = functions.https.onCall(async (data, context) 
     feeBase,
     processingFee: shouldBypassStripe ? 0 : processingFee,
     total: shouldBypassStripe ? 0 : total,
-    currency: "INR",
+    currency, // [MODIFIED] Use dynamic currency
     promoCode: appliedPromo,
     status: shouldBypassStripe ? "paid" : "pending",
-    paymentMethod: "stripe_payment_sheet", // Identify mobile payments
+    paymentMethod: "stripe_payment_sheet",
     createdAt: now,
     updatedAt: now,
   };
@@ -255,7 +260,6 @@ export const createPaymentIntent = functions.https.onCall(async (data, context) 
       tx.set(db.doc(`orders/${orderId}`), orderDoc);
       await _fulfillOrder(tx, { eventId, eventRef, userId, orderId, items: itemsForOrder, promoCode: appliedPromo });
     });
-    // Return a specific response for free/VIP orders
     return { orderId, free: total === 0, vip: appliedPromo === "GRIDVIP2207" };
   }
 
@@ -263,8 +267,8 @@ export const createPaymentIntent = functions.https.onCall(async (data, context) 
   await db.doc(`orders/${orderId}`).set(orderDoc);
 
   const paymentIntent = await stripe.paymentIntents.create({
-    amount: Math.round(orderDoc.total * 100), // Use the final total from the order doc
-    currency: "inr",
+    amount: Math.round(orderDoc.total * 100),
+    currency, // [MODIFIED] Use dynamic currency
     automatic_payment_methods: {
       enabled: true,
     },
@@ -279,10 +283,8 @@ export const createPaymentIntent = functions.https.onCall(async (data, context) 
     throw new functions.https.HttpsError("internal", "Failed to create a Payment Intent.");
   }
   
-  // Update the order with the Payment Intent ID
   await db.doc(`orders/${orderId}`).update({ stripePaymentIntentId: paymentIntent.id });
 
-  // Return the client secret to the app
   return {
     orderId,
     clientSecret: paymentIntent.client_secret,
@@ -319,7 +321,6 @@ export const updateOrderContactDetails = functions.https.onCall(async (data, con
             throw new functions.https.HttpsError("permission-denied", "You do not have permission to update this order.");
         }
 
-        // This is a security check to ensure the client is not trying to update other fields
         const updatePayload = {
             tableContactDetails: {
                 fullName: contactDetails.fullName,
@@ -350,7 +351,6 @@ export const helloWorld = functions.https.onRequest((_req, res) => {
 
 /**
  * [REFACTORED] Creates a Stripe Checkout session for web clients.
- * Now uses the refactored helper functions.
  */
 export const createCheckoutSession = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -363,7 +363,7 @@ export const createCheckoutSession = functions.https.onCall(async (data, context
     throw new functions.https.HttpsError("invalid-argument", "Missing eventId or selectedTiers.");
   }
 
-  const { event, eventRef, itemsForOrder, subtotalCharged, feeBase, processingFee, total } = await _calculateOrderDetails(eventId, selectedTiers);
+  const { event, eventRef, itemsForOrder, subtotalCharged, feeBase, processingFee, total, currency, bookingFeePercent } = await _calculateOrderDetails(eventId, selectedTiers);
 
   // Promo handling
   const normalizedPromo = (promoCode || "").trim().toUpperCase();
@@ -386,30 +386,26 @@ export const createCheckoutSession = functions.https.onCall(async (data, context
     subtotal: subtotalCharged, feeBase,
     processingFee: shouldBypassStripe ? 0 : processingFee,
     total: shouldBypassStripe ? 0 : total,
-    currency: "INR", 
+    currency,
     promoCode: appliedPromo,
     status: shouldBypassStripe ? "paid" : "pending",
     paymentMethod: "stripe_checkout",
     createdAt: now, updatedAt: now,
   };
 
-  // If free or VIP, fulfill the order immediately, bypassing Stripe
   if (shouldBypassStripe) {
     await db.runTransaction(async (tx) => {
-      // Create the order doc inside the transaction
       tx.set(db.doc(`orders/${orderId}`), orderDoc);
-      // Fulfill it
       await _fulfillOrder(tx, { eventId, eventRef, userId: uid, orderId, items: itemsForOrder, promoCode: appliedPromo });
     });
     return { orderId, vip: appliedPromo === "GRIDVIP2207", free: total === 0 };
   }
   
-  // For paid orders, create the Stripe Checkout Session
   const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] = itemsForOrder
     .filter(item => item.chargeAmount > 0)
     .map(item => ({
       price_data: {
-        currency: "inr",
+        currency: currency.toLowerCase(),
         product_data: { name: `${event.title} - ${item.name}` },
         unit_amount: Math.round(item.chargeAmount * 100),
       },
@@ -419,15 +415,14 @@ export const createCheckoutSession = functions.https.onCall(async (data, context
   if (processingFee > 0) {
     line_items.push({
       price_data: {
-        currency: "inr",
-        product_data: { name: "Processing fee (10%)" },
+        currency: currency.toLowerCase(),
+        product_data: { name: `Processing fee (${bookingFeePercent}%)` },
         unit_amount: Math.round(processingFee * 100),
       },
       quantity: 1,
     });
   }
   
-  // Create pending order doc BEFORE creating session
   await db.doc(`orders/${orderId}`).set(orderDoc);
 
   const session = await stripe.checkout.sessions.create({
@@ -462,8 +457,7 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("invalid-argument", "Missing required fields: eventId, selectedTiers, paymentMethodId.");
   }
   
-  // Calculate order details using the shared helper function.
-  const { event, eventRef, itemsForOrder, subtotalCharged, feeBase, processingFee, total } = await _calculateOrderDetails(eventId, selectedTiers);
+  const { event, eventRef, itemsForOrder, subtotalCharged, feeBase, processingFee, total, currency, bookingFeePercent } = await _calculateOrderDetails(eventId, selectedTiers);
   const orderId = db.collection("_").doc().id; 
   
   if (total === 0) {
@@ -473,7 +467,7 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
   try {
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(total * 100), 
-      currency: "inr",
+      currency: currency.toLowerCase(),
       payment_method_data: {
         type: 'card',
         card: {
@@ -493,10 +487,10 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
         const now = admin.firestore.FieldValue.serverTimestamp();
         const orderDoc = {
             orderId, eventId, eventTitle: event.title || "Event", userId: uid, items: itemsForOrder,
-            subtotal: subtotalCharged, // [FIXED] Added missing field
-            feeBase: feeBase,         // [FIXED] Added missing field
-            processingFee: processingFee, // Ensure fee is stored
-            total, currency: "INR", promoCode, status: "paid",
+            subtotal: subtotalCharged,
+            feeBase: feeBase,
+            processingFee: processingFee,
+            total, currency, promoCode, status: "paid",
             paymentMethod: "gpay_direct",
             stripePaymentIntentId: paymentIntent.id,
             createdAt: now, updatedAt: now,
@@ -518,7 +512,6 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
 
 /**
  * [REFACTORED] Handles Stripe webhooks for session completion.
- * Now uses the _fulfillOrder helper for cleaner logic.
  */
 export const stripeWebhook = functions.https.onRequest(async (req, res) => {
   const sig = req.headers["stripe-signature"];
@@ -540,7 +533,6 @@ export const stripeWebhook = functions.https.onRequest(async (req, res) => {
         return;
       }
 
-      // Retrieve the order and event details
       const orderSnap = await db.doc(`orders/${orderId}`).get();
       const eventRef = db.doc(`events/${eventId}`);
       if (!orderSnap.exists) {
@@ -550,7 +542,6 @@ export const stripeWebhook = functions.https.onRequest(async (req, res) => {
       }
       const order = orderSnap.data() as any;
       
-      // Fulfill the order within a transaction
       await db.runTransaction(async (tx) => {
         await _fulfillOrder(tx, {
           eventId,
