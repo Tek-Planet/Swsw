@@ -57,29 +57,36 @@ service cloud.firestore {
     //================================================================================
 
     match /events/{eventId} {
-          // Allow read if event is published OR user is an attendee.
-          allow read: if (resource.data.status == 'published') || (isSignedIn() && (request.auth.uid in resource.data.attendeeIds));
+          // [FIXED] Admins can read any event. Others can read published events or those they attend.
+          allow read: if isAdmin() || (resource.data.status == 'published') || (isSignedIn() && (request.auth.uid in resource.data.attendeeIds));
+          
           // Admins can create, update, and delete any event.
           allow create, update, delete: if isAdmin();
           
-          // Any signed-in user to read survey questions for an event.
+          // Rules for Event Subcollections
+
           match /survey/{surveyId} {
+            // [FIXED] Admins have full access. Signed-in users can read.
             allow read: if isSignedIn();
+            allow write: if isAdmin();
           }
 
-          // Ticket tiers can be read by anyone.
-          // Only admins can modify ticket tiers.
           match /ticketTiers/{tierId} {
+            // Ticket tiers can be read by anyone.
+            // Only admins can modify ticket tiers.
             allow read: if true;
             allow create, update, delete: if isAdmin();
           }
           
-          // Rules for Event Albums and Photos
           match /albums/{albumId} {
+            // [FIXED] Admins have full access. Signed-in users can read and create.
             allow read, create: if isSignedIn();
+            allow update, delete: if isAdmin();
 
             match /photos/{photoId} {
+                // [FIXED] Admins have full access. Signed-in users can read and create.
                 allow read, create: if isSignedIn();
+                allow update, delete: if isAdmin();
             }
           }
     }

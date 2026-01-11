@@ -28,6 +28,18 @@ import { ThemedView } from "../../components/themed-view";
 import { db } from "../../lib/firebase/firebaseConfig";
 import { Event, TicketTier } from "../../types/event";
 
+// [NEW] Helper to get currency symbol
+const getCurrencySymbol = (currency: string) => {
+    switch (currency) {
+        case 'INR':
+            return '₹';
+        case 'USD':
+            return '$';
+        default:
+            return '₹'; // Default to INR
+    }
+};
+
 const CheckoutScreen = () => {
   const { eventId, selectedTiers: selectedTiersJSON, pricing: pricingJSON } = useLocalSearchParams();
   const router = useRouter();
@@ -78,7 +90,12 @@ const CheckoutScreen = () => {
         const eventRef = doc(db, "events", eventIdStr);
         const eventSnap = await getDoc(eventRef);
         if (eventSnap.exists()) {
-          setEvent({ id: eventSnap.id, ...eventSnap.data() } as Event);
+          // Explicitly cast to Event to include our new fields
+          const eventData = { id: eventSnap.id, ...eventSnap.data() } as Event;
+          // Provide default values for safety
+          eventData.currency = eventData.currency || 'INR';
+          eventData.bookingFeePercent = eventData.bookingFeePercent || 10;
+          setEvent(eventData);
         } else {
           throw new Error("Event not found.");
         }
@@ -109,12 +126,13 @@ const CheckoutScreen = () => {
     setIsProcessing(true);
 
     try {
+      // [MODIFIED] Pass currency to backend
       const createPaymentIntent = httpsCallable(functions, "createPaymentIntent");
       const res = await createPaymentIntent({ 
           eventId: eventIdStr, 
           selectedTiers, 
           promoCode: promoCode.trim().toUpperCase() || undefined,
-          pricing, // Pass the correct pricing object
+          pricing,
       });
 
       const { orderId, clientSecret, free, vip } = res.data as { 
@@ -172,6 +190,9 @@ const CheckoutScreen = () => {
     return <ThemedView style={styles.centeredContainer}><Text style={styles.text}>Event not found.</Text></ThemedView>;
   }
 
+  // [NEW] Get currency symbol from event data
+  const currencySymbol = getCurrencySymbol(event.currency);
+
   return (
     <ThemedView style={styles.container}>
         <TopNavBar title="Order Summary" onBackPress={() => router.back()} />
@@ -183,7 +204,6 @@ const CheckoutScreen = () => {
                   const tier = ticketTiers.find((t) => t.id === tierId);
                   if (!tier) return null;
 
-                  // Use chargeAmount for tables for correct line item display
                   const displayAmount = (tier.type === 'table' && tier.chargeAmount != null)
                     ? tier.chargeAmount
                     : tier.price;
@@ -193,24 +213,29 @@ const CheckoutScreen = () => {
                           <View style={styles.itemDetails}>
                              <Text style={styles.itemName}>{tier.name} x {selectedTiers[tierId]}</Text>
                           </View>
-                          <Text style={styles.itemPrice}>₹{(displayAmount * selectedTiers[tierId]).toLocaleString()}</Text>
+                          {/* [MODIFIED] Dynamic currency */}
+                          <Text style={styles.itemPrice}>{currencySymbol}{(displayAmount * selectedTiers[tierId]).toLocaleString()}</Text>
                       </View>
                   );
                 })}
 
-                <View style={styles.subtotalContainer}><Text style={styles.summaryText}>Subtotal</Text><Text style={styles.summaryText}>₹{pricing.subtotal.toLocaleString()}</Text></View>
+                {/* [MODIFIED] Dynamic currency */}
+                <View style={styles.subtotalContainer}><Text style={styles.summaryText}>Subtotal</Text><Text style={styles.summaryText}>{currencySymbol}{pricing.subtotal.toLocaleString()}</Text></View>
 
                 {pricing.processingFee > 0 && !promoApplied && (
                     <View style={styles.subtotalContainer}>
-                        <Text style={styles.summaryText}>Processing fee (10%)</Text>
-                        <Text style={styles.summaryText}>₹{pricing.processingFee.toLocaleString()}</Text>
+                        {/* [MODIFIED] Dynamic fee percentage */}
+                        <Text style={styles.summaryText}>Processing fee ({event.bookingFeePercent}%)</Text>
+                        {/* [MODIFIED] Dynamic currency */}
+                        <Text style={styles.summaryText}>{currencySymbol}{pricing.processingFee.toLocaleString()}</Text>
                     </View>
                 )}
                 {promoApplied && <Text style={styles.promoAppliedText}>🎉 VIP promo applied!</Text>}
 
                 <View style={styles.totalContainer}>
                     <Text style={styles.totalText}>Total</Text>
-                    <Text style={styles.totalText}>₹{total.toLocaleString()}</Text>
+                    {/* [MODIFIED] Dynamic currency */}
+                    <Text style={styles.totalText}>{currencySymbol}{total.toLocaleString()}</Text>
                 </View>
             </View>
 
@@ -263,7 +288,7 @@ const styles = StyleSheet.create({
   itemRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start', // Use flex-start to align items at the top
+    alignItems: 'flex-start',
     marginBottom: 12,
   },
   itemDetails: {
@@ -273,7 +298,7 @@ const styles = StyleSheet.create({
   itemName: {
     color: '#ddd',
     fontSize: 16,
-    flexShrink: 1, // This is crucial to allow text to wrap
+    flexShrink: 1,
   },
   itemPrice: {
     color: '#ddd',
