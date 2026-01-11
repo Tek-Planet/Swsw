@@ -1,3 +1,4 @@
+
 import AWS from "aws-sdk";
 import * as functions from "firebase-functions/v1";
 import { admin } from "./lib/firebase";
@@ -63,7 +64,8 @@ export const indexUserProfilePicture = functions.firestore
         .indexFaces({
           CollectionId: rekognitionCollectionId,
           ExternalImageId: userId,
-          DetectionAttributes: [],
+          MaxFaces: 1,
+          DetectionAttributes: ["DEFAULT"],
           Image: {
             S3Object: {
               Bucket: s3Bucket,
@@ -73,10 +75,8 @@ export const indexUserProfilePicture = functions.firestore
         })
         .promise();
 
-      if (!response.FaceRecords || response.FaceRecords.length === 0) {
-        console.warn(
-          `No face could be detected in the image for user ${userId}.`
-        );
+      if (!response.FaceRecords || response.FaceRecords.length !== 1) {
+        console.warn(`No face or multiple faces detected for user ${userId}.`);
         await admin.firestore().doc(`users/${userId}`).update({
           photoUrl: photoUrl,
           faceId: null,
@@ -110,6 +110,8 @@ export const indexUserProfilePicture = functions.firestore
         .doc(`users/${userId}`)
         .update({
           photoUrl: photoUrl,
+          faceId: null,
+          faceIndexedAt: null,
         })
         .catch((e) => console.error("Failed to write fallback photoUrl", e));
       return null;
@@ -127,12 +129,11 @@ export const onPhotoCreated = functions.firestore
       return null;
     }
 
-    // [FIXED] Construct the public URL and a placeholder for the thumbnail.
     const region = functions.config().aws.region;
     const url = `https://${s3Bucket}.s3.${region}.amazonaws.com/${photo.s3Key}`;
     const updateData: any = {
       url: url,
-      thumbUrl: url, // For now, we'll use the same URL for the thumbnail.
+      thumbUrl: url,
     };
 
     console.log(
@@ -143,7 +144,7 @@ export const onPhotoCreated = functions.firestore
       const response = await rekognition
         .searchFacesByImage({
           CollectionId: rekognitionCollectionId,
-          FaceMatchThreshold: 95,
+          FaceMatchThreshold: 90, // [CORRECTED] Lowered threshold for better real-world matching.
           MaxFaces: 10,
           Image: {
             S3Object: {
@@ -168,7 +169,6 @@ export const onPhotoCreated = functions.firestore
           updateData.recognitionProcessedAt =
             admin.firestore.FieldValue.serverTimestamp();
 
-          // Fan-out writes for recognized users
           const batch = admin.firestore().batch();
           for (const userId of recognizedUserIds) {
             const userPhotoRef = admin
@@ -200,9 +200,7 @@ export const onPhotoCreated = functions.firestore
       }
     } catch (error) {
       console.error(`Face recognition failed for photo ${photoId}`, error);
-      // Don't halt; we still want to save the URLs.
     } finally {
-      // [FIXED] Always update the document with the URLs.
       await snap.ref.update(updateData);
       console.log(`Successfully updated photo ${photoId} with URLs.`);
     }
