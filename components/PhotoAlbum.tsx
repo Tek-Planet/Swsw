@@ -17,7 +17,7 @@ import { getAuth } from 'firebase/auth';
 import { serverTimestamp } from 'firebase/firestore';
 
 import { getEventPhotoPreview, ensureDefaultAlbum, createPhotoDoc } from '@/lib/services/galleryService';
-import { uploadImageAndGetS3Key } from '@/lib/firebase/storageService'; // [UPDATED] Import the correct S3 upload service
+import { uploadEventPhotoAndGetS3Key } from '@/lib/firebase/storageService'; // [CORRECTED] Import the new event-specific upload service
 import { Photo } from '@/types/gallery';
 
 interface Props {
@@ -35,7 +35,6 @@ const PhotoAlbum: React.FC<Props> = ({ eventId }) => {
   const fetchPreview = async () => {
     try {
       setLoading(true);
-      // This function will be updated next to construct the full URL from the s3Key
       const { previewPhotos } = await getEventPhotoPreview(eventId, 6);
       setPhotos(previewPhotos);
     } catch (error) {
@@ -56,15 +55,15 @@ const PhotoAlbum: React.FC<Props> = ({ eventId }) => {
     }
 
     if (result.canceled || !result.assets || result.assets.length === 0) {
-      return; // User cancelled the action
+      return;
     }
 
     setUploading(true);
     const uri = result.assets[0].uri;
 
     try {
-      // [UPDATED] Use the S3 upload service
-      const s3Key = await uploadImageAndGetS3Key(uri);
+      // [CORRECTED] Use the new event-specific upload service, passing the eventId
+      const s3Key = await uploadEventPhotoAndGetS3Key(uri, eventId);
 
       if (!s3Key) {
         throw new Error('Image upload failed, S3 key is null.');
@@ -72,9 +71,8 @@ const PhotoAlbum: React.FC<Props> = ({ eventId }) => {
 
       const albumId = await ensureDefaultAlbum(eventId);
       
-      // [UPDATED] Create a photo document with the s3Key, not a downloadURL
       const photoData: Omit<Photo, 'id'> = {
-        s3Key: s3Key, // This is the crucial change that triggers the backend
+        s3Key: s3Key,
         uploadedBy: 'user',
         uploaderId: userId,
         createdAt: serverTimestamp(),
@@ -82,7 +80,7 @@ const PhotoAlbum: React.FC<Props> = ({ eventId }) => {
       };
 
       await createPhotoDoc(eventId, albumId, photoData);
-      await fetchPreview(); // Refresh the preview list to show the new photo
+      await fetchPreview();
 
     } catch (error) {
       console.error('Upload failed:', error);
@@ -122,8 +120,6 @@ const PhotoAlbum: React.FC<Props> = ({ eventId }) => {
   const handleViewMore = () => {
     router.push({ pathname: '/gallery', params: { eventId } });
   };
-
-  // ... The rest of the component (render logic) remains the same ...
 
   return (
     <View style={styles.container}>

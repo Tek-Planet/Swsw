@@ -212,8 +212,8 @@ export const createPaymentIntent = functions.https.onCall(async (data, context) 
     throw new functions.https.HttpsError("invalid-argument", "Missing eventId or selectedTiers.");
   }
 
-  // [MODIFIED] Get dynamic currency from the calculation
-  const { event, eventRef, itemsForOrder, subtotalCharged, feeBase, processingFee, total, currency, bookingFeePercent } = await _calculateOrderDetails(
+  // [CORRECTED] Removed unused `bookingFeePercent` from destructuring
+  const { event, eventRef, itemsForOrder, subtotalCharged, feeBase, processingFee, total, currency } = await _calculateOrderDetails(
     eventId,
     selectedTiers
   );
@@ -457,7 +457,8 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("invalid-argument", "Missing required fields: eventId, selectedTiers, paymentMethodId.");
   }
   
-  const { event, eventRef, itemsForOrder, subtotalCharged, feeBase, processingFee, total, currency, bookingFeePercent } = await _calculateOrderDetails(eventId, selectedTiers);
+  // [CORRECTED] Removed unused `bookingFeePercent` from destructuring
+  const { event, eventRef, itemsForOrder, subtotalCharged, feeBase, processingFee, total, currency } = await _calculateOrderDetails(eventId, selectedTiers);
   const orderId = db.collection("_").doc().id; 
   
   if (total === 0) {
