@@ -1,4 +1,3 @@
-
 import AWS from "aws-sdk";
 import * as functions from "firebase-functions/v1";
 import { admin } from "./lib/firebase";
@@ -15,7 +14,6 @@ const rekognition = new AWS.Rekognition({
 const isNonEmptyString = (value?: unknown): value is string =>
   typeof value === "string" && value.trim().length > 0;
 
-
 export const indexUserProfilePicture = functions.firestore
   .document("users/{userId}")
   .onUpdate(async (change, context) => {
@@ -28,8 +26,6 @@ export const indexUserProfilePicture = functions.firestore
       return null;
     }
 
-    // --- TRIGGER ---
-    // Only run if the S3 key for the profile picture has been set or changed.
     if (before.profilePictureS3Key === after.profilePictureS3Key) {
       console.log("Profile picture S3 key has not changed.");
       return null;
@@ -37,23 +33,20 @@ export const indexUserProfilePicture = functions.firestore
 
     const s3ObjectKey = after.profilePictureS3Key;
 
-    // If the key is removed, we don't need to do anything.
     if (!isNonEmptyString(s3ObjectKey)) {
       console.log(`S3 profile picture key was removed for user ${userId}.`);
       return null;
     }
 
-    // --- CONSTRUCT URL ---
-    // Construct the public URL immediately. We will save this at the end.
-    const photoUrl = `https://${s3Bucket}.s3.${functions.config().aws.region}.amazonaws.com/${s3ObjectKey}`;
-    
+    const photoUrl = `https://${s3Bucket}.s3.${
+      functions.config().aws.region
+    }.amazonaws.com/${s3ObjectKey}`;
+
     console.log(
       `Indexing face for user ${userId} from s3://${s3Bucket}/${s3ObjectKey}`
     );
 
     try {
-      // --- DELETE OLD FACE (if exists) ---
-      // This makes the function idempotent and handles profile picture changes correctly.
       if (isNonEmptyString(before.faceId)) {
         await rekognition
           .deleteFaces({
@@ -61,14 +54,15 @@ export const indexUserProfilePicture = functions.firestore
             FaceIds: [before.faceId],
           })
           .promise();
-        console.log(`Successfully deleted old face (${before.faceId}) for user ${userId}`);
+        console.log(
+          `Successfully deleted old face (${before.faceId}) for user ${userId}`
+        );
       }
 
-      // --- INDEX NEW FACE ---
       const response = await rekognition
         .indexFaces({
           CollectionId: rekognitionCollectionId,
-          ExternalImageId: userId, // Link this face to our user's ID
+          ExternalImageId: userId,
           DetectionAttributes: [],
           Image: {
             S3Object: {
@@ -80,42 +74,44 @@ export const indexUserProfilePicture = functions.firestore
         .promise();
 
       if (!response.FaceRecords || response.FaceRecords.length === 0) {
-        console.warn(`No face could be detected in the image for user ${userId}.`);
-        // We will still save the photoUrl so the image can be displayed.
+        console.warn(
+          `No face could be detected in the image for user ${userId}.`
+        );
         await admin.firestore().doc(`users/${userId}`).update({
           photoUrl: photoUrl,
-          faceId: null, // Ensure no old faceId remains
-          faceIndexedAt: null, // Indicate indexing was not successful
+          faceId: null,
+          faceIndexedAt: null,
         });
         return null;
       }
-      
+
       const faceRecord = response.FaceRecords[0];
       const newFaceId = faceRecord.Face?.FaceId;
 
       if (!isNonEmptyString(newFaceId)) {
-          throw new Error("indexFaces response did not include a FaceId.");
+        throw new Error("indexFaces response did not include a FaceId.");
       }
 
       console.log(
         `Successfully indexed new face (${newFaceId}) for user ${userId}`
       );
 
-      // --- SAVE RESULTS TO FIRESTORE ---
       await admin.firestore().doc(`users/${userId}`).update({
-        photoUrl: photoUrl, // The new public URL for display
-        faceId: newFaceId, // The new ID for future deletions
+        photoUrl: photoUrl,
+        faceId: newFaceId,
         faceIndexedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
       return null;
     } catch (error) {
       console.error(`Face indexing failed for user ${userId}`, error);
-      // Even if indexing fails, let's try to set the photoUrl so it's not broken.
-      // This helps with debugging and user experience.
-      await admin.firestore().doc(`users/${userId}`).update({
-        photoUrl: photoUrl,
-      }).catch(e => console.error("Failed to write fallback photoUrl", e));
+      await admin
+        .firestore()
+        .doc(`users/${userId}`)
+        .update({
+          photoUrl: photoUrl,
+        })
+        .catch((e) => console.error("Failed to write fallback photoUrl", e));
       return null;
     }
   });
@@ -126,15 +122,18 @@ export const onPhotoCreated = functions.firestore
     const photo = snap.data();
     const { eventId, photoId } = context.params;
 
-    if (!photo) {
-      console.warn("Photo document missing");
+    if (!photo || !isNonEmptyString(photo.s3Key)) {
+      console.warn(`Photo ${photoId} has no S3 key or document is missing.`);
       return null;
     }
 
-    if (!isNonEmptyString(photo.s3Key)) {
-      console.warn(`Photo ${photoId} has no S3 key`);
-      return null;
-    }
+    // [FIXED] Construct the public URL and a placeholder for the thumbnail.
+    const region = functions.config().aws.region;
+    const url = `https://${s3Bucket}.s3.${region}.amazonaws.com/${photo.s3Key}`;
+    const updateData: any = {
+      url: url,
+      thumbUrl: url, // For now, we'll use the same URL for the thumbnail.
+    };
 
     console.log(
       `Running face recognition for photo ${photoId} (event ${eventId})`
@@ -155,60 +154,58 @@ export const onPhotoCreated = functions.firestore
         })
         .promise();
 
-      if (!response.FaceMatches || response.FaceMatches.length === 0) {
+      if (response.FaceMatches && response.FaceMatches.length > 0) {
+        const recognizedUserIds = response.FaceMatches.map(
+          (match) => match.Face?.ExternalImageId
+        ).filter(isNonEmptyString);
+
+        if (recognizedUserIds.length > 0) {
+          console.log(
+            `Recognized users in photo ${photoId}:`,
+            recognizedUserIds
+          );
+          updateData.recognizedUserIds = recognizedUserIds;
+          updateData.recognitionProcessedAt =
+            admin.firestore.FieldValue.serverTimestamp();
+
+          // Fan-out writes for recognized users
+          const batch = admin.firestore().batch();
+          for (const userId of recognizedUserIds) {
+            const userPhotoRef = admin
+              .firestore()
+              .collection("user_photos")
+              .doc(userId)
+              .collection("my_photos")
+              .doc(photoId);
+            batch.set(
+              userPhotoRef,
+              {
+                originalPhotoId: photoId,
+                eventId,
+                photoS3Key: photo.s3Key,
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+              },
+              { merge: true }
+            );
+          }
+          await batch.commit();
+          console.log(
+            `Tagged ${recognizedUserIds.length} users for photo ${photoId}`
+          );
+        } else {
+          console.log("Faces detected but no valid user matches");
+        }
+      } else {
         console.log("No faces recognized");
-        return null;
       }
-
-      const recognizedUserIds = response.FaceMatches.map(
-        (match) => match.Face?.ExternalImageId
-      ).filter(isNonEmptyString);
-
-      if (recognizedUserIds.length === 0) {
-        console.log("Faces detected but no valid user matches");
-        return null;
-      }
-
-      console.log(`Recognized users in photo ${photoId}:`, recognizedUserIds);
-
-      // Update photo document
-      await snap.ref.update({
-        recognizedUserIds,
-        recognitionProcessedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
-      // Fan-out writes
-      const batch = admin.firestore().batch();
-
-      for (const userId of recognizedUserIds) {
-        const userPhotoRef = admin
-          .firestore()
-          .collection("user_photos")
-          .doc(userId)
-          .collection("my_photos")
-          .doc(photoId);
-
-        batch.set(
-          userPhotoRef,
-          {
-            originalPhotoId: photoId,
-            eventId,
-            photoS3Key: photo.s3Key,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          },
-          { merge: true }
-        );
-      }
-
-      await batch.commit();
-
-      console.log(
-        `Tagged ${recognizedUserIds.length} users for photo ${photoId}`
-      );
-
-      return null;
     } catch (error) {
       console.error(`Face recognition failed for photo ${photoId}`, error);
-      return null;
+      // Don't halt; we still want to save the URLs.
+    } finally {
+      // [FIXED] Always update the document with the URLs.
+      await snap.ref.update(updateData);
+      console.log(`Successfully updated photo ${photoId} with URLs.`);
     }
+
+    return null;
   });

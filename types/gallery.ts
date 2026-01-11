@@ -1,5 +1,4 @@
-
-import { FieldValue } from 'firebase/firestore';
+import { FieldValue } from "firebase/firestore";
 
 export type Album = {
   id: string;
@@ -38,6 +37,6 @@ export type Photo = {
   // --- FOR FACE RECOGNITION ---
   // An array of user IDs of people recognized in the photo.
   // This is populated by the onPhotoCreated backend function.
-  taggedUserIds?: string[];
+  recognizedUserIds?: string[];
   recognitionProcessedAt?: Date | FieldValue; // Timestamp for when processing was done
 };

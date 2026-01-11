@@ -1,5 +1,4 @@
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -9,16 +8,20 @@ import {
   Image,
   FlatList,
   Alert,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
-import { getAuth } from 'firebase/auth';
-import { serverTimestamp } from 'firebase/firestore';
+} from "react-native";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import { getAuth } from "firebase/auth";
+import { serverTimestamp, Unsubscribe } from "firebase/firestore";
 
-import { getEventPhotoPreview, ensureDefaultAlbum, createPhotoDoc } from '@/lib/services/galleryService';
-import { uploadImageAndGetS3Key } from '@/lib/firebase/storageService'; // [UPDATED] Import the correct S3 upload service
-import { Photo } from '@/types/gallery';
+import {
+  listenAlbumPhotos,
+  ensureDefaultAlbum,
+  createPhotoDoc,
+} from "@/lib/services/galleryService";
+import { uploadEventPhotoAndGetS3Key } from "@/lib/firebase/storageService";
+import { Photo } from "@/types/gallery";
 
 interface Props {
   eventId: string;
@@ -32,61 +35,77 @@ const PhotoAlbum: React.FC<Props> = ({ eventId }) => {
   const auth = getAuth();
   const userId = auth.currentUser?.uid;
 
-  const fetchPreview = async () => {
-    try {
-      setLoading(true);
-      // This function will be updated next to construct the full URL from the s3Key
-      const { previewPhotos } = await getEventPhotoPreview(eventId, 6);
-      setPhotos(previewPhotos);
-    } catch (error) {
-      console.error('Failed to fetch photo preview:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchPreview();
+    let unsubscribe: Unsubscribe | undefined;
+    let isMounted = true;
+
+    const setupListener = async () => {
+      try {
+        setLoading(true);
+        const albumId = await ensureDefaultAlbum(eventId);
+
+        if (isMounted) {
+          unsubscribe = listenAlbumPhotos(eventId, albumId, (newPhotos) => {
+            setPhotos(newPhotos.slice(0, 6));
+            if (loading) setLoading(false);
+          });
+        }
+      } catch (error) {
+        console.error("Failed to set up photo listener:", error);
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    setupListener();
+
+    return () => {
+      isMounted = false;
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, [eventId]);
 
   const handleImageUpload = async (result: ImagePicker.ImagePickerResult) => {
     if (!userId) {
-      Alert.alert('Authentication required', 'You must be logged in to upload photos.');
+      Alert.alert(
+        "Authentication required",
+        "You must be logged in to upload photos."
+      );
       return;
     }
 
     if (result.canceled || !result.assets || result.assets.length === 0) {
-      return; // User cancelled the action
+      return;
     }
 
     setUploading(true);
     const uri = result.assets[0].uri;
 
     try {
-      // [UPDATED] Use the S3 upload service
-      const s3Key = await uploadImageAndGetS3Key(uri);
+      const s3Key = await uploadEventPhotoAndGetS3Key(uri, eventId);
 
       if (!s3Key) {
-        throw new Error('Image upload failed, S3 key is null.');
+        throw new Error("Image upload failed, S3 key is null.");
       }
 
       const albumId = await ensureDefaultAlbum(eventId);
-      
-      // [UPDATED] Create a photo document with the s3Key, not a downloadURL
-      const photoData: Omit<Photo, 'id'> = {
-        s3Key: s3Key, // This is the crucial change that triggers the backend
-        uploadedBy: 'user',
+
+      const photoData: Partial<Photo> = {
+        s3Key: s3Key,
+        uploadedBy: "user",
         uploaderId: userId,
         createdAt: serverTimestamp(),
-        taggedUserIds: [],
+        recognizedUserIds: [],
       };
 
       await createPhotoDoc(eventId, albumId, photoData);
-      await fetchPreview(); // Refresh the preview list to show the new photo
-
     } catch (error) {
-      console.error('Upload failed:', error);
-      Alert.alert('Upload Failed', 'Could not upload your photo. Please try again.');
+      console.error("Upload failed:", error);
+      Alert.alert(
+        "Upload Failed",
+        "Could not upload your photo. Please try again."
+      );
     } finally {
       setUploading(false);
     }
@@ -94,8 +113,11 @@ const PhotoAlbum: React.FC<Props> = ({ eventId }) => {
 
   const handlePickFromCamera = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission required', 'Sorry, we need camera permissions to make this work!');
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission required",
+        "Sorry, we need camera permissions to make this work!"
+      );
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -107,8 +129,11 @@ const PhotoAlbum: React.FC<Props> = ({ eventId }) => {
 
   const handlePickFromLibrary = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission required', 'Sorry, we need camera roll permissions to make this work!');
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission required",
+        "Sorry, we need camera roll permissions to make this work!"
+      );
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -120,10 +145,8 @@ const PhotoAlbum: React.FC<Props> = ({ eventId }) => {
   };
 
   const handleViewMore = () => {
-    router.push({ pathname: '/gallery', params: { eventId } });
+    router.push({ pathname: "/gallery", params: { eventId } });
   };
-
-  // ... The rest of the component (render logic) remains the same ...
 
   return (
     <View style={styles.container}>
@@ -133,7 +156,11 @@ const PhotoAlbum: React.FC<Props> = ({ eventId }) => {
           <TouchableOpacity onPress={handlePickFromCamera} disabled={uploading}>
             <Ionicons name="camera-outline" size={28} color="#A855F7" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={handlePickFromLibrary} disabled={uploading} style={{ marginLeft: 16 }}>
+          <TouchableOpacity
+            onPress={handlePickFromLibrary}
+            disabled={uploading}
+            style={{ marginLeft: 16 }}
+          >
             <Ionicons name="images-outline" size={28} color="#A855F7" />
           </TouchableOpacity>
         </View>
@@ -147,9 +174,11 @@ const PhotoAlbum: React.FC<Props> = ({ eventId }) => {
       )}
 
       {loading ? (
-          <ActivityIndicator color="#fff" style={{ height: 100 }}/>
+        <ActivityIndicator color="#fff" style={{ height: 100 }} />
       ) : photos.length === 0 ? (
-        <Text style={styles.emptyText}>No photos yet. Be the first to share!</Text>
+        <Text style={styles.emptyText}>
+          No photos yet. Be the first to share!
+        </Text>
       ) : (
         <>
           <FlatList
@@ -157,7 +186,18 @@ const PhotoAlbum: React.FC<Props> = ({ eventId }) => {
             keyExtractor={(item) => item.id}
             numColumns={3}
             renderItem={({ item }) => (
-              <Image source={{ uri: item.thumbUrl || item.url }} style={styles.thumbnail} />
+              <View style={styles.photoContainer}>
+                <Image
+                  source={{ uri: item.thumbUrl || item.url }}
+                  style={styles.thumbnail}
+                />
+                {item.recognizedUserIds &&
+                  item.recognizedUserIds.includes(userId ?? "") && (
+                    <View style={styles.tagOverlay}>
+                      <Text style={styles.tagText}>innit</Text>
+                    </View>
+                  )}
+              </View>
             )}
             contentContainerStyle={styles.grid}
           />
@@ -172,62 +212,84 @@ const PhotoAlbum: React.FC<Props> = ({ eventId }) => {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: "#1a1a1a",
     borderRadius: 20,
     padding: 20,
     marginBottom: 20,
-    position: 'relative',
+    position: "relative",
   },
   center: {
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   headerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 16,
   },
   title: {
-    color: 'white',
+    color: "white",
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   iconsContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
   },
   grid: {
-    justifyContent: 'center',
+    justifyContent: "center",
   },
-  thumbnail: {
+  photoContainer: {
     width: 100,
     height: 100,
     borderRadius: 10,
     margin: 4,
+    position: "relative",
+  },
+  thumbnail: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 10,
+  },
+  tagOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
+    paddingVertical: 3,
+  },
+  tagText: {
+    color: "white",
+    textAlign: "center",
+    fontSize: 12,
+    fontWeight: "bold",
   },
   viewMore: {
-    color: '#A855F7',
-    textAlign: 'center',
+    color: "#A855F7",
+    textAlign: "center",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginTop: 16,
   },
   emptyText: {
-    color: '#A8A8A8',
-    textAlign: 'center',
+    color: "#A8A8A8",
+    textAlign: "center",
     fontSize: 16,
     paddingVertical: 20,
   },
   uploadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
     borderRadius: 20,
     zIndex: 1,
   },
   uploadingText: {
-    color: 'white',
+    color: "white",
     marginTop: 10,
     fontSize: 16,
   },

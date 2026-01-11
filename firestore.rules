@@ -79,13 +79,15 @@ service cloud.firestore {
           }
           
           match /albums/{albumId} {
-            // [FIXED] Admins have full access. Signed-in users can read and create.
-            allow read, create: if isSignedIn();
+            // [CORRECTED] Explicitly grant 'list' for collection queries by signed-in users.
+            allow get, create: if isSignedIn();
+            allow list: if isSignedIn();
             allow update, delete: if isAdmin();
 
             match /photos/{photoId} {
-                // [FIXED] Admins have full access. Signed-in users can read and create.
-                allow read, create: if isSignedIn();
+                // [CORRECTED] Explicitly grant 'list' for collection queries by signed-in users.
+                allow get, create: if isSignedIn();
+                allow list: if isSignedIn();
                 allow update, delete: if isAdmin();
             }
           }
