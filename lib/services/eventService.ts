@@ -133,6 +133,30 @@ export function listenToUserUpcomingEvents(
     return unsubscribe;
 }
 
+export function listenToUserPastEvents(
+  userId: string,
+  callback: (events: Event[]) => void
+): () => void {
+  const now = new Date();
+  const q = query(
+    eventCollection,
+    where('status', '==', 'published'),
+    where('attendeeIds', 'array-contains', userId),
+    where('startTime', '<', now),
+    orderBy('startTime', 'desc'),
+    limit(3)
+  );
+
+  const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    const events = querySnapshot.docs.map(doc => eventFromDoc(doc));
+    callback(events);
+  }, (error) => {
+    console.error("Error listening to user past events:", error);
+  });
+
+  return unsubscribe;
+}
+
 export function listenToRecommendedEvents(
   userId: string,
   interests: string[],

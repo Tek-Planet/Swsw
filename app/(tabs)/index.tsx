@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Text,
   View,
+  TouchableOpacity,
 } from "react-native";
 
 import EventCard from "@/components/EventCard";
@@ -17,6 +18,7 @@ import {
   listenToRecommendedEvents,
   listenToTrendingEvents,
   listenToUserUpcomingEvents,
+  listenToUserPastEvents,
 } from "@/lib/services/eventService";
 import {
   getEventAlbumPreview,
@@ -162,26 +164,39 @@ const YourAlbums: React.FC = () => {
 
 const UpcomingEvents: React.FC = () => {
   const { user } = useAuth();
-  const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [filter, setFilter] = useState('Upcoming');
 
   useEffect(() => {
     if (user) {
-      const unsubscribe = listenToUserUpcomingEvents(
-        user.uid,
-        (events: Event[]) => {
-          setUpcomingEvents(events);
-        }
-      );
+      const listener = filter === 'Upcoming' 
+        ? listenToUserUpcomingEvents
+        : listenToUserPastEvents;
+
+      const unsubscribe = listener(user.uid, (events: Event[]) => {
+        setEvents(events);
+      });
+
       return () => unsubscribe();
     }
-  }, [user]);
+  }, [user, filter]);
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Upcoming</Text>
-      {upcomingEvents.length > 0 ? (
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>{filter}</Text>
+        <View style={styles.filterContainer}>
+          <TouchableOpacity onPress={() => setFilter('Upcoming')} style={[styles.filterButton, filter === 'Upcoming' && styles.activeFilter]}>
+            <Text style={styles.filterText}>Upcoming</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setFilter('Past')} style={[styles.filterButton, filter === 'Past' && styles.activeFilter]}>
+            <Text style={styles.filterText}>Past</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+      {events.length > 0 ? (
         <ScrollView horizontal contentContainerStyle={styles.horizontalScroll}>
-          {upcomingEvents.map((event) => (
+          {events.map((event) => (
             <EventCard
               key={event.id}
               event={event}
@@ -191,7 +206,7 @@ const UpcomingEvents: React.FC = () => {
         </ScrollView>
       ) : (
         <View style={styles.placeholderContainer}>
-          <Text style={styles.placeholderText}>No upcoming events yet.</Text>
+          <Text style={styles.placeholderText}>No {filter.toLowerCase()} events yet.</Text>
           <Text style={styles.placeholderSubText}>
             Create an event or join one!
           </Text>
@@ -284,11 +299,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
   sectionTitle: {
     color: "#fff",
     fontSize: 20,
     fontWeight: "bold",
-    marginBottom: 10,
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#333',
+    borderRadius: 20,
+  },
+  filterButton: {
+    paddingVertical: 5,
+    paddingHorizontal: 15,
+    borderRadius: 20,
+  },
+  activeFilter: {
+    backgroundColor: '#555',
+  },
+  filterText: {
+    color: '#fff',
+    fontWeight: 'bold'
   },
   horizontalScroll: {
     paddingBottom: 20,
