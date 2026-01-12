@@ -40,3 +40,8 @@ export type Photo = {
   recognizedUserIds?: string[];
   recognitionProcessedAt?: Date | FieldValue; // Timestamp for when processing was done
 };
+
+export type AccessibleEvent = {
+  id: string;
+  title: string;
+};

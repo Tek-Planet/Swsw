@@ -1,5 +1,4 @@
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -7,20 +6,23 @@ import {
   StyleSheet,
   Text,
   View,
-} from 'react-native';
+} from "react-native";
 
-import EventCard from '@/components/EventCard';
-import AlbumPreviewCard from '@/components/gallery/AlbumPreviewCard';
-import { Header, TopNavBar } from '@/components/Header';
-import { useAuth } from '@/lib/context/AuthContext';
+import EventCard from "@/components/EventCard";
+import AlbumPreviewCard from "@/components/gallery/AlbumPreviewCard";
+import { Header, TopNavBar } from "@/components/Header";
+import { useAuth } from "@/lib/context/AuthContext";
 import {
   getEvent,
   listenToRecommendedEvents,
   listenToTrendingEvents,
   listenToUserUpcomingEvents,
-} from '@/lib/services/eventService';
-import { getEventAlbumPreview, getUserAccessibleEventIds } from '@/lib/services/galleryService';
-import { Event } from '@/types/event';
+} from "@/lib/services/eventService";
+import {
+  getEventAlbumPreview,
+  getUserAccessibleEventIds,
+} from "@/lib/services/galleryService";
+import { Event } from "@/types/event";
 
 const HomeScreen: React.FC = () => {
   return (
@@ -33,7 +35,6 @@ const HomeScreen: React.FC = () => {
         <TrendingEvents />
         {/* <RecommendedEvents /> */}
         <YourAlbums />
-        
       </ScrollView>
       {/* <FloatingActionButton /> */}
     </View>
@@ -44,7 +45,10 @@ const YourAlbums: React.FC = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [albumPreview, setAlbumPreview] = useState<{ coverPhotoUrl: string | null; photoCount: number } | null>(null);
+  const [albumPreview, setAlbumPreview] = useState<{
+    coverPhotoUrl: string | null;
+    photoCount: number;
+  } | null>(null);
 
   useEffect(() => {
     const fetchAlbumData = async () => {
@@ -62,32 +66,49 @@ const YourAlbums: React.FC = () => {
           return;
         }
 
-        const events: (Event | null)[] = await Promise.all(eventIds.map((id: string) => getEvent(id)));
+        const events: (Event | null)[] = await Promise.all(
+          eventIds.map((id: string) => getEvent(id))
+        );
         const validEvents = events.filter((e): e is Event => e !== null);
 
         let eventToShow: Event | null = null;
-        const eventsWithPhotos = validEvents.filter(e => e.photoCount && e.photoCount > 0);
+        const eventsWithPhotos = validEvents.filter(
+          (e) => e.photoCount && e.photoCount > 0
+        );
         if (eventsWithPhotos.length > 0) {
-          eventsWithPhotos.sort((a, b) => new Date(b.latestPhotoAt).getTime() - new Date(a.latestPhotoAt).getTime());
+          eventsWithPhotos.sort(
+            (a, b) =>
+              new Date(b.latestPhotoAt).getTime() -
+              new Date(a.latestPhotoAt).getTime()
+          );
           eventToShow = eventsWithPhotos[0];
         } else {
-          const upcomingEvents = validEvents.filter(e => new Date(e.startTime).getTime() > Date.now());
+          const upcomingEvents = validEvents.filter(
+            (e) => new Date(e.startTime).getTime() > Date.now()
+          );
           if (upcomingEvents.length > 0) {
-            upcomingEvents.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+            upcomingEvents.sort(
+              (a, b) =>
+                new Date(b.startTime).getTime() -
+                new Date(a.startTime).getTime()
+            );
             eventToShow = upcomingEvents[0];
           } else if (validEvents.length > 0) {
-            validEvents.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            validEvents.sort(
+              (a, b) =>
+                new Date(b.createdAt).getTime() -
+                new Date(a.createdAt).getTime()
+            );
             eventToShow = validEvents[0];
           }
         }
-        
+
         setSelectedEvent(eventToShow);
 
         if (eventToShow) {
           const preview = await getEventAlbumPreview(eventToShow.id);
           setAlbumPreview(preview);
         }
-
       } catch (error) {
         console.error("Error fetching album data:", error);
       } finally {
@@ -109,7 +130,9 @@ const YourAlbums: React.FC = () => {
   if (!selectedEvent) {
     return (
       <View style={styles.section}>
-        <Text style={styles.placeholderText}>Your albums will appear here once you attend an event.</Text>
+        <Text style={styles.placeholderText}>
+          Your albums will appear here once you attend an event.
+        </Text>
       </View>
     );
   }
@@ -120,15 +143,17 @@ const YourAlbums: React.FC = () => {
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Your Albums</Text>
       {hasPhotos && albumPreview ? (
-         <AlbumPreviewCard
-            eventId={selectedEvent.id}
-            title={selectedEvent.title}
-            coverImageUrl={albumPreview.coverPhotoUrl}
-            photoCount={albumPreview.photoCount}
-          />
+        <AlbumPreviewCard
+          eventId={selectedEvent.id}
+          title={selectedEvent.title}
+          coverImageUrl={albumPreview.coverPhotoUrl}
+          photoCount={albumPreview.photoCount}
+        />
       ) : (
         <View style={styles.placeholderContainer}>
-            <Text style={styles.placeholderText}>Photos coming soon for {selectedEvent.title}.</Text>
+          <Text style={styles.placeholderText}>
+            Photos coming soon for {selectedEvent.title}.
+          </Text>
         </View>
       )}
     </View>
@@ -139,12 +164,14 @@ const UpcomingEvents: React.FC = () => {
   const { user } = useAuth();
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
 
-  
   useEffect(() => {
     if (user) {
-      const unsubscribe = listenToUserUpcomingEvents(user.uid, (events: Event[]) => {
-        setUpcomingEvents(events);
-      });
+      const unsubscribe = listenToUserUpcomingEvents(
+        user.uid,
+        (events: Event[]) => {
+          setUpcomingEvents(events);
+        }
+      );
       return () => unsubscribe();
     }
   }, [user]);
@@ -155,7 +182,11 @@ const UpcomingEvents: React.FC = () => {
       {upcomingEvents.length > 0 ? (
         <ScrollView horizontal contentContainerStyle={styles.horizontalScroll}>
           {upcomingEvents.map((event) => (
-            <EventCard key={event.id} event={event} showEnhanceGridButton={true} />
+            <EventCard
+              key={event.id}
+              event={event}
+              showEnhanceGridButton={true}
+            />
           ))}
         </ScrollView>
       ) : (
@@ -198,7 +229,9 @@ const RecommendedEvents: React.FC = () => {
         </ScrollView>
       ) : (
         <View style={styles.placeholderContainer}>
-          <Text style={styles.placeholderText}>No recommendations right now.</Text>
+          <Text style={styles.placeholderText}>
+            No recommendations right now.
+          </Text>
           <Text style={styles.placeholderSubText}>
             Update your interests to get better recommendations.
           </Text>
@@ -218,7 +251,6 @@ const TrendingEvents: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Trending</Text>
@@ -230,7 +262,9 @@ const TrendingEvents: React.FC = () => {
         </ScrollView>
       ) : (
         <View style={styles.placeholderContainer}>
-          <Text style={styles.placeholderText}>No trending events right now.</Text>
+          <Text style={styles.placeholderText}>
+            No trending events right now.
+          </Text>
           <Text style={styles.placeholderSubText}>Check back later!</Text>
         </View>
       )}
@@ -241,8 +275,7 @@ const TrendingEvents: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
-   
+    backgroundColor: "#000",
   },
   scrollViewContent: {
     paddingBottom: 80, // To avoid being hidden by the FAB
@@ -252,44 +285,44 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   sectionTitle: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 10,
   },
   horizontalScroll: {
     paddingBottom: 20,
   },
   fab: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 30,
     right: 30,
-    backgroundColor: '#6c63ff',
+    backgroundColor: "#6c63ff",
     borderRadius: 30,
     width: 60,
     height: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#6c63ff',
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#6c63ff",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.5,
     shadowRadius: 5,
   },
   placeholderContainer: {
     height: 100,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#1a1a1a',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#1a1a1a",
     borderRadius: 10,
     padding: 20,
   },
   placeholderText: {
-    color: '#999',
+    color: "#999",
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
   },
   placeholderSubText: {
-    color: '#666',
+    color: "#666",
     fontSize: 14,
     marginTop: 5,
   },
