@@ -1,4 +1,3 @@
-
 import { useAuth } from '@/lib/context/AuthContext';
 import { listenToUserProfile } from '@/lib/firebase/userProfileService';
 import { UserProfile } from '@/types';
@@ -44,11 +43,16 @@ export const Header: React.FC = () => {
 
 interface AppHeaderProps {
     title: string;
+    rightChild?: React.ReactNode;
 }
 
-export const AppHeader: React.FC<AppHeaderProps> = ({title}) => (
+export const AppHeader: React.FC<AppHeaderProps> = ({title, rightChild}) => (
     <View style={styles.appHeader}>
+        <View style={styles.leftContainer} />
         <Text style={styles.appHeaderTitle}>{title}</Text>
+        <View style={styles.rightContainer}>
+            {rightChild}
+        </View>
     </View>
 )
 
@@ -74,13 +78,23 @@ const styles = StyleSheet.create({
         fontSize:16
       },
       appHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         paddingVertical: 10,
+        paddingHorizontal: 20,
         backgroundColor: '#1a1a1a',
-        alignItems: 'center'
       },
       appHeaderTitle:{
         color: '#fff',
         fontSize: 20,
         fontWeight: 'bold',
+      },
+      leftContainer: {
+          flex: 1,
+      },
+      rightContainer: {
+          flex: 1,
+          alignItems: 'flex-end',
       }
 });

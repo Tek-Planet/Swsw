@@ -1,51 +1,119 @@
-
-import { AppHeader } from '@/components/Header';
 import { Ionicons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
-import React from 'react';
-import { StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  FlatList,
+  Modal,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
-const events = [
-  { id: '1', title: 'Hangout at the Park', date: 'Saturday, Nov 22' },
-  { id: '2', title: 'Beach Bonfire', date: 'Friday, Dec 1' },
-  { id: '3', title: 'Study Session', date: 'Sunday, Dec 3' },
-  { id: '4', title: 'Movie Night', date: 'Wednesday, Dec 6' },
-];
+import { AppHeader } from '@/components/Header';
+import { useAuth } from '@/lib/context/AuthContext';
+import {
+  listenToUserPastEvents,
+  listenToUserUpcomingEvents,
+} from '@/lib/services/eventService';
+import { Event } from '@/types/event';
 
 const EventsScreen: React.FC = () => {
-  const renderEvent = ({ item }: { item: typeof events[0] }) => (
+  const { user } = useAuth();
+  const [events, setEvents] = useState<Event[]>([]);
+  const [filter, setFilter] = useState<'Upcoming' | 'Past'>('Upcoming');
+  const [modalVisible, setModalVisible] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      const listener =
+        filter === 'Upcoming'
+          ? listenToUserUpcomingEvents
+          : listenToUserPastEvents;
+
+      const unsubscribe = listener(user.uid, (newEvents: Event[]) => {
+        setEvents(newEvents);
+      });
+
+      return () => unsubscribe();
+    }
+  }, [user, filter]);
+
+  const handleSelectFilter = (newFilter: 'Upcoming' | 'Past') => {
+    setFilter(newFilter);
+    setModalVisible(false);
+  };
+
+  const renderEvent = ({ item }: { item: Event }) => (
     <Link href={`/event/${item.id}`} asChild>
-        <TouchableOpacity 
-        style={styles.eventCard}
-        >
+      <TouchableOpacity style={styles.eventCard}>
         <Text style={styles.eventTitle}>{item.title}</Text>
-        <Text style={styles.eventDate}>{item.date}</Text>
-        </TouchableOpacity>
+        <Text style={styles.eventDate}>
+          {new Date(item.startTime).toLocaleDateString()}
+        </Text>
+      </TouchableOpacity>
     </Link>
   );
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-      <AppHeader title="Events"/>
+      <AppHeader
+        title={`${filter} Events`}
+        rightChild={
+          <TouchableOpacity onPress={() => setModalVisible(true)}>
+            <Ionicons name="options-outline" size={24} color="#fff" />
+          </TouchableOpacity>
+        }
+      />
 
-      <View style={styles.placeholderContainer}>
-          <Text style={styles.placeholderText}>Coming Soon.</Text>
-          
-        </View>
-      {/* <FlatList
-        data={events}
-        renderItem={renderEvent}
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.listContainer}
-      /> */}
-        <Link href={{pathname: '/'}} asChild>
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalContainer}
+          activeOpacity={1}
+          onPressOut={() => setModalVisible(false)}
+        >
+          <View style={styles.modalContent}>
             <TouchableOpacity
-                style={styles.fab}
+              onPress={() => handleSelectFilter('Upcoming')}
+              style={styles.modalOption}
             >
-                <Ionicons name="add" size={30} color="white" />
+              <Text style={styles.modalOptionText}>Upcoming</Text>
             </TouchableOpacity>
-        </Link>
+            <TouchableOpacity
+              onPress={() => handleSelectFilter('Past')}
+              style={styles.modalOption}
+            >
+              <Text style={styles.modalOptionText}>Past</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {events.length > 0 ? (
+        <FlatList
+          data={events}
+          renderItem={renderEvent}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContainer}
+        />
+      ) : (
+        <View style={styles.placeholderContainer}>
+          <Text style={styles.placeholderText}>No {filter.toLowerCase()} events yet.</Text>
+        </View>
+      )}
+
+      <Link href={{ pathname: '/' }} asChild>
+        <TouchableOpacity style={styles.fab}>
+          <Ionicons name="add" size={30} color="white" />
+        </TouchableOpacity>
+      </Link>
     </View>
   );
 };
@@ -53,26 +121,17 @@ const EventsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a1a',
-    padding: 20,
+    backgroundColor: '#000',
   },
   listContainer: {
     paddingHorizontal: 20,
     paddingTop: 20,
   },
   eventCard: {
-    backgroundColor: '#2a2a2a',
+    backgroundColor: '#1c1c1e',
     borderRadius: 15,
     padding: 20,
     marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
   eventTitle: {
     fontSize: 18,
@@ -97,16 +156,33 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   placeholderContainer: {
-    height: 100,
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#1a1a1a',
-    borderRadius: 10,
-    marginHorizontal: 20,
   },
   placeholderText: {
     color: '#999',
-    fontSize: 22,
+    fontSize: 18,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  },
+  modalContent: {
+    backgroundColor: '#2c2c2e',
+    borderRadius: 10,
+    padding: 10,
+    width: '60%',
+  },
+  modalOption: {
+    paddingVertical: 15,
+    alignItems: 'center',
+  },
+  modalOptionText: {
+    color: '#fff',
+    fontSize: 18,
   },
 });
 
