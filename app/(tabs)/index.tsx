@@ -7,7 +7,9 @@ import {
   Text,
   View,
   TouchableOpacity,
+  Modal,
 } from "react-native";
+import { Ionicons } from '@expo/vector-icons';
 
 import EventCard from "@/components/EventCard";
 import AlbumPreviewCard from "@/components/gallery/AlbumPreviewCard";
@@ -33,7 +35,7 @@ const HomeScreen: React.FC = () => {
       <TopNavBar />
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
         <Header />
-        <UpcomingEvents />
+        <EventsSection />
         <TrendingEvents />
         {/* <RecommendedEvents /> */}
         <YourAlbums />
@@ -162,10 +164,11 @@ const YourAlbums: React.FC = () => {
   );
 };
 
-const UpcomingEvents: React.FC = () => {
+const EventsSection: React.FC = () => {
   const { user } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
-  const [filter, setFilter] = useState('Upcoming');
+  const [filter, setFilter] = useState<'Upcoming' | 'Past'>('Upcoming');
+  const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -181,19 +184,38 @@ const UpcomingEvents: React.FC = () => {
     }
   }, [user, filter]);
 
+  const handleSelectFilter = (newFilter: 'Upcoming' | 'Past') => {
+    setFilter(newFilter);
+    setModalVisible(false);
+  }
+
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>{filter}</Text>
-        <View style={styles.filterContainer}>
-          <TouchableOpacity onPress={() => setFilter('Upcoming')} style={[styles.filterButton, filter === 'Upcoming' && styles.activeFilter]}>
-            <Text style={styles.filterText}>Upcoming</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setFilter('Past')} style={[styles.filterButton, filter === 'Past' && styles.activeFilter]}>
-            <Text style={styles.filterText}>Past</Text>
-          </TouchableOpacity>
-        </View>
+        <Text style={styles.sectionTitle}>{filter} Events</Text>
+        <TouchableOpacity onPress={() => setModalVisible(true)}>
+          <Ionicons name="options-outline" size={24} color="#fff" />
+        </TouchableOpacity>
       </View>
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <TouchableOpacity style={styles.modalContainer} activeOpacity={1} onPressOut={() => setModalVisible(false)}>
+          <View style={styles.modalContent}>
+            <TouchableOpacity onPress={() => handleSelectFilter('Upcoming')} style={styles.modalOption}>
+              <Text style={styles.modalOptionText}>Upcoming</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => handleSelectFilter('Past')} style={styles.modalOption}>
+              <Text style={styles.modalOptionText}>Past</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       {events.length > 0 ? (
         <ScrollView horizontal contentContainerStyle={styles.horizontalScroll}>
           {events.map((event) => (
@@ -293,7 +315,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
   },
   scrollViewContent: {
-    paddingBottom: 80, // To avoid being hidden by the FAB
+    paddingBottom: 80, 
   },
   section: {
     paddingHorizontal: 20,
@@ -310,40 +332,8 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "bold",
   },
-  filterContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#333',
-    borderRadius: 20,
-  },
-  filterButton: {
-    paddingVertical: 5,
-    paddingHorizontal: 15,
-    borderRadius: 20,
-  },
-  activeFilter: {
-    backgroundColor: '#555',
-  },
-  filterText: {
-    color: '#fff',
-    fontWeight: 'bold'
-  },
   horizontalScroll: {
     paddingBottom: 20,
-  },
-  fab: {
-    position: "absolute",
-    bottom: 30,
-    right: 30,
-    backgroundColor: "#6c63ff",
-    borderRadius: 30,
-    width: 60,
-    height: 60,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#6c63ff",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 5,
   },
   placeholderContainer: {
     height: 100,
@@ -362,6 +352,31 @@ const styles = StyleSheet.create({
     color: "#666",
     fontSize: 14,
     marginTop: 5,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: '#222',
+    borderRadius: 10,
+    padding: 10,
+    width: '60%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalOption: {
+    paddingVertical: 15,
+    alignItems: 'center',
+  },
+  modalOptionText: {
+    color: '#fff',
+    fontSize: 18,
   },
 });
 
