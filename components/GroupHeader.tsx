@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import AvatarRow from "./AvatarRow";
+import AddBudModal from "./AddBudModal"; // Import the modal
 
 interface GroupHeaderProps {
   groupId: string;
@@ -21,6 +22,7 @@ const GroupHeader: React.FC<GroupHeaderProps> = ({ groupId }) => {
   const [group, setGroup] = useState<Group | null>(null);
   const [members, setMembers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isModalVisible, setIsModalVisible] = useState(false); // State for modal visibility
 
   useEffect(() => {
     const fetchGroup = async () => {
@@ -67,10 +69,16 @@ const GroupHeader: React.FC<GroupHeaderProps> = ({ groupId }) => {
             .filter((m) => m.photoURL)
             .map((m) => ({ id: m.id, photoURL: m.photoURL! }))}
         />
-        <TouchableOpacity style={styles.addBudButton}>
+        <TouchableOpacity style={styles.addBudButton} onPress={() => setIsModalVisible(true)}>
           <Text style={styles.addBudText}>+ Add Bud</Text>
         </TouchableOpacity>
       </View>
+
+      <AddBudModal
+        group={group}
+        visible={isModalVisible}
+        onClose={() => setIsModalVisible(false)}
+      />
     </View>
   );
 };
@@ -80,6 +88,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   banner: {
+    height: 150,
     justifyContent: "flex-end",
     padding: 20,
   },
