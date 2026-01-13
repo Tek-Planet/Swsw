@@ -1,6 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
-import { Link } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { Link } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
   FlatList,
   Modal,
@@ -9,26 +9,26 @@ import {
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
+} from "react-native";
 
-import { AppHeader } from '@/components/Header';
-import { useAuth } from '@/lib/context/AuthContext';
+import { AppHeader } from "@/components/Header";
+import { useAuth } from "@/lib/context/AuthContext";
 import {
   listenToUserPastEvents,
   listenToUserUpcomingEvents,
-} from '@/lib/services/eventService';
-import { Event } from '@/types/event';
+} from "@/lib/services/eventService";
+import { Event } from "@/types/event";
 
 const EventsScreen: React.FC = () => {
   const { user } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
-  const [filter, setFilter] = useState<'Upcoming' | 'Past'>('Upcoming');
+  const [filter, setFilter] = useState<"Upcoming" | "Past">("Upcoming");
   const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
     if (user) {
       const listener =
-        filter === 'Upcoming'
+        filter === "Upcoming"
           ? listenToUserUpcomingEvents
           : listenToUserPastEvents;
 
@@ -40,7 +40,7 @@ const EventsScreen: React.FC = () => {
     }
   }, [user, filter]);
 
-  const handleSelectFilter = (newFilter: 'Upcoming' | 'Past') => {
+  const handleSelectFilter = (newFilter: "Upcoming" | "Past") => {
     setFilter(newFilter);
     setModalVisible(false);
   };
@@ -81,13 +81,13 @@ const EventsScreen: React.FC = () => {
         >
           <View style={styles.modalContent}>
             <TouchableOpacity
-              onPress={() => handleSelectFilter('Upcoming')}
+              onPress={() => handleSelectFilter("Upcoming")}
               style={styles.modalOption}
             >
               <Text style={styles.modalOptionText}>Upcoming</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => handleSelectFilter('Past')}
+              onPress={() => handleSelectFilter("Past")}
               style={styles.modalOption}
             >
               <Text style={styles.modalOptionText}>Past</Text>
@@ -105,11 +105,13 @@ const EventsScreen: React.FC = () => {
         />
       ) : (
         <View style={styles.placeholderContainer}>
-          <Text style={styles.placeholderText}>No {filter.toLowerCase()} events yet.</Text>
+          <Text style={styles.placeholderText}>
+            No {filter.toLowerCase()} events yet.
+          </Text>
         </View>
       )}
 
-      <Link href={{ pathname: '/' }} asChild>
+      <Link href={{ pathname: "/" }} asChild>
         <TouchableOpacity style={styles.fab}>
           <Ionicons name="add" size={30} color="white" />
         </TouchableOpacity>
@@ -121,67 +123,68 @@ const EventsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: "#000",
+    paddingTop: 20,
   },
   listContainer: {
     paddingHorizontal: 20,
     paddingTop: 20,
   },
   eventCard: {
-    backgroundColor: '#1c1c1e',
+    backgroundColor: "#1c1c1e",
     borderRadius: 15,
     padding: 20,
     marginBottom: 15,
   },
   eventTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontWeight: "bold",
+    color: "#fff",
   },
   eventDate: {
     fontSize: 14,
-    color: '#aaa',
+    color: "#aaa",
     marginTop: 5,
   },
   fab: {
-    position: 'absolute',
+    position: "absolute",
     width: 56,
     height: 56,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     right: 20,
     bottom: 20,
-    backgroundColor: '#6c63ff',
+    backgroundColor: "#6c63ff",
     borderRadius: 28,
     elevation: 8,
   },
   placeholderContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   placeholderText: {
-    color: '#999',
+    color: "#999",
     fontSize: 18,
   },
   modalContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
   },
   modalContent: {
-    backgroundColor: '#2c2c2e',
+    backgroundColor: "#2c2c2e",
     borderRadius: 10,
     padding: 10,
-    width: '60%',
+    width: "60%",
   },
   modalOption: {
     paddingVertical: 15,
-    alignItems: 'center',
+    alignItems: "center",
   },
   modalOptionText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 18,
   },
 });
