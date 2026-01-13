@@ -25,10 +25,11 @@ export const generateS3UploadUrl = functions.https.onCall(
     }
 
     const userId = context.auth.uid;
-    const { fileName, fileType, eventId } = data as {
+    const { fileName, fileType, eventId, isProfilePic } = data as {
       fileName?: string;
       fileType?: string;
-      eventId?: string; // [NEW] Optional eventId parameter
+      eventId?: string;
+      isProfilePic?: boolean;
     };
 
     if (typeof fileName !== "string" || typeof fileType !== "string") {
@@ -40,13 +41,12 @@ export const generateS3UploadUrl = functions.https.onCall(
 
     let s3Key: string;
 
-    // [NEW] Conditionally construct the S3 key
-    if (eventId) {
-      // Path for event-specific photos
+    if (isProfilePic) {
+        s3Key = `users/${userId}/profile-picture`;
+    } else if (eventId) {
       s3Key = `events/${eventId}/photos/${uuidv4()}-${fileName}`;
     } else {
-      // Default path for user profile pictures
-      s3Key = `users/${userId}/profile-pictures/${uuidv4()}-${fileName}`;
+      s3Key = `users/${userId}/uploads/${uuidv4()}-${fileName}`;
     }
 
     const params = {

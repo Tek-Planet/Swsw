@@ -25,7 +25,7 @@ const ProfileScreen = () => {
 
   return (
     <ScrollView style={styles.container}>
-      <ProfileHeader userProfile={userProfile} />
+      <ProfileHeader userProfile={userProfile} user={user} />
       {/* <MySelfies /> */}
       <ProfileDetails userProfile={userProfile} />
       {/* <LinkedAccounts /> */}

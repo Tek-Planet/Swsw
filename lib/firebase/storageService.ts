@@ -54,10 +54,14 @@ const uploadEventPhotoAndGetS3Key = async (imageUri: string, eventId: string): P
   return _uploadToS3(imageUri, { eventId });
 };
 
+const uploadProfilePictureAndGetS3Key = async (imageUri: string, userId: string): Promise<string | null> => {
+    return _uploadToS3(imageUri, { isProfilePic: true, userId });
+  };
+
 /**
  * [PRIVATE] Generic S3 upload handler that calls a backend function for a pre-signed URL.
  */
-const _uploadToS3 = async (imageUri: string, payload: { eventId?: string }): Promise<string | null> => {
+const _uploadToS3 = async (imageUri: string, payload: { eventId?: string, isProfilePic?: boolean, userId?: string }): Promise<string | null> => {
   console.log(`[_uploadToS3] Starting S3 upload process with payload:`, payload);
 
   try {
@@ -106,4 +110,4 @@ const _uploadToS3 = async (imageUri: string, payload: { eventId?: string }): Pro
   }
 };
 
-export { uploadImageAndGetDownloadURL, uploadImageAndGetS3Key, uploadEventPhotoAndGetS3Key };
+export { uploadImageAndGetDownloadURL, uploadImageAndGetS3Key, uploadEventPhotoAndGetS3Key, uploadProfilePictureAndGetS3Key };
