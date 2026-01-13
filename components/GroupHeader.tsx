@@ -62,7 +62,11 @@ const GroupHeader: React.FC<GroupHeaderProps> = ({ groupId }) => {
         <Text style={styles.groupName}>{group.name}</Text>
       </ImageBackground>
       <View style={styles.row}>
-        <AvatarRow members={members.filter(m => m.photoURL).map(m => ({id: m.id, photoURL: m.photoURL!}))} />
+        <AvatarRow
+          members={members
+            .filter((m) => m.photoURL)
+            .map((m) => ({ id: m.id, photoURL: m.photoURL! }))}
+        />
         <TouchableOpacity style={styles.addBudButton}>
           <Text style={styles.addBudText}>+ Add Bud</Text>
         </TouchableOpacity>
@@ -76,7 +80,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   banner: {
-    height: 150,
     justifyContent: "flex-end",
     padding: 20,
   },
