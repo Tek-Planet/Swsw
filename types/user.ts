@@ -1,7 +1,7 @@
-
 export interface UserProfile {
+  id: string;
   displayName: string;
-  photoUrl?: string;
+  photoURL?: string;
   email: string;
   interests?: string[];
 }

@@ -90,7 +90,7 @@ export function listenToEvent(
           const userDocSnap = await getDoc(userDocRef);
           if (userDocSnap.exists()) {
             const userData = userDocSnap.data() as UserProfile;
-            eventData.hostAvatarUrl = userData.photoUrl;
+            eventData.hostAvatarUrl = userData.photoURL;
           }
         } catch (error) {
           console.error("Error fetching host profile:", error);
@@ -245,4 +245,26 @@ export function listenToMostRecentEvent(
       callback(null);
     }
   });
+}
+
+export function listenToGroupEvents(
+  groupId: string,
+  callback: (events: Event[]) => void
+): () => void {
+  const now = new Date();
+  const q = query(
+    eventCollection,
+    where('groupId', '==', groupId),
+    where('startTime', '>=', now),
+    orderBy('startTime', 'asc')
+  );
+
+  const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    const events = querySnapshot.docs.map(doc => eventFromDoc(doc));
+    callback(events);
+  }, (error) => {
+    console.error(`Error listening to group events for group ${groupId}:`, error);
+  });
+
+  return unsubscribe;
 }

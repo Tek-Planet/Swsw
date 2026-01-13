@@ -88,7 +88,7 @@ const SurveyResultsScreen: React.FC = () => {
         <RecommendationList recommendations={matches.map(p => ({ 
             id: p.id, 
             name: p.displayName, 
-            avatar: p.photoUrl || 'https://placekitten.com/200/200', //TODO: Fallback avatar
+            avatar: p.photoURL || 'https://placekitten.com/200/200', //TODO: Fallback avatar
             descriptor: `Compatibility: ${Math.round(Math.random()*20+80)}%`, // Placeholder score 
         }))} />
       ) : (

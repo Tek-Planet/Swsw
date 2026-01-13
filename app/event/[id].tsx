@@ -36,7 +36,7 @@ export interface TicketHolder {
 // Define the shape expected by the HostInfo component
 interface HostInfoProps {
   name: string;
-  photoUrl?: string;
+  photoURL?: string;
 }
 
 const EventDetailScreen = () => {
@@ -63,7 +63,7 @@ const EventDetailScreen = () => {
           if (hostProfile) {
             setHost({
               name: hostProfile.displayName,
-              photoUrl: hostProfile.photoUrl,
+              photoURL: hostProfile.photoURL,
             });
           }
         }
@@ -74,7 +74,7 @@ const EventDetailScreen = () => {
           profilesMap.entries()
         ).map(([profId, profile]) => ({
           id: profId,
-          avatar: profile.photoUrl || `https://i.pravatar.cc/150?u=${profId}`,
+          avatar: profile.photoURL || `https://i.pravatar.cc/150?u=${profId}`,
           firstName: profile.displayName,
         }));
         setTicketHolders(holdersList);

@@ -1,9 +1,8 @@
-
 import React from 'react';
 import { View, Image, StyleSheet } from 'react-native';
 
 interface AvatarRowProps {
-  members: { id: string; avatar: string }[];
+  members: { id: string; photoURL: string }[];
 }
 
 const AvatarRow: React.FC<AvatarRowProps> = ({ members }) => {
@@ -12,7 +11,7 @@ const AvatarRow: React.FC<AvatarRowProps> = ({ members }) => {
       {members.map((member, index) => (
         <Image
           key={member.id}
-          source={{ uri: member.avatar }}
+          source={{ uri: member.photoURL || 'https://i.pravatar.cc/150?img=3' }}
           style={[styles.avatar, { zIndex: members.length - index }]}        />
       ))}
     </View>

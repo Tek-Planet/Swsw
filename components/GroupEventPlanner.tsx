@@ -1,37 +1,58 @@
-
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
-import PollWidget from './PollWidget';
+import { listenToGroupEvents } from '@/lib/services/eventService';
+import { Event } from '@/types/event';
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  ActivityIndicator,
+} from 'react-native';
 
 interface GroupEventPlannerProps {
   groupId: string;
 }
 
-const suggestedEvents = [
-  { id: '1', name: 'Beach Day' },
-  { id: '2', name: 'Movie Night' },
-  { id: '3', name: 'Escape Room' },
-];
-
 const GroupEventPlanner: React.FC<GroupEventPlannerProps> = ({ groupId }) => {
-  const renderSuggestedEvent = ({ item }: any) => (
-    <TouchableOpacity style={styles.suggestedEventCard}>
-      <Text style={styles.suggestedEventName}>{item.name}</Text>
-    </TouchableOpacity>
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = listenToGroupEvents(groupId, (newEvents) => {
+      setEvents(newEvents);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [groupId]);
+
+  const renderEvent = ({ item }: { item: Event }) => (
+    <View style={styles.eventCard}>
+      <Text style={styles.eventTitle}>{item.title}</Text>
+      <Text style={styles.eventDate}>_...formatted date..._</Text>
+    </View>
   );
+
+  if (loading) {
+    return <ActivityIndicator />;
+  }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Event Planner</Text>
-      <Text style={styles.subtitle}>Suggested for you</Text>
-      <FlatList
-        data={suggestedEvents}
-        renderItem={renderSuggestedEvent}
-        keyExtractor={(item) => item.id}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-      />
-      <PollWidget />
+      <Text style={styles.title}>Upcoming Events</Text>
+      {events.length > 0 ? (
+        <FlatList
+          data={events}
+          renderItem={renderEvent}
+          keyExtractor={(item) => item.id}
+        />
+      ) : (
+        <Text style={styles.noEventsText}>No upcoming events. Plan one!</Text>
+      )}
+      <TouchableOpacity style={styles.planButton}>
+        <Text style={styles.planButtonText}>Plan an Event</Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -47,22 +68,40 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: 20,
   },
-  subtitle: {
-    color: '#aaa',
-    fontSize: 16,
-    marginBottom: 10,
-  },
-  suggestedEventCard: {
+  eventCard: {
     backgroundColor: '#3a3a3a',
     borderRadius: 10,
     padding: 15,
-    marginRight: 10,
+    marginBottom: 10,
   },
-  suggestedEventName: {
+  eventTitle: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  eventDate: {
+    color: '#aaa',
+    fontSize: 14,
+    marginTop: 5,
+  },
+  noEventsText: {
+    color: '#aaa',
+    textAlign: 'center',
+    marginVertical: 20,
+  },
+  planButton: {
+    backgroundColor: '#6c63ff',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  planButtonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });
 

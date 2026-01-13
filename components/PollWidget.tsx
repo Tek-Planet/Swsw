@@ -1,29 +1,65 @@
+import { listenToGroupPolls, voteOnPoll } from '@/lib/services/pollService';
+import { Poll } from '@/types/poll';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+interface PollWidgetProps {
+  groupId: string;
+}
 
-const PollWidget: React.FC = () => {
+const PollWidget: React.FC<PollWidgetProps> = ({ groupId }) => {
+  const [poll, setPoll] = useState<Poll | null>(null);
+  const [loading, setLoading] = useState(true);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
 
-  const pollOptions = [
-    { id: '1', text: 'Friday Night' },
-    { id: '2', text: 'Saturday Afternoon' },
-    { id: '3', text: 'Sunday Brunch' },
-  ];
+  // Hardcoded for now, this should come from an auth hook
+  const userId = 'test-user';
+
+  useEffect(() => {
+    const unsubscribe = listenToGroupPolls(groupId, (polls) => {
+      if (polls.length > 0) {
+        setPoll(polls[0]);
+        // Set selected option if user has already voted
+        polls[0].options.forEach(option => {
+          if (option.voters.includes(userId)) {
+            setSelectedOption(option.id);
+          }
+        });
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [groupId]);
+
+  const handleVote = async (optionId: string) => {
+    if (poll) {
+      await voteOnPoll(poll.id, optionId, userId);
+    }
+  };
+
+  if (loading) {
+    return <ActivityIndicator />;
+  }
+
+  if (!poll) {
+    return null; // Or some placeholder
+  }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>When are you free?</Text>
-      {pollOptions.map((option) => (
+      <Text style={styles.title}>{poll.question}</Text>
+      {poll.options.map((option) => (
         <TouchableOpacity
           key={option.id}
           style={[
             styles.option,
             selectedOption === option.id && styles.selectedOption,
           ]}
-          onPress={() => setSelectedOption(option.id)}
+          onPress={() => handleVote(option.id)}
         >
           <Text style={styles.optionText}>{option.text}</Text>
+          <Text style={styles.voteCount}>{option.votes}</Text>
         </TouchableOpacity>
       ))}
     </View>
@@ -45,6 +81,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 15,
     marginBottom: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   selectedOption: {
     backgroundColor: '#6c63ff',
@@ -52,6 +91,11 @@ const styles = StyleSheet.create({
   optionText: {
     color: 'white',
     fontSize: 16,
+  },
+  voteCount: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 
