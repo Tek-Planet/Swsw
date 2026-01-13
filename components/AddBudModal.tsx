@@ -1,4 +1,4 @@
-import { firestore } from '@/lib/firebase';
+import { db as firestore } from '@/lib/firebase/firebaseConfig';
 import { Group } from '@/types/group';
 import { UserProfile } from '@/types/user';
 import { collection, query, where, getDocs, doc, updateDoc, arrayUnion } from 'firebase/firestore';
