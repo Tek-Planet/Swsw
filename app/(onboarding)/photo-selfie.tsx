@@ -6,7 +6,7 @@ import { PrimaryButton } from '@/components';
 import OnboardingContainer from '@/components/OnboardingContainer';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '@/lib/context/AuthContext';
-import { uploadProfilePictureAndGetS3Key } from '@/lib/firebase/storageService';
+import { uploadImageAndGetS3Key } from '@/lib/firebase/storageService';
 import { createOrUpdateUserProfile } from '@/lib/firebase/userProfileService';
 
 const PhotoSelfieScreen = () => {
@@ -19,8 +19,8 @@ const PhotoSelfieScreen = () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.6,
+      aspect: [4, 3],
+      quality: 1, // Keep quality high for recognition
     });
 
     if (!result.canceled) {
@@ -31,10 +31,11 @@ const PhotoSelfieScreen = () => {
   const handleContinue = async () => {
     if (image && user) {
       setLoading(true);
-      const s3Key = await uploadProfilePictureAndGetS3Key(image, user.uid);
+      const s3Key = await uploadImageAndGetS3Key(image);
       setLoading(false);
 
       if (s3Key) {
+        // [FIXED] Save the s3Key to the correct field to trigger the backend function.
         await createOrUpdateUserProfile(user.uid, { profilePictureS3Key: s3Key });
         router.push('/(onboarding)/interests');
       } else {
