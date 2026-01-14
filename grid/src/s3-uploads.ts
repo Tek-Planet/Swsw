@@ -12,8 +12,8 @@ const s3 = new AWS.S3({
 const BUCKET_NAME = functions.config().aws.s3_bucket;
 
 /**
- * [NEW] Generates a pre-signed URL for securely uploading a file to S3.
- * This function is callable from the client-side to initiate an upload.
+ * [MODIFIED] Generates a pre-signed URL for securely uploading a file to S3.
+ * Now supports an optional `eventId` to distinguish between event photos and profile pictures.
  */
 export const generateS3UploadUrl = functions.https.onCall(
   async (data, context) => {
@@ -25,9 +25,11 @@ export const generateS3UploadUrl = functions.https.onCall(
     }
 
     const userId = context.auth.uid;
-    const { fileName, fileType } = data as {
+    const { fileName, fileType, eventId, isProfilePic } = data as {
       fileName?: string;
       fileType?: string;
+      eventId?: string;
+      isProfilePic?: boolean;
     };
 
     if (typeof fileName !== "string" || typeof fileType !== "string") {
@@ -37,24 +39,29 @@ export const generateS3UploadUrl = functions.https.onCall(
       );
     }
 
-    // Generate a unique key for the S3 object.
-    // e.g., 'users/some-user-id/profile-pictures/a-unique-id.jpg'
-    const s3Key = `users/${userId}/profile-pictures/${uuidv4()}-${fileName}`;
+    let s3Key: string;
+
+    if (isProfilePic) {
+      s3Key = `users/${userId}/profile-picture`;
+    } else if (eventId) {
+      s3Key = `events/${eventId}/photos/${uuidv4()}-${fileName}`;
+    } else {
+      s3Key = `users/${userId}/uploads/${uuidv4()}-${fileName}`;
+    }
 
     const params = {
       Bucket: BUCKET_NAME,
       Key: s3Key,
       ContentType: fileType,
       Expires: 60 * 5, // URL expires in 5 minutes
-      // ACL: 'public-read', // [REMOVED] The bucket does not support ACLs. Public access is handled by a bucket policy.
     };
 
     try {
       const uploadUrl = await s3.getSignedUrlPromise("putObject", params);
 
       return {
-        uploadUrl, // The URL the client will upload to
-        s3Key, // The key to save in Firestore after upload
+        uploadUrl,
+        s3Key,
       };
     } catch (error) {
       console.error("Failed to generate pre-signed URL:", error);

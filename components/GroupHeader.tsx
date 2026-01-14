@@ -69,7 +69,10 @@ const GroupHeader: React.FC<GroupHeaderProps> = ({ groupId }) => {
             .filter((m) => m.photoURL)
             .map((m) => ({ id: m.id, photoURL: m.photoURL! }))}
         />
-        <TouchableOpacity style={styles.addBudButton} onPress={() => setIsModalVisible(true)}>
+        <TouchableOpacity
+          style={styles.addBudButton}
+          onPress={() => setIsModalVisible(true)}
+        >
           <Text style={styles.addBudText}>+ Add Bud</Text>
         </TouchableOpacity>
       </View>
@@ -85,10 +88,9 @@ const GroupHeader: React.FC<GroupHeaderProps> = ({ groupId }) => {
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 20,
+    paddingTop: 20,
   },
   banner: {
-    height: 150,
     justifyContent: "flex-end",
     padding: 20,
   },
