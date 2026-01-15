@@ -1,18 +1,18 @@
-import { getGroupById } from "@/lib/services/groupService";
-import { listenToUserProfiles } from "@/lib/services/userProfileService";
+
+import { listenToGroup, getProfilesForUserIds } from "@/lib/services/groupService";
 import { Group } from "@/types/group";
 import { UserProfile } from "@/types/user";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   ImageBackground,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import AvatarRow from "./AvatarRow";
-import AddBudModal from "./AddBudModal"; // Import the modal
+import AddBudModal from "./AddBudModal";
 
 interface GroupHeaderProps {
   groupId: string;
@@ -22,30 +22,23 @@ const GroupHeader: React.FC<GroupHeaderProps> = ({ groupId }) => {
   const [group, setGroup] = useState<Group | null>(null);
   const [members, setMembers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isModalVisible, setIsModalVisible] = useState(false); // State for modal visibility
+  const [isModalVisible, setIsModalVisible] = useState(false);
 
   useEffect(() => {
-    const fetchGroup = async () => {
-      const groupData = await getGroupById(groupId);
+    if (!groupId) return;
+
+    const unsubscribe = listenToGroup(groupId, async (groupData) => {
       setGroup(groupData);
+      if (groupData && groupData.members) {
+        const profilesMap = await getProfilesForUserIds(groupData.members);
+        const profiles = Array.from(profilesMap.values());
+        setMembers(profiles);
+      }
       setLoading(false);
-    };
+    });
 
-    fetchGroup();
+    return () => unsubscribe();
   }, [groupId]);
-
-  useEffect(() => {
-    if (group) {
-      const unsubscribeProfiles = listenToUserProfiles(
-        group.members,
-        (profiles) => {
-          setMembers(profiles);
-        }
-      );
-
-      return () => unsubscribeProfiles();
-    }
-  }, [group]);
 
   if (loading) {
     return <ActivityIndicator />;
@@ -61,21 +54,31 @@ const GroupHeader: React.FC<GroupHeaderProps> = ({ groupId }) => {
         source={{ uri: "https://placekitten.com/400/200" }} // Replace with actual banner
         style={styles.banner}
       >
-        <Text style={styles.groupName}>{group.name}</Text>
+        <View style={styles.bannerContent}>
+          <Text style={styles.groupName}>{group.name}</Text>
+          <TouchableOpacity
+            style={styles.addBudButton}
+            onPress={() => setIsModalVisible(true)}
+          >
+            <Text style={styles.addBudText}>+ Add Bud</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.membersContainer}>
+          {members.map((member) => (
+            <View key={member.id} style={styles.memberItem}>
+              <Image
+                source={{
+                  uri: member.photoUrl || `https://i.pravatar.cc/150?u=${member.id}`,
+                }}
+                style={styles.memberAvatar}
+              />
+              <Text style={styles.memberName} numberOfLines={1}>
+                {member.displayName}
+              </Text>
+            </View>
+          ))}
+        </View>
       </ImageBackground>
-      <View style={styles.row}>
-        <AvatarRow
-          members={members
-            .filter((m) => m.photoURL)
-            .map((m) => ({ id: m.id, photoURL: m.photoURL! }))}
-        />
-        <TouchableOpacity
-          style={styles.addBudButton}
-          onPress={() => setIsModalVisible(true)}
-        >
-          <Text style={styles.addBudText}>+ Add Bud</Text>
-        </TouchableOpacity>
-      </View>
 
       <AddBudModal
         group={group}
@@ -94,6 +97,12 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     padding: 20,
   },
+  bannerContent: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingBottom: 10,
+  },
   groupName: {
     color: "white",
     fontSize: 28,
@@ -101,12 +110,6 @@ const styles = StyleSheet.create({
     textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: -1, height: 1 },
     textShadowRadius: 10,
-  },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 10,
   },
   addBudButton: {
     backgroundColor: "#6c63ff",
@@ -122,6 +125,29 @@ const styles = StyleSheet.create({
     color: "red",
     textAlign: "center",
     marginTop: 20,
+  },
+  membersContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    paddingTop: 10,
+  },
+  memberItem: {
+    alignItems: "center",
+    marginRight: 15,
+    marginBottom: 10,
+    width: 60,
+  },
+  memberAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "#333", // Fallback background
+  },
+  memberName: {
+    color: "white",
+    marginTop: 5,
+    fontSize: 12,
+    textAlign: "center",
   },
 });
 

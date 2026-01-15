@@ -1,44 +1,66 @@
-import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 
+import { doc, getDoc, updateDoc, collection, query, where, onSnapshot, documentId, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebaseConfig';
 import { UserProfile } from '@/types/user';
 
-export const listenToUserProfile = (
-  userId: string,
-  callback: (profile: UserProfile | null) => void
-) => {
-  const userDoc = doc(db, 'users', userId);
+export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    const userSnap = await getDoc(userRef);
 
-  const unsubscribe = onSnapshot(userDoc, (doc) => {
-    if (doc.exists()) {
-      callback({ id: doc.id, ...doc.data() } as UserProfile);
-    } else {
-      callback(null);
+    if (userSnap.exists()) {
+      return { id: userSnap.id, ...userSnap.data() } as UserProfile;
     }
-  });
-
-  return unsubscribe;
+    return null;
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    throw error;
+  }
 };
 
-export const listenToUserProfiles = (
-  userIds: string[],
-  callback: (profiles: UserProfile[]) => void
-) => {
-  if (userIds.length === 0) {
-    callback([]);
-    return () => {};
+export const createOrUpdateUserProfile = async (userId: string, profileData: Partial<UserProfile>) => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, profileData, { merge: true });
+  } catch (error) {
+    console.error('Error creating or updating user profile:', error);
+    throw error;
   }
+};
 
-  const usersCollection = collection(db, 'users');
-  const q = query(usersCollection, where('__name__', 'in', userIds));
+export const listenToUserProfiles = (userIds: string[], callback: (profiles: UserProfile[]) => void) => {
+    if (!userIds || userIds.length === 0) {
+        callback([]);
+        return () => {};
+    }
 
-  const unsubscribe = onSnapshot(q, (querySnapshot) => {
-    const profiles = querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as UserProfile[];
-    callback(profiles);
-  });
+    const usersQuery = query(collection(db, 'users'), where(documentId(), 'in', userIds));
 
-  return unsubscribe;
+    const unsubscribe = onSnapshot(usersQuery,
+        (querySnapshot) => {
+            const profiles = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserProfile));
+            callback(profiles);
+        },
+        (error) => {
+            console.error("Error listening to user profiles:", error);
+            callback([]);
+        }
+    );
+
+    return unsubscribe;
+};
+
+export const getUserProfiles = async (userIds: string[]): Promise<UserProfile[]> => {
+    if (!userIds || userIds.length === 0) {
+        return [];
+    }
+    try {
+        const usersQuery = query(collection(db, 'users'), where(documentId(), 'in', userIds));
+        const querySnapshot = await getDocs(usersQuery);
+        const profiles = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserProfile));
+        return profiles;
+    } catch (error) {
+        console.error("Error getting user profiles:", error);
+        return [];
+    }
 };
