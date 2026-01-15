@@ -65,15 +65,15 @@ const GroupHeader: React.FC<GroupHeaderProps> = ({ groupId }) => {
         </View>
         <View style={styles.membersContainer}>
           {members.map((member) => (
-            <View key={member.id} style={styles.memberItem}>
+            <View key={member.uid} style={styles.memberItem}>
               <Image
                 source={{
-                  uri: member.photoUrl || `https://i.pravatar.cc/150?u=${member.id}`,
+                  uri: member.photoUrl || `https://i.pravatar.cc/150?u=${member.uid}`,
                 }}
                 style={styles.memberAvatar}
               />
               <Text style={styles.memberName} numberOfLines={1}>
-                {member.displayName}
+                {member.displayName || member.username}
               </Text>
             </View>
           ))}

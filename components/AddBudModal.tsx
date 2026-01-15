@@ -1,18 +1,28 @@
-import { db as firestore } from '@/lib/firebase/firebaseConfig';
-import { Group } from '@/types/group';
-import { UserProfile } from '@/types/user';
-import { collection, query, where, getDocs, doc, updateDoc, arrayUnion } from 'firebase/firestore';
-import React, { useState } from 'react';
+
+import { db as firestore } from "@/lib/firebase/firebaseConfig";
+import { Group } from "@/types/group";
+import { UserProfile } from "@/types/user";
+import { Ionicons } from "@expo/vector-icons";
 import {
+  arrayUnion,
+  collection,
+  doc,
+  getDocs,
+  query,
+  updateDoc,
+  where,
+} from "firebase/firestore";
+import React, { useState } from "react";
+import {
+  Alert,
+  FlatList,
   Modal,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  FlatList,
-  Alert,
-} from 'react-native';
+} from "react-native";
 
 interface AddBudModalProps {
   group: Group;
@@ -21,37 +31,43 @@ interface AddBudModalProps {
 }
 
 const AddBudModal: React.FC<AddBudModalProps> = ({ group, visible, onClose }) => {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
   const [searchResults, setSearchResults] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(false);
 
   const handleSearch = async () => {
-    if (email.trim() === '') {
-      Alert.alert('Validation', 'Please enter an email to search.');
+    if (email.trim() === "") {
+      Alert.alert("Validation", "Please enter an email to search.");
       return;
     }
 
     setLoading(true);
     try {
-      const usersRef = collection(firestore, 'users');
-      const q = query(usersRef, where('email', '==', email.trim().toLowerCase()));
+      const usersRef = collection(firestore, "users");
+      const q = query(usersRef, where("email", "==", email.trim().toLowerCase()));
       const querySnapshot = await getDocs(q);
 
       const results: UserProfile[] = [];
       querySnapshot.forEach((doc) => {
-        // Ensure we don't add existing members to the search result
-        if (!group.members.includes(doc.id)) {
-          results.push({ id: doc.id, ...doc.data() } as UserProfile);
+        const userProfile = { uid: doc.id, ...doc.data() } as UserProfile;
+        if (!group.members.includes(userProfile.uid)) {
+          results.push(userProfile);
         }
       });
 
       setSearchResults(results);
       if (results.length === 0) {
-        Alert.alert('No Results', 'No user found with that email, or the user is already a member.');
+        Alert.alert(
+          "No Results",
+          "No user found with that email, or the user is already a member."
+        );
       }
     } catch (error) {
-      console.error('Error searching for user:', error);
-      Alert.alert('Error', 'Something went wrong while searching for the user.');
+      console.error("Error searching for user:", error);
+      Alert.alert(
+        "Error",
+        "Something went wrong while searching for the user."
+      );
     } finally {
       setLoading(false);
     }
@@ -59,23 +75,41 @@ const AddBudModal: React.FC<AddBudModalProps> = ({ group, visible, onClose }) =>
 
   const handleAddBud = async (user: UserProfile) => {
     try {
-      const groupRef = doc(firestore, 'groups', group.id);
+      const groupRef = doc(firestore, "groups", group.id);
       await updateDoc(groupRef, {
-        members: arrayUnion(user.id),
+        members: arrayUnion(user.uid),
       });
 
-      Alert.alert('Success', `${user.displayName || 'User'} has been added to the group.`);
-      onClose();
+      Alert.alert(
+        "Success",
+        `${user.displayName || user.username} has been added to the group.`
+      );
+      handleClose(); // Close and reset state
     } catch (error) {
-      console.error('Error adding user to group:', error);
-      Alert.alert('Error', 'Could not add user to the group.');
+      console.error("Error adding user to group:", error);
+      Alert.alert("Error", "Could not add user to the group.");
     }
   };
 
+  const handleClose = () => {
+    setEmail("");
+    setSearchResults([]);
+    onClose();
+  };
+
   return (
-    <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={handleClose}
+    >
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
+          <TouchableOpacity style={styles.closeIcon} onPress={handleClose}>
+            <Ionicons name="close" size={28} color="#fff" />
+          </TouchableOpacity>
+
           <Text style={styles.title}>Add a Bud</Text>
 
           <TextInput
@@ -88,28 +122,35 @@ const AddBudModal: React.FC<AddBudModalProps> = ({ group, visible, onClose }) =>
             keyboardType="email-address"
           />
 
-          <TouchableOpacity style={styles.searchButton} onPress={handleSearch} disabled={loading}>
-            <Text style={styles.buttonText}>{loading ? 'Searching...' : 'Search'}</Text>
+          <TouchableOpacity
+            style={styles.searchButton}
+            onPress={handleSearch}
+            disabled={loading}
+          >
+            <Text style={styles.buttonText}>
+              {loading ? "Searching..." : "Search"}
+            </Text>
           </TouchableOpacity>
 
           {searchResults.length > 0 && (
             <FlatList
               data={searchResults}
-              keyExtractor={(item) => item.id}
+              keyExtractor={(item) => item.uid}
               renderItem={({ item }) => (
                 <View style={styles.resultItem}>
-                  <Text style={styles.resultName}>{item.displayName || 'N/A'}</Text>
-                  <TouchableOpacity style={styles.addButton} onPress={() => handleAddBud(item)}>
+                  <Text style={styles.resultName}>
+                    {item.displayName || item.username || "N/A"}
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.addButton}
+                    onPress={() => handleAddBud(item)}
+                  >
                     <Text style={styles.buttonText}>Add</Text>
                   </TouchableOpacity>
                 </View>
               )}
             />
           )}
-
-          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-            <Text style={styles.buttonText}>Close</Text>
-          </TouchableOpacity>
         </View>
       </View>
     </Modal>
@@ -119,17 +160,16 @@ const AddBudModal: React.FC<AddBudModalProps> = ({ group, visible, onClose }) =>
 const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
   },
   modalContent: {
-    width: '90%',
-    backgroundColor: '#2a2a2a',
+    width: "90%",
+    backgroundColor: "#2a2a2a",
     borderRadius: 20,
     padding: 25,
-    alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -137,61 +177,60 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
+    position: "relative",
+  },
+  closeIcon: {
+    position: "absolute",
+    top: 15,
+    right: 15,
+    zIndex: 1,
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontWeight: "bold",
+    color: "#fff",
     marginBottom: 20,
+    textAlign: "center",
   },
   input: {
-    width: '100%',
-    backgroundColor: '#3a3a3a',
+    width: "100%",
+    backgroundColor: "#3a3a3a",
     borderRadius: 10,
     padding: 15,
     fontSize: 16,
-    color: '#fff',
+    color: "#fff",
     marginBottom: 20,
   },
   searchButton: {
-    width: '100%',
-    backgroundColor: '#6c63ff',
+    width: "100%",
+    backgroundColor: "#6c63ff",
     padding: 15,
     borderRadius: 10,
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 20,
   },
   buttonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   resultItem: {
-    width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#444',
+    borderBottomColor: "#444",
   },
   resultName: {
     fontSize: 18,
-    color: '#fff',
+    color: "#fff",
   },
   addButton: {
-    backgroundColor: '#5cb85c',
+    backgroundColor: "#5cb85c",
     paddingVertical: 8,
     paddingHorizontal: 15,
     borderRadius: 8,
-  },
-  closeButton: {
-    marginTop: 10,
-    width: '100%',
-    backgroundColor: '#d9534f',
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
   },
 });
 

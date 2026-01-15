@@ -1,68 +1,55 @@
 
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
-import { Ionicons as Icon } from '@expo/vector-icons';
+import { View, Text, Image, StyleSheet } from 'react-native';
 
 interface HostInfoProps {
   host: {
     name: string;
-    photoURL?: string;
-    photoUrl?: string; // Handling inconsistent casing
-  };
+    photoUrl?: string;
+  }
 }
 
 const HostInfo: React.FC<HostInfoProps> = ({ host }) => {
-  // Use the photoURL, fallback to photoUrl, then to a default placeholder
-  const hostAvatar = host.photoURL || host.photoUrl || 'https://via.placeholder.com/150';
-
   return (
-    <View style={styles.container}>
-      <View style={styles.cardHeader}>
-        <Text style={styles.title}>Hosted by</Text>
-        <TouchableOpacity>
-          <Icon name="chevron-forward" size={24} color="#A855F7" />
-        </TouchableOpacity>
-      </View>
-      <View style={styles.hostContainer}>
-        <Image source={{ uri: hostAvatar }} style={styles.avatar} />
+    <View style={styles.hostContainer}>
+      <Image 
+        source={{ uri: host.photoUrl || 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }} 
+        style={styles.hostAvatar} 
+      />
+      <View style={styles.hostTextContainer}>
         <Text style={styles.hostName}>{host.name}</Text>
+        <Text style={styles.hostLabel}>Host</Text>
       </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 20,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  title: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
   hostContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#1C1C1E',
+    borderRadius: 12,
+    margin: 20,
   },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  hostAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     marginRight: 15,
   },
+  hostTextContainer: {
+    flex: 1,
+  },
   hostName: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
+  },
+  hostLabel: {
+    color: '#A8A8A8',
+    fontSize: 14,
   },
 });
 

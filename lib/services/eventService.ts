@@ -90,7 +90,7 @@ export function listenToEvent(
           const userDocSnap = await getDoc(userDocRef);
           if (userDocSnap.exists()) {
             const userData = userDocSnap.data() as UserProfile;
-            eventData.hostAvatarUrl = userData.photoURL;
+            eventData.hostAvatarUrl = userData.photoUrl;
           }
         } catch (error) {
           console.error("Error fetching host profile:", error);

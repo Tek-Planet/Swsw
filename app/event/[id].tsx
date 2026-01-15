@@ -1,3 +1,4 @@
+
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
@@ -62,8 +63,8 @@ const EventDetailScreen = () => {
           ).get(eventData.hostId);
           if (hostProfile) {
             setHost({
-              name: hostProfile.displayName,
-              photoURL: hostProfile.photoURL,
+              name: hostProfile.displayName || hostProfile.username,
+              photoURL: hostProfile.photoUrl,
             });
           }
         }
@@ -74,8 +75,8 @@ const EventDetailScreen = () => {
           profilesMap.entries()
         ).map(([profId, profile]) => ({
           id: profId,
-          avatar: profile.photoURL || `https://i.pravatar.cc/150?u=${profId}`,
-          firstName: profile.displayName,
+          avatar: profile.photoUrl || `https://i.pravatar.cc/150?u=${profId}`,
+          firstName: profile.displayName || profile.username,
         }));
         setTicketHolders(holdersList);
       }
