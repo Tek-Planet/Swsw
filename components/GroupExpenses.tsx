@@ -4,16 +4,22 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator }
 import ExpenseSummary from './ExpenseSummary';
 import ExpenseCard from './ExpenseCard';
 import AddExpenseModal from './AddExpenseModal';
+import DebtCard from './DebtCard';
 import { getExpensesForGroup } from '@/lib/services/expenseService';
+import { calculateDebts, Debt } from '@/lib/services/debtService';
 import { Expense } from '@/types/expense';
 
 interface GroupExpensesProps {
   groupId: string;
 }
 
+// Hardcoded members for now, as we don't have a way to fetch group members yet
+const groupMembers = ['user1', 'user2'];
+
 const GroupExpenses: React.FC<GroupExpensesProps> = ({ groupId }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [debts, setDebts] = useState<Debt[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -25,7 +31,17 @@ const GroupExpenses: React.FC<GroupExpensesProps> = ({ groupId }) => {
     return () => unsubscribe();
   }, [groupId]);
 
+  useEffect(() => {
+    if (expenses.length > 0) {
+      const calculatedDebts = calculateDebts(expenses, groupMembers);
+      setDebts(calculatedDebts);
+    } else {
+      setDebts([]);
+    }
+  }, [expenses]);
+
   const renderExpense = ({ item }: { item: Expense }) => <ExpenseCard expense={item} />;
+  const renderDebt = ({ item }: { item: Debt }) => <DebtCard debt={item} />;
 
   return (
     <View style={styles.container}>
@@ -39,14 +55,32 @@ const GroupExpenses: React.FC<GroupExpensesProps> = ({ groupId }) => {
       {loading ? (
         <ActivityIndicator size="large" color="#fff" />
       ) : expenses.length === 0 ? (
-        <Text style={styles.noExpensesText}>No expenses yet. Be the first to add one!</Text>
+        <Text style={styles.noItemsText}>No expenses yet. Be the first to add one!</Text>
       ) : (
         <FlatList
           data={expenses}
           renderItem={renderExpense}
           keyExtractor={(item) => item.id}
+          style={styles.list}
         />
       )}
+
+      <View style={styles.header}>
+        <Text style={styles.title}>Debts</Text>
+      </View>
+      {loading ? (
+        <ActivityIndicator size="small" color="#fff" />
+      ) : debts.length === 0 ? (
+        <Text style={styles.noItemsText}>All settled up!</Text>
+      ) : (
+        <FlatList
+          data={debts}
+          renderItem={renderDebt}
+          keyExtractor={(item, index) => `${item.from}-${item.to}-${index}`}
+          style={styles.list}
+        />
+      )}
+
       <AddExpenseModal groupId={groupId} visible={modalVisible} onClose={() => setModalVisible(false)} />
     </View>
   );
@@ -65,6 +99,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
+    marginTop: 10,
   },
   title: {
     color: 'white',
@@ -76,11 +111,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  noExpensesText: {
+  noItemsText: {
     color: '#999',
     textAlign: 'center',
     marginTop: 20,
+    marginBottom: 20,
   },
+  list: {
+    maxHeight: 200,
+  }
 });
 
 export default GroupExpenses;
