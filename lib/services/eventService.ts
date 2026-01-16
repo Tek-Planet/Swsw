@@ -29,10 +29,10 @@ const eventFromDoc = (doc: QueryDocumentSnapshot<DocumentData>): Event => {
   return {
     ...data,
     id: doc.id,
-    startTime: data.startTime.toDate(),
-    endTime: data.endTime.toDate(),
-    createdAt: data.createdAt.toDate(),
-    updatedAt: data.updatedAt.toDate(),
+    startTime: data.startTime ? data.startTime.toDate() : new Date(),
+    endTime: data.endTime ? data.endTime.toDate() : new Date(),
+    createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
+    updatedAt: data.updatedAt ? data.updatedAt.toDate() : new Date(),
   };
 };
 

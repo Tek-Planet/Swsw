@@ -14,8 +14,8 @@ const groupFromDoc = (doc: DocumentData): Group => {
     return {
         id: doc.id,
         ...data,
-        createdAt: data.createdAt.toDate(),
-        updatedAt: data.updatedAt.toDate(),
+        createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
+        updatedAt: data.updatedAt ? data.updatedAt.toDate() : new Date(),
     } as Group;
 }
 
