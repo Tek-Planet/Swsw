@@ -27,6 +27,11 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
 
+    // Helper function to check if a user is a member of a group.
+    function isGroupMember(groupId) {
+      return isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.members;
+    }
+
 
     //================================================================================
     // USER DATA
@@ -67,6 +72,12 @@ service cloud.firestore {
 
       // Only the creator of the group can delete it.
       allow delete: if isSignedIn() && resource.data.createdBy == request.auth.uid;
+
+      // Rules for the expenses subcollection
+      match /expenses/{expenseId} {
+        // Allow full access if the user is a member of the group.
+        allow read, write: if isGroupMember(groupId);
+      }
     }
 
     //================================================================================

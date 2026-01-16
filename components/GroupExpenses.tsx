@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import ExpenseSummary from './ExpenseSummary';
 import ExpenseCard from './ExpenseCard';
 import AddExpenseModal from './AddExpenseModal';
 import DebtCard from './DebtCard';
-import { getExpensesForGroup } from '@/lib/services/expenseService';
+import { getExpensesForGroup, createExpense } from '@/lib/services/expenseService';
 import { calculateDebts, Debt } from '@/lib/services/debtService';
 import { Expense } from '@/types/expense';
 
@@ -40,8 +40,26 @@ const GroupExpenses: React.FC<GroupExpensesProps> = ({ groupId }) => {
     }
   }, [expenses]);
 
+  const handleSettleDebt = async (debt: Debt) => {
+    try {
+      const settlementExpense = {
+        description: `Settled debt: ${debt.from} to ${debt.to}`,
+        amount: debt.amount,
+        currency: 'USD',
+        paidById: debt.from,
+        splitType: 'unequal' as 'unequal',
+        participants: [{ userId: debt.to, amount: debt.amount }],
+      };
+
+      await createExpense(groupId, settlementExpense);
+    } catch (error) {
+      console.error('Error settling debt:', error);
+      Alert.alert('Error', 'Failed to settle debt. Please try again.');
+    }
+  };
+
   const renderExpense = ({ item }: { item: Expense }) => <ExpenseCard expense={item} />;
-  const renderDebt = ({ item }: { item: Debt }) => <DebtCard debt={item} />;
+  const renderDebt = ({ item }: { item: Debt }) => <DebtCard debt={item} onSettle={handleSettleDebt} />;
 
   return (
     <View style={styles.container}>

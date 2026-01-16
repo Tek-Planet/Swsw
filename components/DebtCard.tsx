@@ -1,19 +1,25 @@
 
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Debt } from '@/lib/services/debtService';
 
 interface DebtCardProps {
   debt: Debt;
+  onSettle: (debt: Debt) => void;
 }
 
-const DebtCard: React.FC<DebtCardProps> = ({ debt }) => {
+const DebtCard: React.FC<DebtCardProps> = ({ debt, onSettle }) => {
   return (
     <View style={styles.card}>
-      <Text style={styles.debtText}>
-        <Text style={styles.user}>{debt.from}</Text> owes <Text style={styles.user}>{debt.to}</Text>
-      </Text>
-      <Text style={styles.amount}>{`$${debt.amount.toFixed(2)}`}</Text>
+      <View style={styles.debtInfo}>
+        <Text style={styles.debtText}>
+          <Text style={styles.user}>{debt.from}</Text> owes <Text style={styles.user}>{debt.to}</Text>
+        </Text>
+        <Text style={styles.amount}>{`$${debt.amount.toFixed(2)}`}</Text>
+      </View>
+      <TouchableOpacity style={styles.settleButton} onPress={() => onSettle(debt)}>
+        <Text style={styles.settleButtonText}>Settle up</Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -28,6 +34,9 @@ const styles = StyleSheet.create({
     padding: 15,
     marginBottom: 10,
   },
+  debtInfo: {
+    flex: 1,
+  },
   debtText: {
     color: 'white',
     fontSize: 16,
@@ -39,6 +48,17 @@ const styles = StyleSheet.create({
   amount: {
     color: 'white',
     fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 5,
+  },
+  settleButton: {
+    backgroundColor: '#6c63ff',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+  },
+  settleButtonText: {
+    color: 'white',
     fontWeight: 'bold',
   },
 });
