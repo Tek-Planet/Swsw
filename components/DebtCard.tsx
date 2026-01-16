@@ -5,15 +5,17 @@ import { Debt } from '@/lib/services/debtService';
 
 interface DebtCardProps {
   debt: Debt;
+  fromUser: string;
+  toUser: string;
   onSettle: (debt: Debt) => void;
 }
 
-const DebtCard: React.FC<DebtCardProps> = ({ debt, onSettle }) => {
+const DebtCard: React.FC<DebtCardProps> = ({ debt, fromUser, toUser, onSettle }) => {
   return (
     <View style={styles.card}>
       <View style={styles.debtInfo}>
         <Text style={styles.debtText}>
-          <Text style={styles.user}>{debt.from}</Text> owes <Text style={styles.user}>{debt.to}</Text>
+          <Text style={styles.user}>{fromUser}</Text> owes <Text style={styles.user}>{toUser}</Text>
         </Text>
         <Text style={styles.amount}>{`$${debt.amount.toFixed(2)}`}</Text>
       </View>

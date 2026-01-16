@@ -5,14 +5,15 @@ import { Expense } from '@/types/expense';
 
 interface ExpenseCardProps {
   expense: Expense;
+  paidBy: string;
 }
 
-const ExpenseCard: React.FC<ExpenseCardProps> = ({ expense }) => {
+const ExpenseCard: React.FC<ExpenseCardProps> = ({ expense, paidBy }) => {
   return (
     <View style={styles.card}>
       <View style={styles.expenseInfo}>
         <Text style={styles.description}>{expense.description}</Text>
-        <Text style={styles.paidBy}>{`Paid by ${expense.paidById}`}</Text>
+        <Text style={styles.paidBy}>{`Paid by ${paidBy}`}</Text>
       </View>
       <Text style={styles.amount}>{`$${expense.amount.toFixed(2)}`}</Text>
     </View>

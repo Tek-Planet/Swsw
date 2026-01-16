@@ -1,13 +1,15 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import ExpenseSummary from './ExpenseSummary';
-import ExpenseCard from './ExpenseCard';
 import AddExpenseModal from './AddExpenseModal';
 import DebtCard from './DebtCard';
+import ActivityFeed from './ActivityFeed'; // Import the ActivityFeed component
 import { getExpensesForGroup, createExpense } from '@/lib/services/expenseService';
 import { calculateDebts, calculateOwedTotals, Debt, OwedTotals } from '@/lib/services/debtService';
+import { getProfilesForUserIds } from '@/lib/services/groupService';
 import { Expense } from '@/types/expense';
+import { UserProfile } from '@/types/user';
 
 interface GroupExpensesProps {
   groupId: string;
@@ -22,6 +24,7 @@ const GroupExpenses: React.FC<GroupExpensesProps> = ({ groupId }) => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
   const [owedTotals, setOwedTotals] = useState<OwedTotals>({ owedByYou: 0, owedToYou: 0 });
+  const [userProfiles, setUserProfiles] = useState<Map<string, UserProfile>>(new Map());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -32,6 +35,14 @@ const GroupExpenses: React.FC<GroupExpensesProps> = ({ groupId }) => {
 
     return () => unsubscribe();
   }, [groupId]);
+
+  useEffect(() => {
+    async function fetchProfiles() {
+      const profiles = await getProfilesForUserIds(groupMembers);
+      setUserProfiles(profiles);
+    }
+    fetchProfiles();
+  }, []);
 
   useEffect(() => {
     if (expenses.length > 0) {
@@ -69,8 +80,12 @@ const GroupExpenses: React.FC<GroupExpensesProps> = ({ groupId }) => {
     }
   };
 
-  const renderExpense = ({ item }: { item: Expense }) => <ExpenseCard expense={item} />;
-  const renderDebt = ({ item }: { item: Debt }) => <DebtCard debt={item} onSettle={handleSettleDebt} />;
+  const renderDebt = ({ item }: { item: Debt }) => {
+    const fromUser = item.from === currentUserId ? 'You' : userProfiles.get(item.from)?.displayName || item.from;
+    const toUser = item.to === currentUserId ? 'You' : userProfiles.get(item.to)?.displayName || item.to;
+
+    return <DebtCard debt={item} fromUser={fromUser} toUser={toUser} onSettle={handleSettleDebt} />;
+  };
 
   return (
     <View style={styles.container}>
@@ -81,19 +96,7 @@ const GroupExpenses: React.FC<GroupExpensesProps> = ({ groupId }) => {
         </TouchableOpacity>
       </View>
       <ExpenseSummary owedByYou={owedTotals.owedByYou} owedToYou={owedTotals.owedToYou} />
-      {loading ? (
-        <ActivityIndicator size="large" color="#fff" />
-      ) : expenses.length === 0 ? (
-        <Text style={styles.noItemsText}>No expenses yet. Be the first to add one!</Text>
-      ) : (
-        <FlatList
-          data={expenses}
-          renderItem={renderExpense}
-          keyExtractor={(item) => item.id}
-          style={styles.list}
-        />
-      )}
-
+      
       <View style={styles.header}>
         <Text style={styles.title}>Debts</Text>
       </View>
@@ -108,6 +111,15 @@ const GroupExpenses: React.FC<GroupExpensesProps> = ({ groupId }) => {
           keyExtractor={(item, index) => `${item.from}-${item.to}-${index}`}
           style={styles.list}
         />
+      )}
+
+      <View style={styles.header}>
+        <Text style={styles.title}>Activity Feed</Text>
+      </View>
+      {loading ? (
+        <ActivityIndicator size="large" color="#fff" />
+      ) : (
+        <ActivityFeed expenses={expenses} userProfiles={userProfiles} currentUserId={currentUserId} />
       )}
 
       <AddExpenseModal groupId={groupId} visible={modalVisible} onClose={() => setModalVisible(false)} />

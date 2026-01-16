@@ -1,44 +1,45 @@
 
 import React from 'react';
-import { View, Text, StyleSheet, FlatList } from 'react-native';
-import ActivityCard from './ActivityCard';
+import { FlatList, Text, StyleSheet, View } from 'react-native';
+import { Expense } from '@/types/expense';
+import { UserProfile } from '@/types/user';
+import ExpenseCard from './ExpenseCard';
 
 interface ActivityFeedProps {
-  groupId: string;
+  expenses: Expense[];
+  userProfiles: Map<string, UserProfile>;
+  currentUserId: string;
 }
 
-const activities = [
-  { id: '1', user: 'Alice', avatar: 'https://i.pravatar.cc/150?img=4', action: 'added a new expense \'Groceries\'', timestamp: '2 hours ago' },
-  { id: '2', user: 'Bob', avatar: 'https://i.pravatar.cc/150?img=5', action: 'updated the event poll', timestamp: 'Yesterday' },
-  { id: '3', user: 'Charlie', avatar: 'https://i.pravatar.cc/150?img=6', action: 'joined the group', timestamp: '3 days ago' },
-];
+const ActivityFeed: React.FC<ActivityFeedProps> = ({ expenses, userProfiles, currentUserId }) => {
+  if (expenses.length === 0) {
+    return <Text style={styles.noItemsText}>No expenses yet. Be the first to add one!</Text>;
+  }
 
-const ActivityFeed: React.FC<ActivityFeedProps> = ({ groupId }) => {
-  const renderActivity = ({ item }: any) => <ActivityCard activity={item} />;
+  const renderExpense = ({ item }: { item: Expense }) => {
+    const paidBy = item.paidById === currentUserId ? 'You' : userProfiles.get(item.paidById)?.displayName || item.paidById;
+    return <ExpenseCard expense={item} paidBy={paidBy} />;
+  };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Activity Feed</Text>
-      <FlatList
-        data={activities}
-        renderItem={renderActivity}
-        keyExtractor={(item) => item.id}
-      />
-    </View>
+    <FlatList
+      data={expenses}
+      renderItem={renderExpense}
+      keyExtractor={(item) => item.id}
+      style={styles.list}
+    />
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-    backgroundColor: '#2a2a2a',
-    borderRadius: 15,
+  list: {
+    maxHeight: 200,
   },
-  title: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 10,
+  noItemsText: {
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 20,
+    marginBottom: 20,
   },
 });
 
