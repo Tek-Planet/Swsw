@@ -2,16 +2,21 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
-const ExpenseSummary: React.FC = () => {
+interface ExpenseSummaryProps {
+  owedByYou: number;
+  owedToYou: number;
+}
+
+const ExpenseSummary: React.FC<ExpenseSummaryProps> = ({ owedByYou, owedToYou }) => {
   return (
     <View style={styles.container}>
       <View style={styles.summaryItem}>
-        <Text style={styles.summaryLabel}>Total Owed</Text>
-        <Text style={styles.summaryValue}>$124</Text>
+        <Text style={styles.summaryLabel}>You are owed</Text>
+        <Text style={[styles.summaryValue, styles.positive]}>{`$${owedToYou.toFixed(2)}`}</Text>
       </View>
       <View style={styles.summaryItem}>
-        <Text style={styles.summaryLabel}>You Owe</Text>
-        <Text style={styles.summaryValue}>$18</Text>
+        <Text style={styles.summaryLabel}>You owe</Text>
+        <Text style={[styles.summaryValue, styles.negative]}>{`$${owedByYou.toFixed(2)}`}</Text>
       </View>
     </View>
   );
@@ -31,9 +36,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   summaryValue: {
-    color: 'white',
     fontSize: 24,
     fontWeight: 'bold',
+  },
+  positive: {
+    color: '#28a745',
+  },
+  negative: {
+    color: '#dc3545',
   },
 });
 

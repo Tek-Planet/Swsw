@@ -6,20 +6,22 @@ import ExpenseCard from './ExpenseCard';
 import AddExpenseModal from './AddExpenseModal';
 import DebtCard from './DebtCard';
 import { getExpensesForGroup, createExpense } from '@/lib/services/expenseService';
-import { calculateDebts, Debt } from '@/lib/services/debtService';
+import { calculateDebts, calculateOwedTotals, Debt, OwedTotals } from '@/lib/services/debtService';
 import { Expense } from '@/types/expense';
 
 interface GroupExpensesProps {
   groupId: string;
 }
 
-// Hardcoded members for now, as we don't have a way to fetch group members yet
+// Hardcoded members and current user for now
 const groupMembers = ['user1', 'user2'];
+const currentUserId = 'user1'; // Replace with dynamic user ID from auth
 
 const GroupExpenses: React.FC<GroupExpensesProps> = ({ groupId }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
+  const [owedTotals, setOwedTotals] = useState<OwedTotals>({ owedByYou: 0, owedToYou: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,6 +41,15 @@ const GroupExpenses: React.FC<GroupExpensesProps> = ({ groupId }) => {
       setDebts([]);
     }
   }, [expenses]);
+
+  useEffect(() => {
+    if (debts.length > 0) {
+      const totals = calculateOwedTotals(debts, currentUserId);
+      setOwedTotals(totals);
+    } else {
+      setOwedTotals({ owedByYou: 0, owedToYou: 0 });
+    }
+  }, [debts]);
 
   const handleSettleDebt = async (debt: Debt) => {
     try {
@@ -69,7 +80,7 @@ const GroupExpenses: React.FC<GroupExpensesProps> = ({ groupId }) => {
             <Text style={styles.addButton}>+ Add</Text>
         </TouchableOpacity>
       </View>
-      <ExpenseSummary />
+      <ExpenseSummary owedByYou={owedTotals.owedByYou} owedToYou={owedTotals.owedToYou} />
       {loading ? (
         <ActivityIndicator size="large" color="#fff" />
       ) : expenses.length === 0 ? (

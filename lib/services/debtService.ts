@@ -7,6 +7,11 @@ export interface Debt {
   amount: number;
 }
 
+export interface OwedTotals {
+    owedByYou: number;
+    owedToYou: number;
+}
+
 export const calculateDebts = (expenses: Expense[], members: string[]): Debt[] => {
   if (!expenses || expenses.length === 0) {
     return [];
@@ -84,3 +89,20 @@ export const calculateDebts = (expenses: Expense[], members: string[]): Debt[] =
 
   return debts;
 };
+
+export const calculateOwedTotals = (debts: Debt[], userId: string): OwedTotals => {
+    let owedByYou = 0;
+    let owedToYou = 0;
+  
+    debts.forEach(debt => {
+      if (debt.from === userId) {
+        owedByYou += debt.amount;
+      }
+      if (debt.to === userId) {
+        owedToYou += debt.amount;
+      }
+    });
+  
+    return { owedByYou, owedToYou };
+  };
+  
