@@ -1,19 +1,40 @@
 
 import React, { useState } from 'react';
 import { Modal, View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
+import { createExpense } from '@/lib/services/expenseService';
 
 interface AddExpenseModalProps {
   visible: boolean;
   onClose: () => void;
+  groupId: string;
 }
 
-const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ visible, onClose }) => {
+const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ visible, onClose, groupId }) => {
     const [description, setDescription] = useState('');
     const [amount, setAmount] = useState('');
   
-    const handleAddExpense = () => {
-      // Handle adding the expense
-      onClose();
+    const handleAddExpense = async () => {
+      if (!description || !amount) {
+        alert('Please fill in all fields');
+        return;
+      }
+
+      const expenseData = {
+        description,
+        amount: parseFloat(amount),
+        currency: 'USD',
+        paidById: 'user1', // Hardcoded for now
+        splitType: 'equal' as 'equal',
+        participants: [{ userId: 'user1', amount: parseFloat(amount) / 2 }, { userId: 'user2', amount: parseFloat(amount) / 2 }], // Hardcoded for now
+      };
+
+      try {
+        await createExpense(groupId, expenseData);
+        onClose();
+      } catch (error) {
+        console.error('Error creating expense:', error);
+        alert('Failed to create expense');
+      }
     };
   
     return (

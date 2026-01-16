@@ -1,24 +1,31 @@
 
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import ExpenseSummary from './ExpenseSummary';
 import ExpenseCard from './ExpenseCard';
 import AddExpenseModal from './AddExpenseModal';
+import { getExpensesForGroup } from '@/lib/services/expenseService';
+import { Expense } from '@/types/expense';
 
 interface GroupExpensesProps {
   groupId: string;
 }
 
-const expenses = [
-  { id: '1', description: 'Groceries', amount: 50, paidBy: 'Alice', avatar: 'https://i.pravatar.cc/150?img=4' },
-  { id: '2', description: 'Movie Tickets', amount: 30, paidBy: 'Bob', avatar: 'https://i.pravatar.cc/150?img=5' },
-  { id: '3', description: 'Dinner', amount: 80, paidBy: 'Alice', avatar: 'https://i.pravatar.cc/150?img=4' },
-];
-
 const GroupExpenses: React.FC<GroupExpensesProps> = ({ groupId }) => {
   const [modalVisible, setModalVisible] = useState(false);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const renderExpense = ({ item }: any) => <ExpenseCard expense={item} />;
+  useEffect(() => {
+    const unsubscribe = getExpensesForGroup(groupId, (newExpenses) => {
+      setExpenses(newExpenses);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [groupId]);
+
+  const renderExpense = ({ item }: { item: Expense }) => <ExpenseCard expense={item} />;
 
   return (
     <View style={styles.container}>
@@ -29,12 +36,18 @@ const GroupExpenses: React.FC<GroupExpensesProps> = ({ groupId }) => {
         </TouchableOpacity>
       </View>
       <ExpenseSummary />
-      <FlatList
-        data={expenses}
-        renderItem={renderExpense}
-        keyExtractor={(item) => item.id}
-      />
-      <AddExpenseModal visible={modalVisible} onClose={() => setModalVisible(false)} />
+      {loading ? (
+        <ActivityIndicator size="large" color="#fff" />
+      ) : expenses.length === 0 ? (
+        <Text style={styles.noExpensesText}>No expenses yet. Be the first to add one!</Text>
+      ) : (
+        <FlatList
+          data={expenses}
+          renderItem={renderExpense}
+          keyExtractor={(item) => item.id}
+        />
+      )}
+      <AddExpenseModal groupId={groupId} visible={modalVisible} onClose={() => setModalVisible(false)} />
     </View>
   );
 };
@@ -62,6 +75,11 @@ const styles = StyleSheet.create({
     color: '#6c63ff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  noExpensesText: {
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 20,
   },
 });
 

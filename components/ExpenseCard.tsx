@@ -1,24 +1,18 @@
 
 import React from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { Expense } from '@/types/expense';
 
 interface ExpenseCardProps {
-  expense: {
-    id: string;
-    description: string;
-    amount: number;
-    paidBy: string;
-    avatar: string;
-  };
+  expense: Expense;
 }
 
 const ExpenseCard: React.FC<ExpenseCardProps> = ({ expense }) => {
   return (
     <View style={styles.card}>
-      <Image source={{ uri: expense.avatar }} style={styles.avatar} />
       <View style={styles.expenseInfo}>
         <Text style={styles.description}>{expense.description}</Text>
-        <Text style={styles.paidBy}>{`Paid by ${expense.paidBy}`}</Text>
+        <Text style={styles.paidBy}>{`Paid by ${expense.paidById}`}</Text>
       </View>
       <Text style={styles.amount}>{`$${expense.amount.toFixed(2)}`}</Text>
     </View>
@@ -33,12 +27,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 15,
     marginBottom: 10,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 15,
   },
   expenseInfo: {
     flex: 1,
