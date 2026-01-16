@@ -3,8 +3,8 @@ import ProfileDetails from '@/components/profile/ProfileDetails';
 import ProfileHeader from '@/components/profile/ProfileHeader';
 import ProfileSettings from '@/components/profile/ProfileSettings';
 import { useAuth } from '@/lib/context/AuthContext';
-import { listenToUserProfile } from '@/lib/firebase/userProfileService';
-import { UserProfile } from '@/types';
+import { listenToUserProfile } from '@/lib/services/userProfileService';
+import { UserProfile } from '@/types/user';
 import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 
@@ -14,7 +14,7 @@ const ProfileScreen = () => {
 
   useEffect(() => {
     if (user) {
-      const unsubscribe = listenToUserProfile(user.uid, (profile) => {
+      const unsubscribe = listenToUserProfile(user.uid, (profile: UserProfile | null) => {
         setUserProfile(profile);
       });
       return () => unsubscribe();

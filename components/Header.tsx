@@ -1,6 +1,6 @@
 import { useAuth } from '@/lib/context/AuthContext';
-import { listenToUserProfile } from '@/lib/firebase/userProfileService';
-import { UserProfile } from '@/types';
+import { listenToUserProfile } from '@/lib/services/userProfileService';
+import { UserProfile } from '@/types/user';
 import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
@@ -20,7 +20,7 @@ export const Header: React.FC = () => {
 
   useEffect(() => {
     if (user) {
-      const unsubscribe = listenToUserProfile(user.uid, (profile) => {
+      const unsubscribe = listenToUserProfile(user.uid, (profile: UserProfile | null) => {
         setUserProfile(profile);
       });
       return () => unsubscribe();

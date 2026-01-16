@@ -20,7 +20,7 @@ const CreateGroupPage: React.FC = () => {
   const handleCreateGroup = async () => {
     if (user) {
       try {
-        await createGroup({ name, description, members: [user.uid], createdBy: user.uid, createdAt: new Date().toISOString() });
+        await createGroup({ name, description, members: [user.uid], createdBy: user.uid });
         router.back();
       } catch (error) {
         console.error('Error creating group: ', error);

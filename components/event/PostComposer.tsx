@@ -1,5 +1,5 @@
 
-import { getUserProfile } from '@/lib/firebase/userProfileService';
+import { getUserProfile } from '@/lib/services/userProfileService';
 import { createEventPost } from '@/lib/services/postService';
 import { UserProfile } from '@/types';
 import { getAuth } from 'firebase/auth';

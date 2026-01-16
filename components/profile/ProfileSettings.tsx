@@ -2,7 +2,7 @@
 import { PrimaryButton, SecondaryButton } from '@/components';
 import SectionCard from '@/components/SectionCard';
 import { useAuth } from '@/lib/context/AuthContext';
-import { disableUserAccount } from '@/lib/firebase/userProfileService';
+import { disableUserAccount } from '@/lib/services/userProfileService';
 import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 

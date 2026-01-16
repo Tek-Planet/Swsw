@@ -11,7 +11,7 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "@/lib/context/AuthContext";
 import { uploadImageAndGetDownloadURL } from "@/lib/firebase/storageService";
-import { createOrUpdateUserProfile } from "@/lib/firebase/userProfileService";
+import { createOrUpdateUserProfile } from "@/lib/services/userProfileService";
 
 interface ProfileHeaderProps {
   userProfile: UserProfile;

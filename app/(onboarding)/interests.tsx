@@ -6,7 +6,7 @@ import { Alert, StyleSheet, Text, View, TextInput, TouchableOpacity } from 'reac
 import { ChipSelector, PrimaryButton, SecondaryButton } from '@/components';
 import OnboardingContainer from '@/components/OnboardingContainer';
 import { useAuth } from '@/lib/context/AuthContext';
-import { createOrUpdateUserProfile } from '@/lib/firebase/userProfileService';
+import { createOrUpdateUserProfile } from '@/lib/services/userProfileService';
 
 // Initial list of interests
 const initialInterests = [

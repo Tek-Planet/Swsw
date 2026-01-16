@@ -87,8 +87,8 @@ const SurveyResultsScreen: React.FC = () => {
       ) : matches.length > 0 ? (
         <RecommendationList recommendations={matches.map(p => ({ 
             id: p.id, 
-            name: p.displayName, 
-            avatar: p.photoURL || 'https://placekitten.com/200/200', //TODO: Fallback avatar
+            name: p.displayName || p.username || 'Anonymous', 
+            avatar: p.photoUrl || 'https://placekitten.com/200/200', //TODO: Fallback avatar
             descriptor: `Compatibility: ${Math.round(Math.random()*20+80)}%`, // Placeholder score 
         }))} />
       ) : (

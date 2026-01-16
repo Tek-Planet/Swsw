@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { PrimaryButton } from '@/components';
 import OnboardingContainer from '@/components/OnboardingContainer';
 import { useAuth } from '@/lib/context/AuthContext';
-import { createOrUpdateUserProfile } from '@/lib/firebase/userProfileService';
+import { createOrUpdateUserProfile } from '@/lib/services/userProfileService';
 
 const OnboardingDoneScreen = () => {
   const router = useRouter();

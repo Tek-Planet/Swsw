@@ -3,8 +3,8 @@ import { ChipSelector, PrimaryButton, TextInputField } from '@/components';
 import SectionCard from '@/components/SectionCard';
 import { HelperText } from '@/components/Validation';
 import { useAuth } from '@/lib/context/AuthContext';
-import { updateUserProfile } from '@/lib/firebase/userProfileService';
-import { UserProfile } from '@/types';
+import { createOrUpdateUserProfile } from '@/lib/services/userProfileService';
+import { UserProfile } from '@/types/user';
 import React, { useMemo, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 
@@ -29,7 +29,7 @@ const ProfileDetails: React.FC<ProfileDetailsProps> = ({ userProfile }) => {
     if (!user) return;
     setLoading(true);
     try {
-      await updateUserProfile(user.uid, { bio, interests });
+      await createOrUpdateUserProfile(user.uid, { bio, interests });
       Alert.alert('Profile Updated', 'Your details have been saved successfully.');
     } catch (error) {
       console.error(error);

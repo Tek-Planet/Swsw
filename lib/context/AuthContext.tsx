@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { auth } from '../firebase/firebaseConfig';
-import { AppUser, UserProfile } from '@/types';
+import { AppUser, UserProfile } from '@/types/user';
 import {
   signInWithEmail,
   signUpWithEmail,
@@ -12,7 +12,7 @@ import {
 import {
   listenToUserProfile,
   createOrUpdateUserProfile,
-} from '../firebase/userProfileService';
+} from '@/lib/services/userProfileService';
 import { Timestamp } from 'firebase/firestore';
 
 interface AuthContextType {
@@ -22,7 +22,7 @@ interface AuthContextType {
   isOnboardingComplete: boolean;
   error: string | null;
   signIn: typeof signInWithEmail;
-  signUp: (email: any, password: any, fullName: any, username: any) => Promise<FirebaseUser>;
+  signUp: (email: string, password: string, fullName: string, username: string) => Promise<FirebaseUser>;
   signOut: typeof signOutUser;
   sendPasswordReset: typeof sendPasswordReset;
 }
@@ -43,7 +43,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       if (firebaseUser) {
         const unsubscribeProfile = listenToUserProfile(
           firebaseUser.uid,
-          (profile) => {
+          (profile: UserProfile | null) => {
             if (profile) {
               const appUser: AppUser = {
                 ...firebaseUser,
@@ -73,7 +73,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => unsubscribeAuth();
   }, []);
 
-  const handleSignUp = async (email: any, password: any, fullName: any, username: any) => {
+  const handleSignUp = async (email: string, password: string, fullName: string, username: string) => {
     try {
       setError(null);
       const firebaseUser = await signUpWithEmail(email, password, fullName, username);
@@ -100,7 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     loading,
     isOnboardingComplete,
     error,
-    signIn: async (email: any, password: any) => {
+    signIn: async (email: string, password: string) => {
       try {
         setError(null);
         return await signInWithEmail(email, password);
@@ -119,7 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         throw e;
       }
     },
-    sendPasswordReset: async (email: any) => {
+    sendPasswordReset: async (email: string) => {
       try {
         setError(null);
         await sendPasswordReset(email);

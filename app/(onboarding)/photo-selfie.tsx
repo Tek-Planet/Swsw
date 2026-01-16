@@ -7,7 +7,7 @@ import OnboardingContainer from '@/components/OnboardingContainer';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '@/lib/context/AuthContext';
 import { uploadImageAndGetS3Key } from '@/lib/firebase/storageService';
-import { createOrUpdateUserProfile } from '@/lib/firebase/userProfileService';
+import { createOrUpdateUserProfile } from '@/lib/services/userProfileService';
 
 const PhotoSelfieScreen = () => {
   const [image, setImage] = useState<string | null>(null);
