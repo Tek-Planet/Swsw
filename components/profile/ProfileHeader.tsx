@@ -10,7 +10,10 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "@/lib/context/AuthContext";
-import { uploadImageAndGetDownloadURL } from "@/lib/firebase/storageService";
+import {
+  uploadImageAndGetDownloadURL,
+  uploadImageAndGetS3Key,
+} from "@/lib/firebase/storageService";
 import { createOrUpdateUserProfile } from "@/lib/services/userProfileService";
 
 interface ProfileHeaderProps {
@@ -40,11 +43,13 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({ userProfile }) => {
   const handleImageUpload = async (uri: string) => {
     if (uri && user) {
       setLoading(true);
-      const downloadURL = await uploadImageAndGetDownloadURL(uri, user.uid);
+      const s3Key = await uploadImageAndGetS3Key(uri);
       setLoading(false);
 
-      if (downloadURL) {
-        await createOrUpdateUserProfile(user.uid, { photoUrl: downloadURL });
+      if (s3Key) {
+        await createOrUpdateUserProfile(user.uid, {
+          profilePictureS3Key: s3Key,
+        });
       } else {
         Alert.alert(
           "Upload Failed",
@@ -62,7 +67,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({ userProfile }) => {
           style={styles.image}
         />
       </TouchableOpacity>
-      <Text style={styles.name}>{userProfile.displayName}</Text>
+      <Text style={styles.name}>{userProfile.username}</Text>
       <Text style={styles.email}>{userProfile.email}</Text>
     </View>
   );
