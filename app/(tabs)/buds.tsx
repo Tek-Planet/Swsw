@@ -1,17 +1,17 @@
-import { AppHeader } from '@/components/Header';
-import { useAuth } from '@/lib/context/AuthContext';
-import { listenToUserGroups } from '@/lib/services/groupService';
-import { Group } from '@/types/group';
-import { Ionicons } from '@expo/vector-icons';
-import { Link } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { AppHeader } from "@/components/Header";
+import { useAuth } from "@/lib/context/AuthContext";
+import { listenToUserGroups } from "@/lib/services/groupService";
+import { Group } from "@/types/group";
+import { Ionicons } from "@expo/vector-icons";
+import { Link } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
   FlatList,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
+} from "react-native";
 
 const BudsHomePage: React.FC = () => {
   const { user } = useAuth();
@@ -28,7 +28,7 @@ const BudsHomePage: React.FC = () => {
   }, [user]);
 
   const renderGroupCard = ({ item }: { item: Group }) => (
-    <Link href={{ pathname: `/group/${item.id}` as any}} asChild>
+    <Link href={{ pathname: `/group/${item.id}` as any }} asChild>
       <TouchableOpacity>
         <View style={styles.groupCard}>
           <Text style={styles.groupName}>{item.name}</Text>
@@ -44,10 +44,10 @@ const BudsHomePage: React.FC = () => {
 
       {groups.length > 0 ? (
         <FlatList
-        data={groups}
-        renderItem={renderGroupCard}
-        keyExtractor={(item) => item.id}
-      />
+          data={groups}
+          renderItem={renderGroupCard}
+          keyExtractor={(item) => item.id}
+        />
       ) : (
         <View style={styles.placeholderContainer}>
           <Text style={styles.placeholderText}>No groups yet. Create one!</Text>
@@ -65,62 +65,62 @@ const BudsHomePage: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: "#000",
     padding: 20,
   },
   header: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: 'white',
+    fontWeight: "bold",
+    color: "white",
     marginBottom: 20,
   },
   groupCard: {
-    backgroundColor: '#2a2a2a',
+    backgroundColor: "#2a2a2a",
     borderRadius: 15,
     padding: 20,
     marginBottom: 15,
   },
   groupName: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: 'white',
+    fontWeight: "bold",
+    color: "white",
   },
   groupInfo: {
     fontSize: 16,
-    color: '#aaa',
+    color: "#aaa",
     marginTop: 5,
   },
   groupExpenses: {
     fontSize: 16,
-    color: '#6c63ff',
+    color: "#6c63ff",
     marginTop: 10,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   newGroupButton: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 30,
     right: 30,
-    backgroundColor: '#6c63ff',
+    backgroundColor: "#6c63ff",
     width: 60,
     height: 60,
     borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
   },
   placeholderContainer: {
     height: 100,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#1a1a1a',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#1a1a1a",
     borderRadius: 10,
     marginHorizontal: 20,
   },
   placeholderText: {
-    color: '#999',
+    color: "#999",
     fontSize: 22,
   },
 });

@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   Modal,
 } from "react-native";
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from "@expo/vector-icons";
 
 import EventCard from "@/components/EventCard";
 import AlbumPreviewCard from "@/components/gallery/AlbumPreviewCard";
@@ -167,14 +167,15 @@ const YourAlbums: React.FC = () => {
 const EventsSection: React.FC = () => {
   const { user } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
-  const [filter, setFilter] = useState<'Upcoming' | 'Past'>('Upcoming');
+  const [filter, setFilter] = useState<"Upcoming" | "Past">("Upcoming");
   const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
     if (user) {
-      const listener = filter === 'Upcoming' 
-        ? listenToUserUpcomingEvents
-        : listenToUserPastEvents;
+      const listener =
+        filter === "Upcoming"
+          ? listenToUserUpcomingEvents
+          : listenToUserPastEvents;
 
       const unsubscribe = listener(user.uid, (events: Event[]) => {
         setEvents(events);
@@ -184,10 +185,10 @@ const EventsSection: React.FC = () => {
     }
   }, [user, filter]);
 
-  const handleSelectFilter = (newFilter: 'Upcoming' | 'Past') => {
+  const handleSelectFilter = (newFilter: "Upcoming" | "Past") => {
     setFilter(newFilter);
     setModalVisible(false);
-  }
+  };
 
   return (
     <View style={styles.section}>
@@ -204,12 +205,22 @@ const EventsSection: React.FC = () => {
         visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
       >
-        <TouchableOpacity style={styles.modalContainer} activeOpacity={1} onPressOut={() => setModalVisible(false)}>
+        <TouchableOpacity
+          style={styles.modalContainer}
+          activeOpacity={1}
+          onPressOut={() => setModalVisible(false)}
+        >
           <View style={styles.modalContent}>
-            <TouchableOpacity onPress={() => handleSelectFilter('Upcoming')} style={styles.modalOption}>
+            <TouchableOpacity
+              onPress={() => handleSelectFilter("Upcoming")}
+              style={styles.modalOption}
+            >
               <Text style={styles.modalOptionText}>Upcoming</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleSelectFilter('Past')} style={styles.modalOption}>
+            <TouchableOpacity
+              onPress={() => handleSelectFilter("Past")}
+              style={styles.modalOption}
+            >
               <Text style={styles.modalOptionText}>Past</Text>
             </TouchableOpacity>
           </View>
@@ -228,7 +239,9 @@ const EventsSection: React.FC = () => {
         </ScrollView>
       ) : (
         <View style={styles.placeholderContainer}>
-          <Text style={styles.placeholderText}>No {filter.toLowerCase()} events yet.</Text>
+          <Text style={styles.placeholderText}>
+            No {filter.toLowerCase()} events yet.
+          </Text>
           <Text style={styles.placeholderSubText}>
             Create an event or join one!
           </Text>
@@ -315,16 +328,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
   },
   scrollViewContent: {
-    paddingBottom: 80, 
+    paddingBottom: 80,
   },
   section: {
     paddingHorizontal: 20,
     paddingVertical: 10,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 10,
   },
   sectionTitle: {
@@ -355,16 +368,16 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   modalContent: {
-    backgroundColor: '#222',
+    backgroundColor: "#222",
     borderRadius: 10,
     padding: 10,
-    width: '60%',
-    shadowColor: '#000',
+    width: "60%",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
@@ -372,10 +385,10 @@ const styles = StyleSheet.create({
   },
   modalOption: {
     paddingVertical: 15,
-    alignItems: 'center',
+    alignItems: "center",
   },
   modalOptionText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 18,
   },
 });

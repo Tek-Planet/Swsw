@@ -42,7 +42,8 @@ export function listenAlbumPhotos(
 ): Unsubscribe {
   const photosQuery = query(
     collection(db, "events", eventId, "albums", albumId, "photos"),
-    orderBy("createdAt", "desc")
+    orderBy("createdAt", "desc"),
+    limit(6)
   );
 
   return onSnapshot(photosQuery, (snapshot) => {

@@ -58,7 +58,6 @@ const EventsScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
       <AppHeader
         title={`${filter} Events`}
         rightChild={
@@ -111,11 +110,11 @@ const EventsScreen: React.FC = () => {
         </View>
       )}
 
-      <Link href={{ pathname: "/" }} asChild>
+      {/* <Link href={{ pathname: "/" }} asChild>
         <TouchableOpacity style={styles.fab}>
           <Ionicons name="add" size={30} color="white" />
         </TouchableOpacity>
-      </Link>
+      </Link> */}
     </View>
   );
 };

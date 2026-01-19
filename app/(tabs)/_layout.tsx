@@ -1,15 +1,20 @@
-
-import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
-import React from 'react';
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import { Tabs } from "expo-router";
+import React from "react";
+import {
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 const CustomTabBar = ({ state, descriptors, navigation }: any) => {
   const iconMap: { [key: string]: [string, string] } = {
-    index: ['home', 'home-outline'],
-    buds: ['people', 'people-outline'],
-    events: ['calendar', 'calendar-outline'],
-    profile: ['person', 'person-outline'],
+    index: ["home", "home-outline"],
+    buds: ["people", "people-outline"],
+    events: ["calendar", "calendar-outline"],
+    profile: ["person", "person-outline"],
   };
 
   return (
@@ -21,7 +26,7 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
 
         const onPress = () => {
           const event = navigation.emit({
-            type: 'tabPress',
+            type: "tabPress",
             target: route.key,
             canPreventDefault: true,
           });
@@ -31,7 +36,10 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
           }
         };
 
-        const [focusedIcon, unfocusedIcon] = iconMap[route.name] || ['help-circle', 'help-circle-outline'];
+        const [focusedIcon, unfocusedIcon] = iconMap[route.name] || [
+          "help-circle",
+          "help-circle-outline",
+        ];
         const iconName = isFocused ? focusedIcon : unfocusedIcon;
 
         return (
@@ -40,8 +48,14 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
             onPress={onPress}
             style={styles.tabItem}
           >
-            <Ionicons name={iconName as any} size={25} color={isFocused ? '#6c63ff' : '#fff'} />
-            <Text style={{ color: isFocused ? '#6c63ff' : '#fff', fontSize: 12 }}>
+            <Ionicons
+              name={iconName as any}
+              size={25}
+              color={isFocused ? "#6c63ff" : "#fff"}
+            />
+            <Text
+              style={{ color: isFocused ? "#6c63ff" : "#fff", fontSize: 12 }}
+            >
               {label}
             </Text>
           </TouchableOpacity>
@@ -54,27 +68,39 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
 const TabLayout = () => {
   return (
     <Tabs tabBar={(props) => <CustomTabBar {...props} />}>
-      <Tabs.Screen name="index" options={{ title: 'Home', headerShown: false }} />
-      <Tabs.Screen name="buds" options={{ title: 'Buds', headerShown: false }} />
-      <Tabs.Screen name="events" options={{ title: 'Events', headerShown: false }} />
-      <Tabs.Screen name="profile" options={{ title: 'Profile', headerShown: false }} />
+      <Tabs.Screen
+        name="index"
+        options={{ title: "Home", headerShown: false }}
+      />
+      <Tabs.Screen
+        name="buds"
+        options={{ title: "Buds", headerShown: false }}
+      />
+      <Tabs.Screen
+        name="events"
+        options={{ title: "Events", headerShown: false }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{ title: "Profile", headerShown: false }}
+      />
     </Tabs>
   );
 };
 
 const styles = StyleSheet.create({
   tabBar: {
-    flexDirection: 'row',
+    flexDirection: "row",
     height: 80,
-    backgroundColor: '#1a1a1a',
-    borderTopColor: '#333',
+    backgroundColor: "#1a1a1a",
+    borderTopColor: "#333",
     borderTopWidth: 1,
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    marginBottom:Platform.OS == 'android' ?10:0
+    justifyContent: "space-around",
+    alignItems: "center",
+    paddingBottom: 25,
   },
   tabItem: {
-    alignItems: 'center',
+    alignItems: "center",
   },
 });
 

@@ -152,7 +152,7 @@ const PhotoAlbum: React.FC<Props> = ({ eventId }) => {
     <View style={styles.container}>
       <View style={styles.headerContainer}>
         <Text style={styles.title}>Photo Album</Text>
-        <View style={styles.iconsContainer}>
+        {/* <View style={styles.iconsContainer}>
           <TouchableOpacity onPress={handlePickFromCamera} disabled={uploading}>
             <Ionicons name="camera-outline" size={28} color="#A855F7" />
           </TouchableOpacity>
@@ -163,7 +163,7 @@ const PhotoAlbum: React.FC<Props> = ({ eventId }) => {
           >
             <Ionicons name="images-outline" size={28} color="#A855F7" />
           </TouchableOpacity>
-        </View>
+        </View> */}
       </View>
 
       {uploading && (
@@ -191,12 +191,6 @@ const PhotoAlbum: React.FC<Props> = ({ eventId }) => {
                   source={{ uri: item.thumbUrl || item.url }}
                   style={styles.thumbnail}
                 />
-                {item.recognizedUserIds &&
-                  item.recognizedUserIds.includes(userId ?? "") && (
-                    <View style={styles.tagOverlay}>
-                      <Text style={styles.tagText}>innit</Text>
-                    </View>
-                  )}
               </View>
             )}
             contentContainerStyle={styles.grid}
