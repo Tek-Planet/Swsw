@@ -272,3 +272,183 @@ export const onPhotoCreated = functions.firestore
 
     return null;
   });
+
+export const adminRunEventFaceRecognition = functions.https.onCall(
+  async (data, context) => {
+    if (!context.auth || !context.auth.token?.admin) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "Only admins can run face recognition manually."
+      );
+    }
+
+    const {
+      eventId,
+      albumId,
+      limit = 20,
+    } = data as {
+      eventId: string;
+      albumId?: string;
+      limit?: number;
+    };
+
+    if (!eventId) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "eventId is required."
+      );
+    }
+
+    try {
+      let query: FirebaseFirestore.Query<FirebaseFirestore.DocumentData>;
+
+      if (albumId) {
+        // Scoped to one album inside the event
+        query = admin
+          .firestore()
+          .collection("events")
+          .doc(eventId)
+          .collection("albums")
+          .doc(albumId)
+          .collection("photos")
+          .where("recognitionProcessedAt", "==", null)
+          .orderBy("createdAt", "desc")
+          .limit(Math.min(limit, 50));
+      } else {
+        // All albums in the event
+        query = admin
+          .firestore()
+          .collectionGroup("photos")
+          .where("eventId", "==", eventId)
+          .where("recognitionProcessedAt", "==", null)
+          .orderBy("createdAt", "desc")
+          .limit(Math.min(limit, 50));
+      }
+
+      const snap = await query.get();
+      if (snap.empty) {
+        return {
+          processed: 0,
+          message: "No unprocessed photos found for this event.",
+        };
+      }
+
+      let processedCount = 0;
+
+      for (const doc of snap.docs) {
+        const photo = doc.data();
+        const photoId = doc.id;
+
+        if (!photo || !isNonEmptyString(photo.s3Key)) continue;
+
+        const url = `https://${s3Bucket}.s3.${
+          functions.config().aws.region
+        }.amazonaws.com/${photo.s3Key}`;
+        const updateData: any = { url, thumbUrl: url };
+
+        try {
+          // Index faces temporarily
+          const indexResponse = await rekognition
+            .indexFaces({
+              CollectionId: rekognitionCollectionId,
+              ExternalImageId: `temp-${photoId}`,
+              DetectionAttributes: ["DEFAULT"],
+              Image: { S3Object: { Bucket: s3Bucket, Name: photo.s3Key } },
+            })
+            .promise();
+
+          if (
+            !indexResponse.FaceRecords ||
+            indexResponse.FaceRecords.length === 0
+          ) {
+            await doc.ref.update(updateData);
+            continue;
+          }
+
+          const recognizedUserIds: string[] = [];
+
+          for (const faceRecord of indexResponse.FaceRecords) {
+            const faceId = faceRecord.Face?.FaceId;
+            if (!isNonEmptyString(faceId)) continue;
+
+            const searchResponse = await rekognition
+              .searchFaces({
+                CollectionId: rekognitionCollectionId,
+                FaceId: faceId,
+                FaceMatchThreshold: 60,
+                MaxFaces: 5,
+              })
+              .promise();
+
+            if (
+              searchResponse.FaceMatches &&
+              searchResponse.FaceMatches.length > 0
+            ) {
+              const matches = searchResponse.FaceMatches.map(
+                (m) => m.Face?.ExternalImageId
+              ).filter(isNonEmptyString);
+              recognizedUserIds.push(...matches);
+            }
+          }
+
+          // Clean up temp faces
+          const tempFaceIds = indexResponse.FaceRecords.map(
+            (rec) => rec.Face?.FaceId
+          ).filter(isNonEmptyString);
+          if (tempFaceIds.length > 0) {
+            await rekognition
+              .deleteFaces({
+                CollectionId: rekognitionCollectionId,
+                FaceIds: tempFaceIds,
+              })
+              .promise();
+          }
+
+          if (recognizedUserIds.length > 0) {
+            updateData.recognizedUserIds = recognizedUserIds;
+            updateData.recognitionProcessedAt =
+              admin.firestore.FieldValue.serverTimestamp();
+
+            const batch = admin.firestore().batch();
+            for (const userId of recognizedUserIds) {
+              const userPhotoRef = admin
+                .firestore()
+                .collection("user_photos")
+                .doc(userId)
+                .collection("my_photos")
+                .doc(photoId);
+
+              batch.set(
+                userPhotoRef,
+                {
+                  originalPhotoId: photoId,
+                  eventId,
+                  photoS3Key: photo.s3Key,
+                  createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                },
+                { merge: true }
+              );
+            }
+            await batch.commit();
+          }
+
+          await doc.ref.update(updateData);
+          processedCount++;
+        } catch (err) {
+          console.error(`Manual recognition failed for photo ${photoId}`, err);
+        }
+      }
+
+      return {
+        processed: processedCount,
+        message: `Processed ${processedCount} photos for event ${eventId}.`,
+      };
+    } catch (error) {
+      console.error("Admin face recognition run failed:", error);
+      throw new functions.https.HttpsError(
+        "internal",
+        "Failed to run face recognition."
+      );
+    }
+  }
+);

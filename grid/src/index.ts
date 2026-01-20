@@ -4,8 +4,14 @@ import { admin, db } from "./lib/firebase";
 
 // Import the new matching function
 import { processSurveyAndFindMatches } from "./matching";
-import { onPhotoCreated, indexUserProfilePicture } from "./face-recognition";
-import { generateS3UploadUrl } from "./s3-uploads";
+import {
+  indexUserProfilePicture,
+  adminRunEventFaceRecognition,
+} from "./face-recognition";
+import {
+  generateS3UploadUrl,
+  adminGenerateBatchS3UploadUrls,
+} from "./s3-uploads";
 
 const stripe = new Stripe(functions.config().stripe.secret_key, {
   apiVersion: "2023-10-16",
@@ -16,9 +22,10 @@ const stripe = new Stripe(functions.config().stripe.secret_key, {
 //================================================================================
 
 export { processSurveyAndFindMatches };
-export { onPhotoCreated };
 export { indexUserProfilePicture };
 export { generateS3UploadUrl };
+export { adminRunEventFaceRecognition };
+export { adminGenerateBatchS3UploadUrls };
 
 type SelectedTiers = Record<string, number>;
 
@@ -31,6 +38,77 @@ type SelectedTiers = Record<string, number>;
  */
 function assertPositiveInt(n: unknown): n is number {
   return typeof n === "number" && Number.isInteger(n) && n > 0;
+}
+
+/**
+ * Validates a promo code from Firestore (non-GRIDVIP codes).
+ */
+async function validatePromoCode(eventId: string, code: string) {
+  const promoQuery = db
+    .collection("promoCodes")
+    .where("eventId", "==", eventId)
+    .where("code", "==", code);
+
+  const snapshot = await promoQuery.get();
+
+  if (snapshot.empty) {
+    return { ok: false as const, reason: "not_found" };
+  }
+
+  const promoDoc = snapshot.docs[0];
+  const promoData = promoDoc.data();
+
+  if (!promoData.isActive) {
+    return { ok: false as const, reason: "inactive" };
+  }
+
+  const maxRedemptions = promoData.maxRedemptions ?? 0;
+  const currentRedemptions = promoData.currentRedemptions ?? 0;
+
+  if (maxRedemptions > 0 && currentRedemptions >= maxRedemptions) {
+    return { ok: false as const, reason: "max_reached" };
+  }
+
+  return {
+    ok: true as const,
+    promoId: promoDoc.id,
+    discountType: promoData.discountType as "percent" | "fixed" | "free",
+    discountValue: promoData.discountValue ?? 0,
+  };
+}
+
+/**
+ * Calculates the discount amount based on promo type.
+ */
+function calculateDiscount(
+  discountType: "percent" | "fixed" | "free",
+  discountValue: number,
+  total: number
+): number {
+  switch (discountType) {
+    case "free":
+      return total;
+    case "percent":
+      return Math.round((total * discountValue) / 100);
+    case "fixed":
+      return Math.min(discountValue, total);
+    default:
+      return 0;
+  }
+}
+
+/**
+ * Increments the redemption count for a promo code.
+ */
+async function incrementPromoRedemption(
+  tx: admin.firestore.Transaction,
+  promoId: string
+) {
+  const promoRef = db.collection("promoCodes").doc(promoId);
+  tx.update(promoRef, {
+    currentRedemptions: admin.firestore.FieldValue.increment(1),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
 }
 
 /**
@@ -54,7 +132,7 @@ async function _calculateOrderDetails(
     );
   }
 
-  // [NEW] Get dynamic fee and currency, with defaults for safety
+  // Get dynamic fee and currency, with defaults for safety
   const bookingFeePercent = event.bookingFeePercent ?? 10;
   const currency = event.currency ?? "INR";
 
@@ -145,7 +223,7 @@ async function _calculateOrderDetails(
     }
   }
 
-  // [MODIFIED] Calculate processing fee using dynamic percentage
+  // Calculate processing fee using dynamic percentage
   const processingFee =
     feeBase > 0 ? Math.round(feeBase * (bookingFeePercent / 100)) : 0;
   const total = subtotalCharged + processingFee;
@@ -170,7 +248,7 @@ async function _calculateOrderDetails(
  */
 async function _fulfillOrder(
   tx: admin.firestore.Transaction,
-  { eventId, eventRef, userId, orderId, items, promoCode }: any
+  { eventId, eventRef, userId, orderId, items, promoCode, promoCodeId }: any
 ) {
   const now = admin.firestore.FieldValue.serverTimestamp();
   const orderRef = db.doc(`orders/${orderId}`);
@@ -220,6 +298,9 @@ async function _fulfillOrder(
       },
       { merge: true }
     );
+  } else if (promoCodeId) {
+    // Increment redemption for non-GRIDVIP codes
+    await incrementPromoRedemption(tx, promoCodeId);
   }
 }
 
@@ -244,7 +325,7 @@ async function validateGridVip(eventId: string) {
 //================================================================================
 
 /**
- * [NEW] Creates a Payment Intent for use with the mobile app's Payment Sheet.
+ * Creates a Payment Intent for use with the mobile app's Payment Sheet.
  */
 export const createPaymentIntent = functions.https.onCall(
   async (data, context) => {
@@ -269,7 +350,6 @@ export const createPaymentIntent = functions.https.onCall(
       );
     }
 
-    // [CORRECTED] Removed unused `bookingFeePercent` from destructuring
     const {
       event,
       eventRef,
@@ -285,6 +365,8 @@ export const createPaymentIntent = functions.https.onCall(
     const normalizedPromo = (promoCode || "").trim().toUpperCase();
     const isGridVip = normalizedPromo === "GRIDVIP2207";
     let appliedPromo: string | null = null;
+    let promoCodeId: string | null = null;
+    let discountAmount = 0;
 
     if (isGridVip) {
       const promo = await validateGridVip(eventId);
@@ -295,9 +377,27 @@ export const createPaymentIntent = functions.https.onCall(
         );
       }
       appliedPromo = "GRIDVIP2207";
+      discountAmount = total; // GRIDVIP is always free
+    } else if (normalizedPromo) {
+      // Validate other promo codes from Firestore
+      const promo = await validatePromoCode(eventId, normalizedPromo);
+      if (!promo.ok) {
+        throw new functions.https.HttpsError(
+          "failed-precondition",
+          "Invalid or expired promo code."
+        );
+      }
+      appliedPromo = normalizedPromo;
+      promoCodeId = promo.promoId;
+      discountAmount = calculateDiscount(
+        promo.discountType,
+        promo.discountValue,
+        total
+      );
     }
 
-    const shouldBypassStripe = appliedPromo === "GRIDVIP2207" || total === 0;
+    const finalTotal = Math.max(0, total - discountAmount);
+    const shouldBypassStripe = finalTotal === 0;
     const orderId = db.collection("_").doc().id;
     const now = admin.firestore.FieldValue.serverTimestamp();
 
@@ -311,9 +411,11 @@ export const createPaymentIntent = functions.https.onCall(
       subtotal: subtotalCharged,
       feeBase,
       processingFee: shouldBypassStripe ? 0 : processingFee,
-      total: shouldBypassStripe ? 0 : total,
-      currency, // [MODIFIED] Use dynamic currency
+      total: finalTotal,
+      discount: discountAmount,
+      currency,
       promoCode: appliedPromo,
+      promoCodeId,
       status: shouldBypassStripe ? "paid" : "pending",
       paymentMethod: "stripe_payment_sheet",
       createdAt: now,
@@ -331,6 +433,7 @@ export const createPaymentIntent = functions.https.onCall(
           orderId,
           items: itemsForOrder,
           promoCode: appliedPromo,
+          promoCodeId,
         });
       });
       return {
@@ -344,8 +447,8 @@ export const createPaymentIntent = functions.https.onCall(
     await db.doc(`orders/${orderId}`).set(orderDoc);
 
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(orderDoc.total * 100),
-      currency, // [MODIFIED] Use dynamic currency
+      amount: Math.round(finalTotal * 100),
+      currency,
       automatic_payment_methods: {
         enabled: true,
       },
@@ -375,7 +478,7 @@ export const createPaymentIntent = functions.https.onCall(
 );
 
 /**
- * [NEW] Updates an order with table contact details. This is callable by EITHER web or mobile.
+ * Updates an order with table contact details. This is callable by EITHER web or mobile.
  */
 export const updateOrderContactDetails = functions.https.onCall(
   async (data, context) => {
@@ -444,7 +547,7 @@ export const updateOrderContactDetails = functions.https.onCall(
     } catch (error) {
       console.error("Error updating contact details:", error);
       if (error instanceof functions.https.HttpsError) {
-        throw error; // Re-throw HttpsError directly
+        throw error;
       }
       throw new functions.https.HttpsError(
         "internal",
@@ -463,145 +566,242 @@ export const helloWorld = functions.https.onRequest((_req, res) => {
  */
 export const createCheckoutSession = functions.https.onCall(
   async (data, context) => {
-    if (!context.auth) {
-      throw new functions.https.HttpsError(
-        "unauthenticated",
-        "Must be logged in."
-      );
-    }
-    const uid = context.auth.uid;
+    const { eventId, selectedTiers, promoCode } = data;
 
-    const { eventId, selectedTiers, promoCode } = data as {
-      eventId?: string;
-      selectedTiers?: SelectedTiers;
-      promoCode?: string;
-    };
     if (!eventId || !selectedTiers) {
       throw new functions.https.HttpsError(
         "invalid-argument",
-        "Missing eventId or selectedTiers."
+        "Missing required fields"
       );
     }
 
-    const {
-      event,
-      eventRef,
-      itemsForOrder,
-      subtotalCharged,
-      feeBase,
-      processingFee,
-      total,
-      currency,
-      bookingFeePercent,
-    } = await _calculateOrderDetails(eventId, selectedTiers);
+    const userId = context.auth?.uid;
+    if (!userId) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "User must be logged in"
+      );
+    }
 
-    // Promo handling
-    const normalizedPromo = (promoCode || "").trim().toUpperCase();
-    const isGridVip = normalizedPromo === "GRIDVIP2207";
-    let appliedPromo: string | null = null;
-    if (isGridVip) {
-      const promo = await validateGridVip(eventId);
-      if (!promo.ok) {
+    // Get event details
+    const eventDoc = await db.collection("events").doc(eventId).get();
+    if (!eventDoc.exists) {
+      throw new functions.https.HttpsError("not-found", "Event not found");
+    }
+    const eventData = eventDoc.data()!;
+    const eventTitle = eventData.title || "Event";
+    const currency = (eventData.currency || "INR").toUpperCase();
+    const feePercent = eventData.bookingFeePercent ?? 10;
+
+    // Get ticket tiers
+    const tiersSnapshot = await db
+      .collection("events")
+      .doc(eventId)
+      .collection("ticketTiers")
+      .get();
+
+    const tiers: Record<string, any> = {};
+    tiersSnapshot.forEach((doc) => {
+      tiers[doc.id] = { id: doc.id, ...doc.data() };
+    });
+
+    // Calculate totals
+    let subtotal = 0;
+    let feeBase = 0;
+    const items: any[] = [];
+
+    for (const [tierId, qty] of Object.entries(selectedTiers)) {
+      const quantity = typeof qty === "number" ? qty : (qty as any).quantity;
+      if (!quantity || quantity <= 0) continue;
+
+      const tier = tiers[tierId];
+      if (!tier) {
         throw new functions.https.HttpsError(
-          "failed-precondition",
-          "Invalid or expired promo code."
+          "not-found",
+          `Tier ${tierId} not found`
         );
       }
-      appliedPromo = "GRIDVIP2207";
+
+      const chargeAmount =
+        tier.type === "table" && tier.chargeAmount !== undefined
+          ? tier.chargeAmount
+          : tier.price;
+
+      subtotal += chargeAmount * quantity;
+
+      // Only tickets and addons contribute to fee base
+      if (tier.type !== "table") {
+        feeBase += chargeAmount * quantity;
+      }
+
+      items.push({
+        tierId,
+        tierName: tier.name,
+        tierType: tier.type || "ticket",
+        price: tier.price,
+        chargeAmount,
+        quantity,
+      });
     }
 
-    const shouldBypassStripe = appliedPromo === "GRIDVIP2207" || total === 0;
-    const orderId = db.collection("_").doc().id;
-    const now = admin.firestore.FieldValue.serverTimestamp();
+    const processingFee = Math.round(feeBase * (feePercent / 100));
+    const total = subtotal + processingFee;
 
-    const orderDoc: any = {
-      orderId,
+    // Validate promo code
+    let discountAmount = 0;
+    let promoCodeId: string | null = null;
+    let validatedPromoCode: string | null = null;
+
+    if (promoCode) {
+      const upperCode = promoCode.trim().toUpperCase();
+
+      // Check legacy hardcoded code first
+      if (upperCode === "GRIDVIP2207") {
+        discountAmount = total;
+        validatedPromoCode = upperCode;
+      } else {
+        // Query Firestore for promo code
+        const promoData = await validatePromoCode(eventId, upperCode);
+        if (promoData && promoData.discountType) {
+          discountAmount = calculateDiscount(
+            promoData.discountType,
+            promoData.discountValue,
+            total
+          );
+          promoCodeId = promoData.promoId;
+          validatedPromoCode = upperCode;
+        }
+      }
+    }
+
+    const finalTotal = Math.max(0, total - discountAmount);
+
+    // Create order document first
+    const orderRef = db.collection("orders").doc();
+    const orderData: Record<string, any> = {
+      userId,
       eventId,
-      eventTitle: event.title || "Event",
-      userId: uid,
-      items: itemsForOrder,
-      subtotal: subtotalCharged,
+      eventTitle,
+      items,
+      subtotal,
       feeBase,
-      processingFee: shouldBypassStripe ? 0 : processingFee,
-      total: shouldBypassStripe ? 0 : total,
+      processingFee,
+      total: finalTotal,
       currency,
-      promoCode: appliedPromo,
-      status: shouldBypassStripe ? "paid" : "pending",
+      status: "pending",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
       paymentMethod: "stripe_checkout",
-      createdAt: now,
-      updatedAt: now,
+     
     };
 
-    if (shouldBypassStripe) {
-      await db.runTransaction(async (tx) => {
-        tx.set(db.doc(`orders/${orderId}`), orderDoc);
-        await _fulfillOrder(tx, {
-          eventId,
-          eventRef,
-          userId: uid,
-          orderId,
-          items: itemsForOrder,
-          promoCode: appliedPromo,
-        });
-      });
-      return {
-        orderId,
-        vip: appliedPromo === "GRIDVIP2207",
-        free: total === 0,
-      };
+    // Add discount info if applicable
+    if (discountAmount > 0) {
+      orderData.discount = discountAmount;
+      orderData.promoCode = validatedPromoCode;
+      if (promoCodeId) {
+        orderData.promoCodeId = promoCodeId;
+      }
     }
 
-    const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] =
-      itemsForOrder
-        .filter((item) => item.chargeAmount > 0)
-        .map((item) => ({
-          price_data: {
-            currency: currency.toLowerCase(),
-            product_data: { name: `${event.title} - ${item.name}` },
-            unit_amount: Math.round(item.chargeAmount * 100),
-          },
-          quantity: item.quantity,
-        }));
+    // Handle free orders (after discount)
+    if (finalTotal === 0) {
+      orderData.status = "paid";
+      orderData.paidAt = admin.firestore.FieldValue.serverTimestamp();
 
+      await db.runTransaction(async (tx) => {
+        tx.set(orderRef, orderData);
+
+        // Update quantities
+        for (const item of items) {
+          const tierRef = db
+            .collection("events")
+            .doc(eventId)
+            .collection("ticketTiers")
+            .doc(item.tierId);
+          tx.update(tierRef, {
+            quantitySold: admin.firestore.FieldValue.increment(item.quantity),
+          });
+        }
+
+        // Increment promo redemption if not legacy code
+        if (promoCodeId) {
+          incrementPromoRedemption(tx, promoCodeId);
+        }
+      });
+
+      return { orderId: orderRef.id, free: true };
+    }
+
+    // Save pending order
+    await orderRef.set(orderData);
+
+    // Build Stripe line items
+    const line_items: any[] = [];
+
+    for (const item of items) {
+      line_items.push({
+        price_data: {
+          currency: currency.toLowerCase(),
+          unit_amount: Math.round(item.chargeAmount * 100),
+          product_data: {
+            name: item.tierName,
+            description: `${eventTitle} - ${item.tierType}`,
+          },
+        },
+        quantity: item.quantity,
+      });
+    }
+
+    // Add processing fee line item
     if (processingFee > 0) {
       line_items.push({
         price_data: {
           currency: currency.toLowerCase(),
-          product_data: { name: `Processing fee (${bookingFeePercent}%)` },
           unit_amount: Math.round(processingFee * 100),
+          product_data: {
+            name: "Processing Fee",
+            description: "Booking and processing fee",
+          },
         },
         quantity: 1,
       });
     }
 
-    await db.doc(`orders/${orderId}`).set(orderDoc);
-
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      payment_method_types: ["card"],
-      line_items,
-      success_url: `${functions.config().app.url}/success?orderId=${orderId}`,
-      cancel_url: `${functions.config().app.url}/cancel?orderId=${orderId}`,
-      metadata: { orderId, eventId, userId: uid },
-    });
-
-    if (!session.url) {
-      throw new functions.https.HttpsError(
-        "internal",
-        "Stripe session URL missing."
-      );
+    // Create Stripe coupon for discount (if applicable)
+    let discountCoupon: string | undefined;
+    if (discountAmount > 0) {
+      const coupon = await stripe.coupons.create({
+        amount_off: Math.round(discountAmount * 100),
+        currency: currency.toLowerCase(),
+        duration: "once",
+        name: `Promo: ${validatedPromoCode}`,
+      });
+      discountCoupon = coupon.id;
     }
 
-    await db
-      .doc(`orders/${orderId}`)
-      .set({ stripeSessionId: session.id, updatedAt: now }, { merge: true });
+    // Create Stripe checkout session
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      line_items,
+      mode: "payment",
+      success_url: `${functions.config().app.url}/success?orderId=${
+        orderRef.id
+      }`,
+      cancel_url: `${functions.config().app.url}/cancel?orderId=${orderRef.id}`,
+      metadata: {
+        orderId: orderRef.id,
+        userId: userId,
+        eventId: eventId,
+      },
+      ...(discountCoupon && { discounts: [{ coupon: discountCoupon }] }),
+    });
 
-    return { url: session.url, orderId };
+    return { url: session.url, orderId: orderRef.id };
   }
 );
 
 /**
- * [CORRECTED] Handles direct Google Pay charges, ensuring consistent data saving.
+ * [CORRECTED] Handles direct Google Pay charges with promo code support.
  */
 export const gpayCharge = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -620,7 +820,6 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
     );
   }
 
-  // [CORRECTED] Removed unused `bookingFeePercent` from destructuring
   const {
     event,
     eventRef,
@@ -631,18 +830,84 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
     total,
     currency,
   } = await _calculateOrderDetails(eventId, selectedTiers);
+
+  // --- Promo Code Logic ---
+  const normalizedPromo = (promoCode || "").trim().toUpperCase();
+  const isGridVip = normalizedPromo === "GRIDVIP2207";
+  let appliedPromo: string | null = null;
+  let promoCodeId: string | null = null;
+  let discountAmount = 0;
+
+  if (isGridVip) {
+    const promo = await validateGridVip(eventId);
+    if (!promo.ok) {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "Invalid or expired promo code."
+      );
+    }
+    appliedPromo = "GRIDVIP2207";
+    discountAmount = total;
+  } else if (normalizedPromo) {
+    const promo = await validatePromoCode(eventId, normalizedPromo);
+    if (!promo.ok) {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "Invalid or expired promo code."
+      );
+    }
+    appliedPromo = normalizedPromo;
+    promoCodeId = promo.promoId;
+    discountAmount = calculateDiscount(
+      promo.discountType,
+      promo.discountValue,
+      total
+    );
+  }
+
+  const finalTotal = Math.max(0, total - discountAmount);
   const orderId = db.collection("_").doc().id;
 
-  if (total === 0) {
-    throw new functions.https.HttpsError(
-      "invalid-argument",
-      "Free orders should use the standard checkout flow, not Google Pay."
-    );
+  // If discount makes the order free, bypass Stripe
+  if (finalTotal === 0) {
+    await db.runTransaction(async (tx) => {
+      const now = admin.firestore.FieldValue.serverTimestamp();
+      const orderDoc = {
+        orderId,
+        eventId,
+        eventTitle: event.title || "Event",
+        userId: uid,
+        items: itemsForOrder,
+        subtotal: subtotalCharged,
+        feeBase,
+        processingFee: 0,
+        total: 0,
+        discount: discountAmount,
+        currency,
+        promoCode: appliedPromo,
+        promoCodeId,
+        status: "paid",
+        paymentMethod: "gpay_direct",
+        createdAt: now,
+        updatedAt: now,
+      };
+      tx.set(db.doc(`orders/${orderId}`), orderDoc);
+      await _fulfillOrder(tx, {
+        eventId,
+        eventRef,
+        userId: uid,
+        orderId,
+        items: itemsForOrder,
+        promoCode: appliedPromo,
+        promoCodeId,
+      });
+    });
+    return { success: true, orderId, free: true };
   }
 
   try {
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(total * 100),
+      amount: Math.round(finalTotal * 100),
       currency: currency.toLowerCase(),
       payment_method_data: {
         type: "card",
@@ -668,11 +933,13 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
           userId: uid,
           items: itemsForOrder,
           subtotal: subtotalCharged,
-          feeBase: feeBase,
-          processingFee: processingFee,
-          total,
+          feeBase,
+          processingFee,
+          total: finalTotal,
+          discount: discountAmount,
           currency,
-          promoCode,
+          promoCode: appliedPromo,
+          promoCodeId,
           status: "paid",
           paymentMethod: "gpay_direct",
           stripePaymentIntentId: paymentIntent.id,
@@ -686,7 +953,8 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
           userId: uid,
           orderId,
           items: itemsForOrder,
-          promoCode,
+          promoCode: appliedPromo,
+          promoCodeId,
         });
       });
       return { success: true, orderId };
@@ -754,6 +1022,7 @@ export const stripeWebhook = functions.https.onRequest(async (req, res) => {
           orderId,
           items: order.items,
           promoCode: order.promoCode,
+          promoCodeId: order.promoCodeId,
         });
       });
     }
@@ -798,18 +1067,4 @@ export const setAdminStatus = functions.https.onCall(async (data, context) => {
   }
 });
 
-/**
- * Temporary admin setup function.
- */
-export const tempSetAdmins = functions.https.onRequest(async (_req, res) => {
-  const uids = [""];
-  try {
-    await Promise.all(
-      uids.map((uid) => admin.auth().setCustomUserClaims(uid, { admin: true }))
-    );
-    res.send("Admins set!");
-  } catch (error) {
-    console.error("Failed to set admins:", error);
-    res.status(500).send("Error setting admins");
-  }
-});
+
