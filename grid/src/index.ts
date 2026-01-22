@@ -2,7 +2,6 @@ import * as functions from "firebase-functions/v1";
 import Stripe from "stripe";
 import { admin, db } from "./lib/firebase";
 
-// Import the new matching function
 import { processSurveyAndFindMatches } from "./matching";
 import {
   indexUserProfilePicture,
@@ -17,10 +16,6 @@ const stripe = new Stripe(functions.config().stripe.secret_key, {
   apiVersion: "2023-10-16",
 } as any);
 
-//================================================================================
-// EXPORT FUNCTIONS
-//================================================================================
-
 export { processSurveyAndFindMatches };
 export { indexUserProfilePicture };
 export { generateS3UploadUrl };
@@ -28,21 +23,20 @@ export { adminRunEventFaceRecognition };
 export { adminGenerateBatchS3UploadUrls };
 
 type SelectedTiers = Record<string, number>;
+interface AttendeeInfo {
+  name: string;
+  email: string;
+  phone: string;
+}
 
 //================================================================================
 // HELPER FUNCTIONS
 //================================================================================
 
-/**
- * Helper to assert that a value is a positive integer.
- */
 function assertPositiveInt(n: unknown): n is number {
   return typeof n === "number" && Number.isInteger(n) && n > 0;
 }
 
-/**
- * Validates a promo code from Firestore (non-GRIDVIP codes).
- */
 async function validatePromoCode(eventId: string, code: string) {
   const promoQuery = db
     .collection("promoCodes")
@@ -50,21 +44,15 @@ async function validatePromoCode(eventId: string, code: string) {
     .where("code", "==", code);
 
   const snapshot = await promoQuery.get();
-
-  if (snapshot.empty) {
-    return { ok: false as const, reason: "not_found" };
-  }
+  if (snapshot.empty) return { ok: false as const, reason: "not_found" };
 
   const promoDoc = snapshot.docs[0];
   const promoData = promoDoc.data();
 
-  if (!promoData.isActive) {
-    return { ok: false as const, reason: "inactive" };
-  }
+  if (!promoData.isActive) return { ok: false as const, reason: "inactive" };
 
   const maxRedemptions = promoData.maxRedemptions ?? 0;
   const currentRedemptions = promoData.currentRedemptions ?? 0;
-
   if (maxRedemptions > 0 && currentRedemptions >= maxRedemptions) {
     return { ok: false as const, reason: "max_reached" };
   }
@@ -77,9 +65,6 @@ async function validatePromoCode(eventId: string, code: string) {
   };
 }
 
-/**
- * Calculates the discount amount based on promo type.
- */
 function calculateDiscount(
   discountType: "percent" | "fixed" | "free",
   discountValue: number,
@@ -97,9 +82,6 @@ function calculateDiscount(
   }
 }
 
-/**
- * Increments the redemption count for a promo code.
- */
 async function incrementPromoRedemption(
   tx: admin.firestore.Transaction,
   promoId: string
@@ -111,10 +93,6 @@ async function incrementPromoRedemption(
   });
 }
 
-/**
- * [REFACTORED] Calculates order details, totals, and fees based on selected tiers.
- * This logic is now shared between all checkout flows.
- */
 async function _calculateOrderDetails(
   eventId: string,
   selectedTiers: SelectedTiers
@@ -132,7 +110,6 @@ async function _calculateOrderDetails(
     );
   }
 
-  // Get dynamic fee and currency, with defaults for safety
   const bookingFeePercent = event.bookingFeePercent ?? 10;
   const currency = event.currency ?? "INR";
 
@@ -223,7 +200,6 @@ async function _calculateOrderDetails(
     }
   }
 
-  // Calculate processing fee using dynamic percentage
   const processingFee =
     feeBase > 0 ? Math.round(feeBase * (bookingFeePercent / 100)) : 0;
   const total = subtotalCharged + processingFee;
@@ -241,40 +217,54 @@ async function _calculateOrderDetails(
   };
 }
 
-/**
- * [REFACTORED] Marks an order as paid, updates inventory, and grants entitlements.
- * This is used by webhooks, free/VIP checkouts, and direct charges.
- * Operates within a Firestore transaction.
- */
+//================================================================================
+// REFACTORED FULFILL ORDER
+//================================================================================
+
 async function _fulfillOrder(
   tx: admin.firestore.Transaction,
-  { eventId, eventRef, userId, orderId, items, promoCode, promoCodeId }: any
+  {
+    eventId,
+    eventRef,
+    userId,
+    orderId,
+    items,
+    promoCodeId,
+    attendees,
+  }: {
+    eventId: string;
+    eventRef: FirebaseFirestore.DocumentReference;
+    userId: string;
+    orderId: string;
+    items: any[];
+    promoCodeId?: string | null;
+    attendees?: AttendeeInfo[];
+  }
 ) {
   const now = admin.firestore.FieldValue.serverTimestamp();
   const orderRef = db.doc(`orders/${orderId}`);
 
-  // 1. Update order status to paid
+  // 1. Mark order paid
   tx.set(orderRef, { status: "paid", updatedAt: now }, { merge: true });
 
-  // 2. Add attendee to the event's subcollection
+  // 2. Add purchaser to event attendeeIds array
   tx.update(eventRef, {
     attendeeIds: admin.firestore.FieldValue.arrayUnion(userId),
   });
 
+  // 3. Update ticket tiers
   const tiersCol = db
     .collection("events")
     .doc(eventId)
     .collection("ticketTiers");
 
   for (const item of items || []) {
-    // 3. Increment sold counts for each ticket tier
     tx.set(
       tiersCol.doc(item.tierId),
       { quantitySold: admin.firestore.FieldValue.increment(item.quantity) },
       { merge: true }
     );
 
-    // 4. Grant entitlement if a photo access addon was purchased
     if (
       item.type === "addon" &&
       String(item.name).toLowerCase().includes("photo")
@@ -287,37 +277,30 @@ async function _fulfillOrder(
     }
   }
 
-  // 5. Redeem promo code if one was used
-  if (promoCode === "GRIDVIP2207") {
-    const promoRef = db.collection("promoCodes").doc("GRIDVIP2207");
-    tx.set(
-      promoRef,
-      {
-        redeemedCount: admin.firestore.FieldValue.increment(1),
-        updatedAt: now,
-      },
-      { merge: true }
-    );
-  } else if (promoCodeId) {
-    // Increment redemption for non-GRIDVIP codes
+  // 4. Write attendees into event subcollection
+  if (attendees && attendees.length > 0) {
+    const attendeesCol = eventRef.collection("attendees");
+    attendees.forEach((attendee, idx) => {
+      const attendeeRef = attendeesCol.doc(`${orderId}_${idx}`);
+      tx.set(
+        attendeeRef,
+        {
+          orderId,
+          purchaserId: userId,
+          name: attendee.name,
+          email: attendee.email,
+          phone: attendee.phone,
+          createdAt: now,
+        },
+        { merge: true }
+      );
+    });
+  }
+
+  // 5. Redeem promo code if used
+  if (promoCodeId) {
     await incrementPromoRedemption(tx, promoCodeId);
   }
-}
-
-/**
- * Validates the GRIDVIP promo code.
- */
-async function validateGridVip(eventId: string) {
-  const ref = db.collection("promoCodes").doc("GRIDVIP2207");
-  const snap = await ref.get();
-  if (!snap.exists) return { ok: false as const };
-  const data = snap.data() as any;
-  if (data.isActive !== true) return { ok: false as const };
-  if (data.eventId && data.eventId !== eventId) return { ok: false as const };
-  const max = Number(data.maxRedemptions ?? 0);
-  const used = Number(data.redeemedCount ?? 0);
-  if (max > 0 && used >= max) return { ok: false as const };
-  return { ok: true as const };
 }
 
 //================================================================================
@@ -337,10 +320,11 @@ export const createPaymentIntent = functions.https.onCall(
     }
     const userId = context.auth.uid;
 
-    const { eventId, selectedTiers, promoCode } = data as {
+    const { eventId, selectedTiers, promoCode, attendees } = data as {
       eventId?: string;
       selectedTiers?: SelectedTiers;
       promoCode?: string;
+      attendees?: AttendeeInfo[];
     };
 
     if (!eventId || !selectedTiers) {
@@ -363,23 +347,11 @@ export const createPaymentIntent = functions.https.onCall(
 
     // --- Promo Code Logic ---
     const normalizedPromo = (promoCode || "").trim().toUpperCase();
-    const isGridVip = normalizedPromo === "GRIDVIP2207";
     let appliedPromo: string | null = null;
     let promoCodeId: string | null = null;
     let discountAmount = 0;
 
-    if (isGridVip) {
-      const promo = await validateGridVip(eventId);
-      if (!promo.ok) {
-        throw new functions.https.HttpsError(
-          "failed-precondition",
-          "Invalid or expired promo code."
-        );
-      }
-      appliedPromo = "GRIDVIP2207";
-      discountAmount = total; // GRIDVIP is always free
-    } else if (normalizedPromo) {
-      // Validate other promo codes from Firestore
+    if (normalizedPromo) {
       const promo = await validatePromoCode(eventId, normalizedPromo);
       if (!promo.ok) {
         throw new functions.https.HttpsError(
@@ -408,6 +380,7 @@ export const createPaymentIntent = functions.https.onCall(
       eventTitle: event.title || "Event",
       userId,
       items: itemsForOrder,
+      attendees, // NEW: store attendees
       subtotal: subtotalCharged,
       feeBase,
       processingFee: shouldBypassStripe ? 0 : processingFee,
@@ -422,7 +395,7 @@ export const createPaymentIntent = functions.https.onCall(
       updatedAt: now,
     };
 
-    // --- Handle Free/VIP Orders ---
+    // --- Handle Free Orders ---
     if (shouldBypassStripe) {
       await db.runTransaction(async (tx) => {
         tx.set(db.doc(`orders/${orderId}`), orderDoc);
@@ -432,31 +405,24 @@ export const createPaymentIntent = functions.https.onCall(
           userId,
           orderId,
           items: itemsForOrder,
-          promoCode: appliedPromo,
           promoCodeId,
+          attendees,
         });
       });
       return {
         orderId,
-        free: total === 0,
-        vip: appliedPromo === "GRIDVIP2207",
+        free: true,
       };
     }
 
-    // --- Create Pending Order and Stripe Payment Intent for Paid Orders ---
+    // --- Paid Orders ---
     await db.doc(`orders/${orderId}`).set(orderDoc);
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(finalTotal * 100),
       currency,
-      automatic_payment_methods: {
-        enabled: true,
-      },
-      metadata: {
-        orderId,
-        eventId,
-        userId,
-      },
+      automatic_payment_methods: { enabled: true },
+      metadata: { orderId, eventId, userId },
     });
 
     if (!paymentIntent.client_secret) {
@@ -470,10 +436,7 @@ export const createPaymentIntent = functions.https.onCall(
       .doc(`orders/${orderId}`)
       .update({ stripePaymentIntentId: paymentIntent.id });
 
-    return {
-      orderId,
-      clientSecret: paymentIntent.client_secret,
-    };
+    return { orderId, clientSecret: paymentIntent.client_secret };
   }
 );
 
@@ -566,7 +529,7 @@ export const helloWorld = functions.https.onRequest((_req, res) => {
  */
 export const createCheckoutSession = functions.https.onCall(
   async (data, context) => {
-    const { eventId, selectedTiers, promoCode } = data;
+    const { eventId, selectedTiers, promoCode, attendees } = data;
 
     if (!eventId || !selectedTiers) {
       throw new functions.https.HttpsError(
@@ -646,7 +609,6 @@ export const createCheckoutSession = functions.https.onCall(
 
     const processingFee = Math.round(feeBase * (feePercent / 100));
     const total = subtotal + processingFee;
-
     // Validate promo code
     let discountAmount = 0;
     let promoCodeId: string | null = null;
@@ -655,22 +617,15 @@ export const createCheckoutSession = functions.https.onCall(
     if (promoCode) {
       const upperCode = promoCode.trim().toUpperCase();
 
-      // Check legacy hardcoded code first
-      if (upperCode === "GRIDVIP2207") {
-        discountAmount = total;
+      const promoData = await validatePromoCode(eventId, upperCode);
+      if (promoData && promoData.discountType) {
+        discountAmount = calculateDiscount(
+          promoData.discountType,
+          promoData.discountValue,
+          total
+        );
+        promoCodeId = promoData.promoId;
         validatedPromoCode = upperCode;
-      } else {
-        // Query Firestore for promo code
-        const promoData = await validatePromoCode(eventId, upperCode);
-        if (promoData && promoData.discountType) {
-          discountAmount = calculateDiscount(
-            promoData.discountType,
-            promoData.discountValue,
-            total
-          );
-          promoCodeId = promoData.promoId;
-          validatedPromoCode = upperCode;
-        }
       }
     }
 
@@ -683,6 +638,7 @@ export const createCheckoutSession = functions.https.onCall(
       eventId,
       eventTitle,
       items,
+      attendees, // NEW: store attendees
       subtotal,
       feeBase,
       processingFee,
@@ -690,6 +646,7 @@ export const createCheckoutSession = functions.https.onCall(
       currency,
       status: "pending",
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      paymentMethod: "stripe_checkout",
     };
 
     // Add discount info if applicable
@@ -708,23 +665,15 @@ export const createCheckoutSession = functions.https.onCall(
 
       await db.runTransaction(async (tx) => {
         tx.set(orderRef, orderData);
-
-        // Update quantities
-        for (const item of items) {
-          const tierRef = db
-            .collection("events")
-            .doc(eventId)
-            .collection("ticketTiers")
-            .doc(item.tierId);
-          tx.update(tierRef, {
-            quantitySold: admin.firestore.FieldValue.increment(item.quantity),
-          });
-        }
-
-        // Increment promo redemption if not legacy code
-        if (promoCodeId) {
-          incrementPromoRedemption(tx, promoCodeId);
-        }
+        await _fulfillOrder(tx, {
+          eventId,
+          eventRef: db.doc(`events/${eventId}`),
+          userId,
+          orderId: orderRef.id,
+          items,
+          promoCodeId,
+          attendees,
+        });
       });
 
       return { orderId: orderRef.id, free: true };
@@ -809,7 +758,8 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
     );
   }
   const uid = context.auth.uid;
-  const { eventId, selectedTiers, promoCode, paymentMethodId } = data;
+  const { eventId, selectedTiers, promoCode, paymentMethodId, attendees } =
+    data;
 
   if (!eventId || !selectedTiers || !paymentMethodId) {
     throw new functions.https.HttpsError(
@@ -831,22 +781,11 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
 
   // --- Promo Code Logic ---
   const normalizedPromo = (promoCode || "").trim().toUpperCase();
-  const isGridVip = normalizedPromo === "GRIDVIP2207";
   let appliedPromo: string | null = null;
   let promoCodeId: string | null = null;
   let discountAmount = 0;
 
-  if (isGridVip) {
-    const promo = await validateGridVip(eventId);
-    if (!promo.ok) {
-      throw new functions.https.HttpsError(
-        "failed-precondition",
-        "Invalid or expired promo code."
-      );
-    }
-    appliedPromo = "GRIDVIP2207";
-    discountAmount = total;
-  } else if (normalizedPromo) {
+  if (normalizedPromo) {
     const promo = await validatePromoCode(eventId, normalizedPromo);
     if (!promo.ok) {
       throw new functions.https.HttpsError(
@@ -876,6 +815,7 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
         eventTitle: event.title || "Event",
         userId: uid,
         items: itemsForOrder,
+        attendees, // NEW: store attendees
         subtotal: subtotalCharged,
         feeBase,
         processingFee: 0,
@@ -896,8 +836,8 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
         userId: uid,
         orderId,
         items: itemsForOrder,
-        promoCode: appliedPromo,
         promoCodeId,
+        attendees,
       });
     });
     return { success: true, orderId, free: true };
@@ -909,9 +849,7 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
       currency: currency.toLowerCase(),
       payment_method_data: {
         type: "card",
-        card: {
-          token: paymentMethodId,
-        },
+        card: { token: paymentMethodId },
       } as any,
       confirm: true,
       automatic_payment_methods: {
@@ -930,6 +868,7 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
           eventTitle: event.title || "Event",
           userId: uid,
           items: itemsForOrder,
+          attendees, // NEW: store attendees
           subtotal: subtotalCharged,
           feeBase,
           processingFee,
@@ -951,8 +890,8 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
           userId: uid,
           orderId,
           items: itemsForOrder,
-          promoCode: appliedPromo,
           promoCodeId,
+          attendees,
         });
       });
       return { success: true, orderId };
@@ -1019,8 +958,8 @@ export const stripeWebhook = functions.https.onRequest(async (req, res) => {
           userId,
           orderId,
           items: order.items,
-          promoCode: order.promoCode,
           promoCodeId: order.promoCodeId,
+          attendees: order.attendees,
         });
       });
     }
@@ -1035,26 +974,102 @@ export const stripeWebhook = functions.https.onRequest(async (req, res) => {
 /**
  * Allows an admin user to set custom claims on another user.
  */
+// Firebase Cloud Function - setAdminStatus (modified)
+
 export const setAdminStatus = functions.https.onCall(async (data, context) => {
+  // Only existing admins can perform this action
   if (!context.auth || context.auth.token.admin !== true) {
     throw new functions.https.HttpsError(
       "permission-denied",
       "Only admins can perform this action."
     );
   }
-  const { uid, isAdmin } = data;
-  if (typeof uid !== "string" || typeof isAdmin !== "boolean") {
+
+  const { uid, role, isActive, eventIds } = data;
+
+  // Validate required fields
+  if (typeof uid !== "string") {
     throw new functions.https.HttpsError(
       "invalid-argument",
-      "Required: 'uid' (string) and 'isAdmin' (boolean)."
+      "Required: 'uid' (string)."
     );
   }
+
+  if (!["admin", "event_admin"].includes(role)) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Role must be 'admin' or 'event_admin'."
+    );
+  }
+
+  if (typeof isActive !== "boolean") {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Required: 'isActive' (boolean)."
+    );
+  }
+
+  // For event_admin, eventIds is required when activating
+  if (role === "event_admin" && isActive) {
+    if (!Array.isArray(eventIds) || eventIds.length === 0) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Event admin requires 'eventIds' array with at least one event."
+      );
+    }
+  }
+
   try {
-    await admin.auth().setCustomUserClaims(uid, { admin: isAdmin });
+    // Get current claims to preserve other claims
+    const user = await admin.auth().getUser(uid);
+    const currentClaims = user.customClaims || {};
+
+    let newClaims = { ...currentClaims };
+
+    if (role === "admin") {
+      // Set full admin status
+      if (isActive) {
+        newClaims.admin = true;
+      } else {
+        delete newClaims.admin;
+      }
+    } else if (role === "event_admin") {
+      // Set event admin status with specific events
+      if (isActive) {
+        newClaims.eventAdmin = true;
+        newClaims.eventIds = eventIds;
+      } else {
+        delete newClaims.eventAdmin;
+        delete newClaims.eventIds;
+      }
+    }
+
+    await admin.auth().setCustomUserClaims(uid, newClaims);
+
+    // Also update Firestore user_roles collection for consistency
+    const db = admin.firestore();
+    const userRoleRef = db.collection("user_roles").doc(uid);
+
+    if (isActive) {
+      await userRoleRef.set(
+        {
+          userId: uid,
+          role: role,
+          eventIds: role === "event_admin" ? eventIds : [],
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    } else {
+      // Remove the role document if deactivating
+      await userRoleRef.delete().catch(() => {}); // Ignore if doesn't exist
+    }
+
     return {
-      message: `Success! User ${uid} has been ${
-        isAdmin ? "made" : "removed as"
-      } an admin.`,
+      message: `Success! User ${uid} ${
+        isActive ? "granted" : "removed"
+      } ${role} access.`,
+      claims: newClaims,
     };
   } catch (error) {
     console.error("Failed to set custom claims:", error);
@@ -1062,21 +1077,5 @@ export const setAdminStatus = functions.https.onCall(async (data, context) => {
       "internal",
       "An error occurred while setting the custom claim."
     );
-  }
-});
-
-/**
- * Temporary admin setup function.
- */
-export const tempSetAdmins = functions.https.onRequest(async (_req, res) => {
-  const uids = [""];
-  try {
-    await Promise.all(
-      uids.map((uid) => admin.auth().setCustomUserClaims(uid, { admin: true }))
-    );
-    res.send("Admins set!");
-  } catch (error) {
-    console.error("Failed to set admins:", error);
-    res.status(500).send("Error setting admins");
   }
 });
