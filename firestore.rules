@@ -154,8 +154,13 @@ service cloud.firestore {
         // Users and event admins can query their orders. Your client-side query MUST filter.
         allow list: if isSignedIn() || isAdmin() || request.auth.token.eventAdmin == true;
 
-        // Users can create their own orders.
-        allow create: if isOwner(request.resource.data.userId);
+        // Users can create their own orders, with validation for table bookings
+        allow create: if isOwner(request.resource.data.userId)
+                      && (request.resource.data.items.hasAny(['type'], ['table']) 
+                          ? request.resource.data.tableContactDetails.fullName != null &&
+                            request.resource.data.tableContactDetails.email != null &&
+                            request.resource.data.tableContactDetails.phone != null
+                          : true);
 
         // Allow admins and event admins to update or delete orders.
         allow update, delete: if isAdmin() || isEventAdmin(resource.data.eventId);

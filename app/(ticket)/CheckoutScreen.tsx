@@ -26,17 +26,13 @@ import {
 import TopNavBar from "../../components/TopNavBar";
 import { ThemedView } from "../../components/themed-view";
 import { db } from "../../lib/firebase/firebaseConfig";
-import { Event, TicketTier } from "../../types/event";
+import { Event, TableContactDetails, TicketTier } from "../../types/event";
 
-// Helper to get currency symbol
 const getCurrencySymbol = (currency: string) => {
     switch (currency) {
-        case 'INR':
-            return '₹';
-        case 'USD':
-            return '$';
-        default:
-            return '₹'; // Default to INR
+        case 'INR': return '₹';
+        case 'USD': return '$';
+        default: return '₹';
     }
 };
 
@@ -46,14 +42,20 @@ const CheckoutScreen = () => {
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
   const functions = useMemo(() => getFunctions(), []);
-
   const eventIdStr = Array.isArray(eventId) ? eventId[0] : eventId;
 
   const [event, setEvent] = useState<Event | null>(null);
   const [ticketTiers, setTicketTiers] = useState<TicketTier[]>([]);
   const [selectedTiers, setSelectedTiers] = useState<{ [key: string]: number }>({});
   const [pricing, setPricing] = useState({ subtotal: 0, feeBase: 0, processingFee: 0, total: 0 });
+  
   const [attendees, setAttendees] = useState<{ name: string; email: string; }[]>([]);
+  const [tableContactDetails, setTableContactDetails] = useState<TableContactDetails>({
+    fullName: '',
+    email: '',
+    phone: '',
+    notes: '',
+  });
   
   const [promoCode, setPromoCode] = useState("");
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -61,28 +63,18 @@ const CheckoutScreen = () => {
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const total = pricing.total;
-
-  const hasSelection = Object.keys(selectedTiers).length > 0;
-  const isFreeOrder = total === 0;
-
   useEffect(() => {
     if (!eventIdStr || !selectedTiersJSON) {
       setLoading(false);
       return;
     }
-
     try {
-      const parsedSelectedTiers = JSON.parse(selectedTiersJSON as string);
-      setSelectedTiers(parsedSelectedTiers);
-      const totalTickets = Object.values(parsedSelectedTiers).reduce((acc: number, val: unknown) => acc + (typeof val === 'number' ? val : 0), 0);
-      setAttendees(Array(totalTickets).fill({ name: '', email: '' }));
+      setSelectedTiers(JSON.parse(selectedTiersJSON as string));
     } catch (e) {
       console.error("Invalid JSON from params:", e);
       setLoading(false);
-      return;
     }
-
+    
     const fetchEventAndTiers = async () => {
       setLoading(true);
       try {
@@ -90,9 +82,11 @@ const CheckoutScreen = () => {
         const eventSnap = await getDoc(eventRef);
         if (eventSnap.exists()) {
           const eventData = { id: eventSnap.id, ...eventSnap.data() } as Event;
-          eventData.currency = eventData.currency || 'INR';
-          eventData.bookingFeePercent = eventData.bookingFeePercent || 10;
-          setEvent(eventData);
+          setEvent({
+            ...eventData,
+            currency: eventData.currency || 'INR',
+            bookingFeePercent: eventData.bookingFeePercent || 10,
+          });
         } else {
           throw new Error("Event not found.");
         }
@@ -100,8 +94,7 @@ const CheckoutScreen = () => {
         const tiersRef = collection(db, "events", eventIdStr, "ticketTiers");
         const q = query(tiersRef, where("isActive", "==", true), orderBy("sortOrder"));
         const tiersSnap = await getDocs(q);
-        const tiers = tiersSnap.docs.map((d) => ({ id: d.id, ...d.data() } as TicketTier));
-        setTicketTiers(tiers);
+        setTicketTiers(tiersSnap.docs.map((d) => ({ id: d.id, ...d.data() } as TicketTier)));
 
       } catch (error) {
         console.error("Error fetching checkout data:", error);
@@ -110,47 +103,73 @@ const CheckoutScreen = () => {
         setLoading(false);
       }
     };
-
     fetchEventAndTiers();
   }, [eventIdStr, selectedTiersJSON]);
 
-  // [NEW] Calculate pricing on the client-side for display purposes
+  useEffect(() => {
+    if (ticketTiers.length === 0) return;
+
+    const individualTicketCount = Object.entries(selectedTiers).reduce((acc, [tierId, qty]) => {
+        const tier = ticketTiers.find(t => t.id === tierId);
+        if (tier && tier.type === 'ticket') {
+            return acc + (typeof qty === 'number' ? qty : 0);
+        }
+        return acc;
+    }, 0);
+
+    setAttendees(Array(individualTicketCount).fill({ name: '', email: '' }));
+  }, [selectedTiers, ticketTiers]);
+
   useEffect(() => {
     if (!event || ticketTiers.length === 0) return;
 
     const getChargeAmount = (tier: TicketTier): number => {
-        if (tier.type === 'table' && tier.chargeAmount != null) {
-          return tier.chargeAmount;
-        }
+        if (tier.type === 'table' && tier.chargeAmount != null) return tier.chargeAmount;
         return tier.price;
     };
 
     let subtotalCharged = 0;
     let feeBase = 0;
-
     Object.entries(selectedTiers).forEach(([tierId, qty]) => {
         const tier = ticketTiers.find(t => t.id === tierId);
-        const quantity = typeof qty === 'number' ? qty : 0;
-        if (tier && quantity > 0) {
+        if (tier && typeof qty === 'number' && qty > 0) {
             const chargeAmount = getChargeAmount(tier);
-            subtotalCharged += chargeAmount * quantity;
+            subtotalCharged += chargeAmount * qty;
             if (tier.type !== 'table') {
-                feeBase += chargeAmount * quantity;
+                feeBase += chargeAmount * qty;
             }
         }
     });
 
-    const feePercentage = event.bookingFeePercent ? event.bookingFeePercent / 100 : 0.10;
+    const feePercentage = event.bookingFeePercent / 100;
     const processingFee = feeBase > 0 ? Math.round(feeBase * feePercentage) : 0;
-    const total = subtotalCharged + processingFee;
-
-    setPricing({ subtotal: subtotalCharged, feeBase, processingFee, total });
+    setPricing({ subtotal: subtotalCharged, feeBase, processingFee, total: subtotalCharged + processingFee });
   }, [selectedTiers, ticketTiers, event]);
 
+  const hasTableBooking = useMemo(() => 
+    ticketTiers.length > 0 && Object.keys(selectedTiers).some(tierId => {
+        const tier = ticketTiers.find(t => t.id === tierId);
+        return tier && tier.type === 'table' && selectedTiers[tierId] > 0;
+    }), 
+  [selectedTiers, ticketTiers]);
+
+  const isTableContactFormValid = useMemo(() => {
+    if (!hasTableBooking) return true;
+    return tableContactDetails.fullName.trim() !== '' &&
+           tableContactDetails.email.trim() !== '' &&
+           tableContactDetails.phone.trim() !== '';
+  }, [hasTableBooking, tableContactDetails]);
+
+  const areAttendeeDetailsValid = useMemo(() => 
+    attendees.every(attendee => attendee.name.trim() !== '' && attendee.email.trim() !== ''), 
+  [attendees]);
+
+  const hasSelection = Object.keys(selectedTiers).length > 0;
+  const canProceed = hasSelection && agreedToTerms && !isProcessing && isTableContactFormValid && areAttendeeDetailsValid;
 
   const handlePayment = async () => {
-    if (!agreedToTerms) {
-        Alert.alert("Terms Required", "Please agree to the terms to continue.");
+    if (!canProceed) {
+        Alert.alert("Incomplete Information", "Please fill out all required fields and agree to the terms.");
         return;
     }
     setIsProcessing(true);
@@ -161,23 +180,18 @@ const CheckoutScreen = () => {
           eventId: eventIdStr, 
           selectedTiers, 
           promoCode: promoCode.trim().toUpperCase() || undefined,
-          attendees,
+          attendees: attendees.length > 0 ? attendees : undefined,
+          tableContactDetails: hasTableBooking ? tableContactDetails : undefined,
       });
 
-      const { orderId, clientSecret, free } = res.data as { 
-          orderId: string; 
-          clientSecret?: string;
-          free?: boolean;
-      };
+      const { orderId, clientSecret, free } = res.data as any;
 
       if (free) {
           router.push({ pathname: "/(ticket)/PurchaseConfirmationScreen", params: { orderId } });
           return;
       }
       
-      if (!clientSecret) {
-          throw new Error("Payment intent not created successfully.");
-      }
+      if (!clientSecret) throw new Error("Payment intent not created successfully.");
 
       const { error: initError } = await initPaymentSheet({
           merchantDisplayName: "Grid",
@@ -185,23 +199,16 @@ const CheckoutScreen = () => {
           allowsDelayedPaymentMethods: true,
           returnURL: 'https://grideventsapp.com',
       });
-
-      if (initError) {
-          throw new Error(`Failed to initialize payment sheet: ${initError.message}`);
-      }
+      if (initError) throw new Error(`Failed to initialize payment sheet: ${initError.message}`);
       
       const { error: presentError } = await presentPaymentSheet();
-      
       if (presentError) {
-          if (presentError.code === 'Canceled') {
-              console.log("Payment cancelled by user.");
-          } else {
+          if (presentError.code !== 'Canceled') {
               throw new Error(`Payment failed: ${presentError.message}`);
           }
       } else {
           router.push({ pathname: "/(ticket)/PurchaseConfirmationScreen", params: { orderId } });
       }
-
     } catch (error) {
       console.error("Payment error:", error);
       Alert.alert("Payment Failed", (error as any).message || "Unable to process your order.");
@@ -210,13 +217,8 @@ const CheckoutScreen = () => {
     }
   };
 
-  if (loading) {
-    return <ThemedView style={styles.centeredContainer}><ActivityIndicator size="large" color="#fff" /></ThemedView>;
-  }
-
-  if (!event) {
-    return <ThemedView style={styles.centeredContainer}><Text style={styles.text}>Event not found.</Text></ThemedView>;
-  }
+  if (loading) return <ThemedView style={styles.centeredContainer}><ActivityIndicator size="large" color="#fff" /></ThemedView>;
+  if (!event) return <ThemedView style={styles.centeredContainer}><Text style={styles.text}>Event not found.</Text></ThemedView>;
 
   const currencySymbol = getCurrencySymbol(event.currency);
 
@@ -226,83 +228,62 @@ const CheckoutScreen = () => {
         <ScrollView contentContainerStyle={styles.scrollContent}>
             <View style={styles.summaryCard}>
                 <Text style={styles.eventTitle}>{event.title}</Text>
-
                 {Object.keys(selectedTiers).map((tierId) => {
                   const tier = ticketTiers.find((t) => t.id === tierId);
                   if (!tier) return null;
-
-                  const displayAmount = (tier.type === 'table' && tier.chargeAmount != null)
-                    ? tier.chargeAmount
-                    : tier.price;
-
+                  const displayAmount = (tier.type === 'table' && tier.chargeAmount != null) ? tier.chargeAmount : tier.price;
                   return (
                       <View key={tierId} style={styles.itemRow}>
-                          <View style={styles.itemDetails}>
-                             <Text style={styles.itemName}>{tier.name} x {selectedTiers[tierId]}</Text>
-                          </View>
+                          <Text style={styles.itemName}>{tier.name} x {selectedTiers[tierId]}</Text>
                           <Text style={styles.itemPrice}>{currencySymbol}{(displayAmount * selectedTiers[tierId]).toLocaleString()}</Text>
                       </View>
                   );
                 })}
-
                 <View style={styles.subtotalContainer}><Text style={styles.summaryText}>Subtotal</Text><Text style={styles.summaryText}>{currencySymbol}{pricing.subtotal.toLocaleString()}</Text></View>
-
                 {pricing.processingFee > 0 && (
                     <View style={styles.subtotalContainer}>
                         <Text style={styles.summaryText}>Processing fee ({event.bookingFeePercent}%)</Text>
                         <Text style={styles.summaryText}>{currencySymbol}{pricing.processingFee.toLocaleString()}</Text>
                     </View>
                 )}
-
                 <View style={styles.totalContainer}>
                     <Text style={styles.totalText}>Total</Text>
-                    <Text style={styles.totalText}>{currencySymbol}{total.toLocaleString()}</Text>
+                    <Text style={styles.totalText}>{currencySymbol}{pricing.total.toLocaleString()}</Text>
                 </View>
             </View>
+
+            {hasTableBooking && (
+              <View style={styles.attendeeSection}>
+                <Text style={styles.sectionTitle}>Table Contact Details</Text>
+                <TextInput style={styles.input} placeholder="Full Name *" value={tableContactDetails.fullName} onChangeText={(text) => setTableContactDetails(p => ({...p, fullName: text}))} placeholderTextColor="#888" />
+                <TextInput style={styles.input} placeholder="Email *" value={tableContactDetails.email} onChangeText={(text) => setTableContactDetails(p => ({...p, email: text}))} keyboardType="email-address" autoCapitalize="none" placeholderTextColor="#888" />
+                <TextInput style={styles.input} placeholder="Phone Number *" value={tableContactDetails.phone} onChangeText={(text) => setTableContactDetails(p => ({...p, phone: text}))} keyboardType="phone-pad" placeholderTextColor="#888" />
+                <TextInput style={styles.input} placeholder="Notes (Optional)" value={tableContactDetails.notes || ''} onChangeText={(text) => setTableContactDetails(p => ({...p, notes: text}))} placeholderTextColor="#888" />
+              </View>
+            )}
 
             {attendees.length > 0 && (
               <View style={styles.attendeeSection}>
                 <Text style={styles.sectionTitle}>Attendee Details</Text>
                 {attendees.map((attendee, index) => (
                   <View key={index} style={styles.attendeeInputContainer}>
-                    <TextInput
-                      style={styles.input}
-                      placeholder={`Ticket ${index + 1} - Full Name`}
-                      placeholderTextColor="#888"
-                      value={attendee.name}
-                      onChangeText={(name) => {
+                    <TextInput style={styles.input} placeholder={`Ticket ${index + 1} - Full Name *`} value={attendee.name} onChangeText={(name) => {
                         const newAttendees = [...attendees];
                         newAttendees[index] = { ...newAttendees[index], name };
                         setAttendees(newAttendees);
-                      }}
-                    />
-                    <TextInput
-                      style={styles.input}
-                      placeholder={`Ticket ${index + 1} - Email`}
-                      placeholderTextColor="#888"
-                      value={attendee.email}
-                      onChangeText={(email) => {
+                      }} placeholderTextColor="#888" />
+                    <TextInput style={styles.input} placeholder={`Ticket ${index + 1} - Email *`} value={attendee.email} onChangeText={(email) => {
                         const newAttendees = [...attendees];
                         newAttendees[index] = { ...newAttendees[index], email };
                         setAttendees(newAttendees);
-                      }}
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                    />
+                      }} keyboardType="email-address" autoCapitalize="none" placeholderTextColor="#888" />
                   </View>
                 ))}
               </View>
             )}
 
             <View style={styles.promoContainer}>
-                <TextInput
-                    style={styles.promoInput}
-                    placeholder="Promo code (optional)"
-                    placeholderTextColor="#888"
-                    value={promoCode}
-                    onChangeText={setPromoCode}
-                    autoCapitalize="characters"
-                />
+                <TextInput style={styles.promoInput} placeholder="Promo code (optional)" value={promoCode} onChangeText={setPromoCode} autoCapitalize="characters" placeholderTextColor="#888" />
             </View>
             
             <View style={styles.termsContainer}>
@@ -312,17 +293,9 @@ const CheckoutScreen = () => {
                  <Text style={styles.termsText}>I agree to the Terms of Service and understand all sales are final.</Text>
             </View>
             
-            <TouchableOpacity
-                style={[styles.ctaButton, (!hasSelection || !agreedToTerms || isProcessing) && styles.disabledButton]}
-                onPress={handlePayment}
-                disabled={!hasSelection || !agreedToTerms || isProcessing}
-            >
-                {isProcessing 
-                    ? <ActivityIndicator color="#fff" /> 
-                    : <Text style={styles.ctaButtonText}>{isFreeOrder ? 'Complete Order' : 'Proceed to Payment'}</Text>
-                }
+            <TouchableOpacity style={[styles.ctaButton, !canProceed && styles.disabledButton]} onPress={handlePayment} disabled={!canProceed}>
+                {isProcessing ? <ActivityIndicator color="#fff" /> : <Text style={styles.ctaButtonText}>{pricing.total === 0 ? 'Complete Order' : 'Proceed to Payment'}</Text>}
             </TouchableOpacity>
-            
         </ScrollView>
     </ThemedView>
   );
@@ -335,29 +308,10 @@ const styles = StyleSheet.create({
   text: { color: "#fff", fontSize: 18, textAlign: "center" },
   summaryCard: { backgroundColor: "#1a1a1a", borderRadius: 10, padding: 20, marginBottom: 20 },
   eventTitle: { color: "#fff", fontSize: 20, fontWeight: "bold", borderBottomWidth: 1, borderBottomColor: "#333", paddingBottom: 15, marginBottom: 15 },
-  
-  itemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  itemDetails: {
-    flex: 1,
-    marginRight: 10,
-  },
-  itemName: {
-    color: '#ddd',
-    fontSize: 16,
-    flexShrink: 1,
-  },
-  itemPrice: {
-    color: '#ddd',
-    fontSize: 16,
-    fontWeight: '500',
-  },
+  itemRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
+  itemName: { color: '#ddd', fontSize: 16, flexShrink: 1 },
+  itemPrice: { color: '#ddd', fontSize: 16, fontWeight: '500' },
   summaryText: { color: "#aaa", fontSize: 16 },
-
   subtotalContainer: { flexDirection: "row", justifyContent: "space-between", marginTop: 10 },
   totalContainer: { flexDirection: "row", justifyContent: "space-between", borderTopWidth: 1, borderTopColor: "#333", paddingTop: 15, marginTop: 15 },
   totalText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
@@ -368,30 +322,11 @@ const styles = StyleSheet.create({
   termsText: { color: '#aaa', fontSize: 12, flex: 1 },
   ctaButton: { backgroundColor: "#4a90e2", borderRadius: 10, paddingVertical: 15, alignItems: "center" },
   ctaButtonText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
-  disabledButton: { opacity: 0.6 },
-  attendeeSection: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 10,
-    padding: 20,
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 15,
-  },
-  attendeeInputContainer: {
-    marginBottom: 10,
-  },
-  input: {
-    backgroundColor: '#2c2c2e',
-    color: '#fff',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 10,
-  },
+  disabledButton: { opacity: 0.5 },
+  attendeeSection: { backgroundColor: '#1a1a1a', borderRadius: 10, padding: 20, marginBottom: 20 },
+  sectionTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold', marginBottom: 15 },
+  attendeeInputContainer: { marginBottom: 10, borderTopWidth: 1, borderTopColor: '#2c2c2e', paddingTop: 15 },
+  input: { backgroundColor: '#2c2c2e', color: '#fff', borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 10 },
 });
 
 export default CheckoutScreen;

@@ -47,6 +47,7 @@ export interface Event {
 export interface Attendee {
   name: string;
   email: string;
+  phone?: string;
 }
 
 export type EventAttendeeStatus = 'going' | 'maybe' | 'notGoing';

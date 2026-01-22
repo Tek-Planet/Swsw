@@ -114,6 +114,15 @@ const TicketScreen = () => {
     return acc;
   }, {} as Record<string, typeof order.items[0]>);
 
+  const allAttendees = [...(order.attendees || [])];
+  if (order.tableContactDetails) {
+      allAttendees.unshift({ 
+          name: order.tableContactDetails.fullName, 
+          email: order.tableContactDetails.email,
+          phone: order.tableContactDetails.phone
+      });
+  }
+
   return (
     <ScrollView style={styles.container}>
         <View style={styles.ticketCard}>
@@ -137,12 +146,18 @@ const TicketScreen = () => {
 
                 <View style={styles.attendeesContainer}>
                     <Text style={styles.attendeesTitle}>Ticket Holders</Text>
-                    {order.attendees?.map((attendee: Attendee, index: number) => (
+                    {allAttendees.map((attendee: Attendee, index: number) => (
                         <View key={index} style={styles.attendeeRow}>
                             <Ionicons name="person-outline" size={20} color="#A8A8A8" style={{marginRight: 10}}/>
                             <View>
                                 <Text style={styles.attendeeName}>{attendee.name}</Text>
                                 <Text style={styles.attendeeEmail}>{attendee.email}</Text>
+                                {attendee.phone && (
+                                    <View style={styles.attendeePhoneRow}>
+                                        <Ionicons name="call-outline" size={16} color="#A8A8A8" style={{marginRight: 5}}/>
+                                        <Text style={styles.attendeePhone}>{attendee.phone}</Text>
+                                    </View>
+                                )}
                             </View>
                         </View>
                     ))}
@@ -274,6 +289,16 @@ const styles = StyleSheet.create({
     attendeeEmail: {
         color: '#A8A8A8',
         fontSize: 14,
+    },
+    attendeePhoneRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 4,
+    },
+    attendeePhone: {
+        color: '#A8A8A8',
+        fontSize: 14,
+        marginLeft: 5,
     },
     itemsContainer: {
         paddingBottom: 10,
