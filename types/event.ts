@@ -40,10 +40,13 @@ export interface Event {
   photoCount?: number;
   latestPhotoThumbUrl?: string;
   latestPhotoAt?: any;
+  currency: string; 
+  bookingFeePercent: number; 
+}
 
-  // [NEW] Fields for dynamic currency and booking fee
-  currency: string; // e.g., 'INR', 'USD'
-  bookingFeePercent: number; // e.g., 10 for 10%
+export interface Attendee {
+  name: string;
+  email: string;
 }
 
 export type EventAttendeeStatus = 'going' | 'maybe' | 'notGoing';
@@ -56,14 +59,13 @@ export interface EventAttendee {
   createdAt: Date;
 }
 
-// New TicketTier types
 export type TicketTierType = 'ticket' | 'table' | 'addon';
 
 export interface TicketTier {
   id: string;
   name: string;
   price: number;
-  chargeAmount?: number; // Added to match backend logic
+  chargeAmount?: number; 
   currency: string;
   type: TicketTierType;
   description?: string;
@@ -76,13 +78,11 @@ export interface TicketTier {
 }
 
 export type FirestoreTicketTier = Omit<TicketTier, 'id' | 'createdAt' | 'updatedAt'> & {
-    chargeAmount?: number; // Added to match backend logic
+    chargeAmount?: number; 
     createdAt: Timestamp;
     updatedAt: Timestamp;
 };
 
-
-// Firestore-specific types
 export type FirestoreEvent = Omit<Event, 'id' | 'startTime' | 'endTime' | 'createdAt' | 'updatedAt'> & {
   startTime: Timestamp;
   endTime: Timestamp;
@@ -98,10 +98,8 @@ export interface OrderItem {
   quantity: number;
 }
 
-// Updated OrderStatus to include 'failed'
 export type OrderStatus = 'pending' | 'paid' | 'canceled' | 'failed';
 
-// Updated to match web app for table bookings
 export interface TableContactDetails {
     fullName: string;
     email: string;
@@ -109,7 +107,6 @@ export interface TableContactDetails {
     notes?: string;
 }
 
-// Updated Order type to match web app, using Date for app consistency
 export interface Order {
   orderId: string;
   eventId: string;
@@ -121,15 +118,16 @@ export interface Order {
   total: number;
   currency: string;
   status: OrderStatus;
-  createdAt: Date; // Converted in app code
-  updatedAt: Date; // Converted in app code
+  createdAt: Date; 
+  updatedAt: Date; 
   stripeSessionId?: string;
   stripePaymentIntentId?: string;
   paymentMethod?: string;
   eventTitle?: string;
-  eventDate?: Date; // Converted in app code
+  eventDate?: Date; 
   promoCode?: string;
   tableContactDetails?: TableContactDetails;
+  attendees?: Attendee[];
 }
 
 export interface SurveyQuestion {

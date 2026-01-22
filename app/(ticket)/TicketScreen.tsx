@@ -6,9 +6,8 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { auth, db } from '../../lib/firebase/firebaseConfig';
-import { Event, Order } from '../../types/event';
+import { Attendee, Event, Order } from '../../types/event';
 
-// [NEW] Helper to get currency symbol, duplicated for consistency
 const getCurrencySymbol = (currency: string) => {
     switch (currency) {
         case 'INR':
@@ -62,7 +61,6 @@ const TicketScreen = () => {
                         updatedAt: (orderData.updatedAt as Timestamp).toDate(),
                         eventDate: orderData.eventDate ? (orderData.eventDate as Timestamp).toDate() : undefined,
                     } as Order;
-                     // [NEW] Default currency for older orders
                     convertedOrder.currency = convertedOrder.currency || 'INR';
                     setOrder(convertedOrder);
                 }
@@ -78,7 +76,6 @@ const TicketScreen = () => {
                     startTime: (eventData.startTime as Timestamp).toDate(),
                     endTime: (eventData.endTime as Timestamp).toDate(),
                     latestPhotoAt: eventData.latestPhotoAt ? (eventData.latestPhotoAt as Timestamp).toDate() : undefined,
-                    // [NEW] Set defaults for event data as a fallback
                     currency: eventData.currency || 'INR',
                     bookingFeePercent: eventData.bookingFeePercent || 10,
                   } as Event;
@@ -105,7 +102,6 @@ const TicketScreen = () => {
     return <View style={styles.centered}><Text style={styles.errorText}>Could not load ticket.</Text></View>;
   }
   
-  // [NEW] Use order currency first, fallback to event currency
   const currencySymbol = getCurrencySymbol(order.currency || event.currency);
 
   const aggregatedItems = order.items.reduce((acc, item) => {
@@ -139,8 +135,17 @@ const TicketScreen = () => {
                     <Text style={styles.scanText}>Show this at the entrance</Text>
                 </View>
 
-                <View style={styles.detailsContainer}>
-                     {/* Details remain the same */}
+                <View style={styles.attendeesContainer}>
+                    <Text style={styles.attendeesTitle}>Ticket Holders</Text>
+                    {order.attendees?.map((attendee: Attendee, index: number) => (
+                        <View key={index} style={styles.attendeeRow}>
+                            <Ionicons name="person-outline" size={20} color="#A8A8A8" style={{marginRight: 10}}/>
+                            <View>
+                                <Text style={styles.attendeeName}>{attendee.name}</Text>
+                                <Text style={styles.attendeeEmail}>{attendee.email}</Text>
+                            </View>
+                        </View>
+                    ))}
                 </View>
 
                 <View style={styles.itemsContainer}>
@@ -148,7 +153,6 @@ const TicketScreen = () => {
                     {Object.values(aggregatedItems).map((item, index) => (
                         <View key={index} style={styles.itemRow}>
                             <Text style={styles.itemName}>{item.quantity}x {item.name}</Text>
-                            {/* [MODIFIED] Dynamic currency */}
                             <Text style={styles.itemPrice}>{currencySymbol}{(item.unitPrice * item.quantity).toLocaleString()}</Text>
                         </View>
                     ))}
@@ -157,14 +161,12 @@ const TicketScreen = () => {
                 <View style={styles.summaryContainer}>
                     <View style={styles.summaryRow}>
                         <Text style={styles.summaryLabel}>Subtotal</Text>
-                        {/* [MODIFIED] Dynamic currency */}
                         <Text style={styles.summaryValue}>{currencySymbol}{order.subtotal.toLocaleString()}</Text>
                     </View>
 
                     {order.processingFee !== undefined && (
                         <View style={styles.summaryRow}>
                             <Text style={styles.summaryLabel}>Processing Fee</Text>
-                            {/* [MODIFIED] Dynamic currency */}
                             <Text style={styles.summaryValue}>{currencySymbol}{order.processingFee.toLocaleString()}</Text>
                         </View>
                     )}
@@ -174,7 +176,6 @@ const TicketScreen = () => {
                             <View style={styles.divider} />
                             <View style={[styles.summaryRow, styles.summaryTotalRow]}>
                                 <Text style={styles.summaryTotalLabel}>Total</Text>
-                                {/* [MODIFIED] Dynamic currency */}
                                 <Text style={styles.summaryTotalValue}>{currencySymbol}{order.total.toLocaleString()}</Text>
                             </View>
                         </>
@@ -248,21 +249,37 @@ const styles = StyleSheet.create({
         marginTop: 15,
         fontSize: 14,
     },
-    detailsContainer: {
+    attendeesContainer: {
         marginBottom: 20,
+        borderTopWidth: 1,
+        borderTopColor: '#333',
+        paddingTop: 20
     },
-    detailRow: {
+    attendeesTitle: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 15,
+    },
+    attendeeRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 10,
+        marginBottom: 15,
     },
-    detailText: {
-        color: '#fff',
+    attendeeName: {
+        color: '#E0E0E0',
         fontSize: 16,
-        marginLeft: 10,
+        fontWeight: 'bold'
+    },
+    attendeeEmail: {
+        color: '#A8A8A8',
+        fontSize: 14,
     },
     itemsContainer: {
         paddingBottom: 10,
+        borderTopWidth: 1,
+        borderTopColor: '#333',
+        paddingTop: 10
     },
     itemsTitle: {
         color: '#fff',

@@ -8,6 +8,17 @@ import { ThemedView } from '../../components/themed-view';
 import { db } from '../../lib/firebase/firebaseConfig';
 import { Event, TicketTier } from '../../types/event';
 
+const getCurrencySymbol = (currency: string) => {
+    switch (currency) {
+        case 'INR':
+            return '₹';
+        case 'USD':
+            return '$';
+        default:
+            return '₹'; // Default to INR
+    }
+};
+
 const TicketSelectionScreen = () => {
   const { eventId } = useLocalSearchParams();
   const router = useRouter();
@@ -23,7 +34,9 @@ const TicketSelectionScreen = () => {
       const eventRef = doc(db, 'events', eventId as string);
       const eventSnap = await getDoc(eventRef);
       if (eventSnap.exists()) {
-        setEvent({ id: eventSnap.id, ...eventSnap.data() } as Event);
+        const eventData = { id: eventSnap.id, ...eventSnap.data() } as Event;
+        eventData.currency = eventData.currency || 'INR';
+        setEvent(eventData);
       }
     };
 
@@ -48,6 +61,7 @@ const TicketSelectionScreen = () => {
   };
 
   useEffect(() => {
+    if (!event) return;
     const getChargeAmount = (tier: TicketTier): number => {
         if (tier.type === 'table' && tier.chargeAmount != null) {
           return tier.chargeAmount; // Tables charge deposit, not full price
@@ -70,11 +84,14 @@ const TicketSelectionScreen = () => {
         }
     });
 
-    const processingFee = feeBase > 0 ? Math.round(feeBase * 0.10) : 0;
+    const feePercentage = event.bookingFeePercent ? event.bookingFeePercent / 100 : 0.10;
+    const processingFee = feeBase > 0 ? Math.round(feeBase * feePercentage) : 0;
     const total = subtotalCharged + processingFee;
 
     setPricing({ subtotal: subtotalCharged, feeBase, processingFee, total });
-  }, [selectedTiers, ticketTiers]);
+  }, [selectedTiers, ticketTiers, event]);
+
+  const currencySymbol = event ? getCurrencySymbol(event.currency) : '₹';
 
   const renderTier = ({ item }: { item: TicketTier }) => {
     const maxQuantity = item.type === 'table' ? 1 : 10;
@@ -87,11 +104,11 @@ const TicketSelectionScreen = () => {
         <View style={styles.tierInfo}>
           <Text style={styles.tierName}>{item.name}</Text>
 
-          <Text style={styles.tierPrice}>₹{item.price.toLocaleString()}</Text>
+          <Text style={styles.tierPrice}>{currencySymbol}{item.price.toLocaleString()}</Text>
 
           {isTableWithDeposit && item.chargeAmount != null && (
             <Text style={styles.depositLabel}>
-              (A deposit of ₹{item.chargeAmount.toLocaleString()} will be charged at checkout)
+              (A deposit of {currencySymbol}{item.chargeAmount.toLocaleString()} will be charged at checkout)
             </Text>
           )}
           
@@ -116,7 +133,6 @@ const TicketSelectionScreen = () => {
       params: { 
         eventId: eventId as string, 
         selectedTiers: JSON.stringify(selectedTiers),
-        pricing: JSON.stringify(pricing),
       },
     });
   };
@@ -139,7 +155,7 @@ const TicketSelectionScreen = () => {
         contentContainerStyle={styles.listContainer}
       />
       <View style={styles.stickyFooter}>
-        <Text style={styles.totalPrice}>Total: ₹{pricing.total.toLocaleString()}</Text>
+        <Text style={styles.totalPrice}>Total: {currencySymbol}{pricing.total.toLocaleString()}</Text>
         <TouchableOpacity 
           style={[styles.ctaButton, isContinueDisabled && styles.ctaButtonDisabled]}
           onPress={handleContinueToPay}
