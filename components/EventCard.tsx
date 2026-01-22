@@ -76,7 +76,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, showEnhanceGridButton }) =
           )}
         </View>
       )}
-      {showEnhanceGridButton && (
+      {showEnhanceGridButton && isUpcoming && hasPurchased && (
         <>
           <View style={styles.divider} />
           <EnhanceGridButton onPress={handleEnhanceGridPress} />
