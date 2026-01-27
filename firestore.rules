@@ -22,6 +22,11 @@ service cloud.firestore {
       return request.auth.token.admin == true;
     }
 
+    // Helper function to check if a user is an event admin for a specific event.
+    function isEventAdmin(eventId) {
+      return request.auth.token.eventAdmin == true && eventId in request.auth.token.eventIds;
+    }
+
     // Helper function to check ownership of a document.
     function isOwner(userId) {
       return request.auth.uid == userId;
@@ -53,6 +58,11 @@ service cloud.firestore {
         match /connections/{connectionId} {
           allow read: if true;
           allow write: if isOwner(userId);
+        }
+
+        // Users can manage their own FCM tokens for push notifications.
+        match /fcmTokens/{tokenId} {
+            allow read, write, delete: if isOwner(userId);
         }
     }
 
@@ -102,40 +112,55 @@ service cloud.firestore {
     //================================================================================
 
     match /events/{eventId} {
-          // [FIXED] Admins can read any event. Others can read published events or those they attend.
-          allow read: if isAdmin() || (resource.data.status == 'published') || (isSignedIn() && (request.auth.uid in resource.data.attendeeIds));
+          // Admins and event admins can read any event. Others can read published events or those they attend.
+          allow read: if isAdmin() || isEventAdmin(eventId) || (resource.data.status == 'published') || (isSignedIn() && (request.auth.uid in resource.data.attendeeIds));
           
-          // Admins can create, update, and delete any event.
-          allow create, update, delete: if isAdmin();
+          // Admins and event admins can create, update, and delete any event.
+          allow create, update, delete: if isAdmin() || isEventAdmin(eventId);
           
           // Rules for Event Subcollections
 
           match /survey/{surveyId} {
-            // [FIXED] Admins have full access. Signed-in users can read.
+            // Admins have full access. Signed-in users can read.
             allow read: if isSignedIn();
-            allow write: if isAdmin();
+            allow write: if isAdmin() || isEventAdmin(eventId);
           }
 
           match /ticketTiers/{tierId} {
             // Ticket tiers can be read by anyone.
-            // Only admins can modify ticket tiers.
+            // Only admins or event admins can modify ticket tiers.
             allow read: if true;
-            allow create, update, delete: if isAdmin();
+            allow create, update, delete: if isAdmin() || isEventAdmin(eventId);
           }
           
           match /albums/{albumId} {
-            // [CORRECTED] Explicitly grant 'list' for collection queries by signed-in users.
+            // Explicitly grant 'list' for collection queries by signed-in users.
             allow get, create: if isSignedIn();
             allow list: if isSignedIn();
-            allow update, delete: if isAdmin();
+            allow update, delete: if isAdmin() || isEventAdmin(eventId);
 
             match /photos/{photoId} {
-                // [CORRECTED] Explicitly grant 'list' for collection queries by signed-in users.
+                // Explicitly grant 'list' for collection queries by signed-in users.
                 allow get, create: if isSignedIn();
                 allow list: if isSignedIn();
-                allow update, delete: if isAdmin();
+                allow update, delete: if isAdmin() || isEventAdmin(eventId);
             }
           }
+    }
+    
+    //================================================================================
+    // EVENT NOTIFICATIONS
+    //================================================================================
+    match /event_notifications/{notificationId} {
+      // Any signed-in user can read notifications.
+      allow read: if isSignedIn();
+
+      // Admins or event admins can create notifications.
+      allow create: if isAdmin() || isEventAdmin(request.resource.data.eventId);
+
+      // Admins or event admins for the event can update or delete notifications.
+      allow update: if isAdmin() || isEventAdmin(request.resource.data.eventId);
+      allow delete: if isAdmin() || isEventAdmin(resource.data.eventId);
     }
 
     //================================================================================
@@ -143,23 +168,22 @@ service cloud.firestore {
     //================================================================================
 
     match /orders/{orderId} {
-        // Users can get their own specific order. Admins can get any order.
-        allow get: if isOwner(resource.data.userId) || isAdmin();
+        // Users can get their own specific order. Admins and event admins can get any order.
+        allow get: if isOwner(resource.data.userId) || isAdmin() || isEventAdmin(resource.data.eventId);
 
-        // Users can query for their own orders. Your client-side query MUST
-        // include `.where('userId', '==', currentUser.uid)`.
-        allow list: if isSignedIn() || isAdmin();
+        // Users and event admins can query their orders. Your client-side query MUST filter.
+        allow list: if isSignedIn() || isAdmin() || request.auth.token.eventAdmin == true;
 
         // Users can create their own orders.
         allow create: if isOwner(request.resource.data.userId);
 
-        // Allow admins to update or delete orders.
-        allow update, delete: if isAdmin();
+        // Allow admins and event admins to update or delete orders.
+        allow update, delete: if isAdmin() || isEventAdmin(resource.data.eventId);
 
-        // Users can read tickets if they own the order.
+        // Users can read tickets if they own the order. Admins and event admins can also read and write tickets.
         match /tickets/{ticketId} {
-            allow read: if isSignedIn() && get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid;
-            allow write: if isAdmin();
+            allow read: if (isSignedIn() && get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid) || isAdmin() || isEventAdmin(get(/databases/$(database)/documents/orders/$(orderId)).data.eventId);
+            allow write: if isAdmin() || isEventAdmin(get(/databases/$(database)/documents/orders/$(orderId)).data.eventId);
         }
     }
     
@@ -187,7 +211,7 @@ service cloud.firestore {
     // Admins can read any submission.
     match /event_surveys/{eventId}/submissions/{userId} {
       allow create: if isOwner(userId);
-      allow read: if isOwner(userId) || isAdmin();
+      allow read: if isOwner(userId) || isAdmin() || isEventAdmin(eventId);
     }
     
     //================================================================================
@@ -197,6 +221,19 @@ service cloud.firestore {
     // Users can only manage their own notifications.
     match /notifications/{userId}/user_notifications/{notificationId} {
         allow read, write: if isOwner(userId);
+    }
+
+    //================================================================================
+    // USER ROLES
+    //================================================================================
+
+    match /user_roles/{roleId} {
+      // Admins can read all role assignments to manage them.
+      // Other users cannot read these roles to prevent privilege escalation.
+      allow read: if isAdmin();
+      
+      // Writes are handled by Cloud Functions, not direct client access.
+      allow write: if false;
     }
   }
 }

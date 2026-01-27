@@ -13,6 +13,11 @@ import {
   listenToUserProfile,
   createOrUpdateUserProfile,
 } from '@/lib/services/userProfileService';
+import {
+  registerForPushNotificationsAsync,
+  saveTokenToFirestore,
+  removeTokenFromFirestore,
+} from '@/lib/services/notificationService';
 import { Timestamp } from 'firebase/firestore';
 
 interface AuthContextType {
@@ -23,7 +28,7 @@ interface AuthContextType {
   error: string | null;
   signIn: typeof signInWithEmail;
   signUp: (email: string, password: string, fullName: string, username: string) => Promise<FirebaseUser>;
-  signOut: typeof signOutUser;
+  signOut: () => Promise<void>;
   sendPasswordReset: typeof sendPasswordReset;
 }
 
@@ -37,10 +42,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pushToken, setPushToken] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        // Handle push notifications
+        try {
+          const token = await registerForPushNotificationsAsync();
+          if (token) {
+            setPushToken(token);
+            await saveTokenToFirestore(firebaseUser.uid, token);
+          }
+        } catch (e) {
+          console.error("Error during push notification setup:", e);
+        }
+        
         const unsubscribeProfile = listenToUserProfile(
           firebaseUser.uid,
           (profile: UserProfile | null) => {
@@ -53,7 +70,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
               setUserProfile(profile);
               setIsOnboardingComplete(profile.onboardingCompleted === true);
             } else {
-              // This case might happen if the user doc hasn't been created yet after sign up
               setUser({ ...firebaseUser } as AppUser);
               setUserProfile(null);
               setIsOnboardingComplete(false);
@@ -67,6 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setUserProfile(null);
         setIsOnboardingComplete(false);
         setLoading(false);
+        setPushToken(null);
       }
     });
 
@@ -77,7 +94,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       setError(null);
       const firebaseUser = await signUpWithEmail(email, password, fullName, username);
-      // After sign up, create the initial user profile
       await createOrUpdateUserProfile(firebaseUser.uid, {
         uid: firebaseUser.uid,
         email: firebaseUser.email!,
@@ -88,6 +104,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         updatedAt: Timestamp.now(),
       });
       return firebaseUser;
+    } catch (e: any) {
+      setError(e.message);
+      throw e;
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      setError(null);
+      if (user && pushToken) {
+        await removeTokenFromFirestore(user.uid, pushToken);
+      }
+      await signOutUser();
     } catch (e: any) {
       setError(e.message);
       throw e;
@@ -110,15 +139,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     },
     signUp: handleSignUp,
-    signOut: async () => {
-      try {
-        setError(null);
-        await signOutUser();
-      } catch (e: any) {
-        setError(e.message);
-        throw e;
-      }
-    },
+    signOut: handleSignOut,
     sendPasswordReset: async (email: string) => {
       try {
         setError(null);
