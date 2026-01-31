@@ -59,6 +59,11 @@ service cloud.firestore {
           allow read: if true;
           allow write: if isOwner(userId);
         }
+
+        // Users can manage their own FCM tokens for push notifications.
+        match /fcmTokens/{tokenId} {
+            allow read, write, delete: if isOwner(userId);
+        }
     }
 
     //================================================================================
@@ -142,6 +147,21 @@ service cloud.firestore {
             }
           }
     }
+    
+    //================================================================================
+    // EVENT NOTIFICATIONS
+    //================================================================================
+    match /event_notifications/{notificationId} {
+      // Any signed-in user can read notifications.
+      allow read: if isSignedIn();
+
+      // Admins or event admins can create notifications.
+      allow create: if isAdmin() || isEventAdmin(request.resource.data.eventId);
+
+      // Admins or event admins for the event can update or delete notifications.
+      allow update: if isAdmin() || isEventAdmin(request.resource.data.eventId);
+      allow delete: if isAdmin() || isEventAdmin(resource.data.eventId);
+    }
 
     //================================================================================
     // ORDERS & TICKETS
@@ -206,6 +226,19 @@ service cloud.firestore {
     // Users can only manage their own notifications.
     match /notifications/{userId}/user_notifications/{notificationId} {
         allow read, write: if isOwner(userId);
+    }
+
+    //================================================================================
+    // USER ROLES
+    //================================================================================
+
+    match /user_roles/{roleId} {
+      // Admins can read all role assignments to manage them.
+      // Other users cannot read these roles to prevent privilege escalation.
+      allow read: if isAdmin();
+      
+      // Writes are handled by Cloud Functions, not direct client access.
+      allow write: if false;
     }
   }
 }
