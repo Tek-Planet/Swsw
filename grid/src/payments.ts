@@ -52,15 +52,19 @@ async function validatePromoCode(eventId: string, code: string) {
 function calculateDiscount(
   discountType: "percent" | "fixed" | "free",
   discountValue: number,
-  total: number
+  baseAmount: number // Changed from 'total' for clarity
 ): number {
   switch (discountType) {
     case "free":
-      return total;
+      // In a "free" scenario, the discount should cover the whole amount it's applied to.
+      // We will apply this to the subtotal only.
+      return baseAmount;
     case "percent":
-      return Math.round((total * discountValue) / 100);
+      // Calculate percentage discount on the base amount.
+      return Math.round((baseAmount * discountValue) / 100);
     case "fixed":
-      return Math.min(discountValue, total);
+      // Fixed discount cannot exceed the base amount.
+      return Math.min(discountValue, baseAmount);
     default:
       return 0;
   }
@@ -186,7 +190,8 @@ async function _calculateOrderDetails(
 
   const processingFee =
     feeBase > 0 ? Math.round(feeBase * (bookingFeePercent / 100)) : 0;
-  const total = subtotalCharged + processingFee;
+  // This is now just for reference before discount. Final total is calculated later.
+  const totalBeforeDiscount = subtotalCharged + processingFee;
 
   return {
     event,
@@ -195,7 +200,7 @@ async function _calculateOrderDetails(
     subtotalCharged,
     feeBase,
     processingFee,
-    total,
+    totalBeforeDiscount, // Renamed for clarity
     currency,
     bookingFeePercent,
   };
@@ -325,11 +330,10 @@ export const createPaymentIntent = functions.https.onCall(
       subtotalCharged,
       feeBase,
       processingFee,
-      total,
       currency,
     } = await _calculateOrderDetails(eventId, selectedTiers);
 
-    // --- Promo Code Logic ---
+    // --- Promo Code Logic --
     const normalizedPromo = (promoCode || "").trim().toUpperCase();
     let appliedPromo: string | null = null;
     let promoCodeId: string | null = null;
@@ -345,14 +349,19 @@ export const createPaymentIntent = functions.https.onCall(
       }
       appliedPromo = normalizedPromo;
       promoCodeId = promo.promoId;
+      // CORRECTED: Calculate discount on subtotal ONLY
       discountAmount = calculateDiscount(
         promo.discountType,
         promo.discountValue,
-        total
+        subtotalCharged
       );
     }
 
-    const finalTotal = Math.max(0, total - discountAmount);
+    // CORRECTED: Final total calculation
+    const finalTotal = Math.max(
+      0,
+      subtotalCharged - discountAmount + processingFee
+    );
     const shouldBypassStripe = finalTotal === 0;
     const orderId = db.collection("_").doc().id;
     const now = admin.firestore.FieldValue.serverTimestamp();
@@ -364,7 +373,7 @@ export const createPaymentIntent = functions.https.onCall(
       eventTitle: event.title || "Event",
       userId,
       items: itemsForOrder,
-      attendees, // NEW: store attendees
+      attendees,
       subtotal: subtotalCharged,
       feeBase,
       processingFee: shouldBypassStripe ? 0 : processingFee,
@@ -504,7 +513,6 @@ export const updateOrderContactDetails = functions.https.onCall(
   }
 );
 
-
 /**
  * [REFACTORED] Creates a Stripe Checkout session for web clients.
  */
@@ -589,7 +597,7 @@ export const createCheckoutSession = functions.https.onCall(
     }
 
     const processingFee = Math.round(feeBase * (feePercent / 100));
-    const total = subtotal + processingFee;
+
     // Validate promo code
     let discountAmount = 0;
     let promoCodeId: string | null = null;
@@ -600,17 +608,19 @@ export const createCheckoutSession = functions.https.onCall(
 
       const promoData = await validatePromoCode(eventId, upperCode);
       if (promoData && promoData.discountType) {
+        // CORRECTED: Calculate discount on subtotal ONLY
         discountAmount = calculateDiscount(
           promoData.discountType,
           promoData.discountValue,
-          total
+          subtotal
         );
         promoCodeId = promoData.promoId;
         validatedPromoCode = upperCode;
       }
     }
 
-    const finalTotal = Math.max(0, total - discountAmount);
+    // CORRECTED: Final total calculation
+    const finalTotal = Math.max(0, subtotal - discountAmount + processingFee);
 
     // Create order document first
     const orderRef = db.collection("orders").doc();
@@ -619,7 +629,7 @@ export const createCheckoutSession = functions.https.onCall(
       eventId,
       eventTitle,
       items,
-      attendees, // NEW: store attendees
+      attendees,
       subtotal,
       feeBase,
       processingFee,
@@ -630,7 +640,6 @@ export const createCheckoutSession = functions.https.onCall(
       paymentMethod: "stripe_checkout",
     };
 
-    // Add discount info if applicable
     if (discountAmount > 0) {
       orderData.discount = discountAmount;
       orderData.promoCode = validatedPromoCode;
@@ -639,7 +648,6 @@ export const createCheckoutSession = functions.https.onCall(
       }
     }
 
-    // Handle free orders (after discount)
     if (finalTotal === 0) {
       orderData.status = "paid";
       orderData.paidAt = admin.firestore.FieldValue.serverTimestamp();
@@ -660,12 +668,14 @@ export const createCheckoutSession = functions.https.onCall(
       return { orderId: orderRef.id, free: true };
     }
 
-    // Save pending order
     await orderRef.set(orderData);
 
-    // Build Stripe line items
+    // This part requires a different approach for Stripe Checkout
+    // We will pass the final line items and a coupon for the discount
+
     const line_items: any[] = [];
 
+    // Add main items to line_items
     for (const item of items) {
       line_items.push({
         price_data: {
@@ -680,7 +690,7 @@ export const createCheckoutSession = functions.https.onCall(
       });
     }
 
-    // Add processing fee line item
+    // Add processing fee as a separate line item
     if (processingFee > 0) {
       line_items.push({
         price_data: {
@@ -688,14 +698,14 @@ export const createCheckoutSession = functions.https.onCall(
           unit_amount: Math.round(processingFee * 100),
           product_data: {
             name: "Processing Fee",
-            description: "Booking and processing fee",
+            description: "Booking and transaction fee",
           },
         },
         quantity: 1,
       });
     }
 
-    // Create Stripe coupon for discount (if applicable)
+    // Create a coupon for the discount amount
     let discountCoupon: string | undefined;
     if (discountAmount > 0) {
       const coupon = await stripe.coupons.create({
@@ -707,7 +717,6 @@ export const createCheckoutSession = functions.https.onCall(
       discountCoupon = coupon.id;
     }
 
-    // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items,
@@ -756,7 +765,6 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
     subtotalCharged,
     feeBase,
     processingFee,
-    total,
     currency,
   } = await _calculateOrderDetails(eventId, selectedTiers);
 
@@ -776,14 +784,19 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
     }
     appliedPromo = normalizedPromo;
     promoCodeId = promo.promoId;
+    // CORRECTED: Calculate discount on subtotal ONLY
     discountAmount = calculateDiscount(
       promo.discountType,
       promo.discountValue,
-      total
+      subtotalCharged
     );
   }
 
-  const finalTotal = Math.max(0, total - discountAmount);
+  // CORRECTED: Final total calculation
+  const finalTotal = Math.max(
+    0,
+    subtotalCharged - discountAmount + processingFee
+  );
   const orderId = db.collection("_").doc().id;
 
   // If discount makes the order free, bypass Stripe
@@ -796,7 +809,7 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
         eventTitle: event.title || "Event",
         userId: uid,
         items: itemsForOrder,
-        attendees, // NEW: store attendees
+        attendees,
         subtotal: subtotalCharged,
         feeBase,
         processingFee: 0,
@@ -849,7 +862,7 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
           eventTitle: event.title || "Event",
           userId: uid,
           items: itemsForOrder,
-          attendees, // NEW: store attendees
+          attendees,
           subtotal: subtotalCharged,
           feeBase,
           processingFee,
@@ -931,6 +944,13 @@ export const stripeWebhook = functions.https.onRequest(async (req, res) => {
         return;
       }
       const order = orderSnap.data() as any;
+
+      // Make sure we haven't already fulfilled this order
+      if (order.status === "paid") {
+        console.log("Webhook ignored: Order already fulfilled", orderId);
+        res.status(200).send("Order already fulfilled.");
+        return;
+      }
 
       await db.runTransaction(async (tx) => {
         await _fulfillOrder(tx, {

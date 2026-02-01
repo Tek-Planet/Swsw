@@ -1,14 +1,13 @@
+import { ChipSelector, PrimaryButton, TextInputField } from "@/components";
+import SectionCard from "@/components/SectionCard";
+import { HelperText } from "@/components/Validation";
+import { useAuth } from "@/lib/context/AuthContext";
+import { createOrUpdateUserProfile } from "@/lib/services/userProfileService";
+import { UserProfile } from "@/types/user";
+import React, { useMemo, useState } from "react";
+import { Alert, StyleSheet, Text, View } from "react-native";
 
-import { ChipSelector, PrimaryButton, TextInputField } from '@/components';
-import SectionCard from '@/components/SectionCard';
-import { HelperText } from '@/components/Validation';
-import { useAuth } from '@/lib/context/AuthContext';
-import { createOrUpdateUserProfile } from '@/lib/services/userProfileService';
-import { UserProfile } from '@/types/user';
-import React, { useMemo, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
-
-const baseInterests = ['Fashion', 'Technology', 'Outdoors'];
+const baseInterests = ["Fashion", "Technology", "Outdoors"];
 
 interface ProfileDetailsProps {
   userProfile: UserProfile;
@@ -16,12 +15,17 @@ interface ProfileDetailsProps {
 
 const ProfileDetails: React.FC<ProfileDetailsProps> = ({ userProfile }) => {
   const { user } = useAuth();
-  const [bio, setBio] = useState(userProfile.bio || '');
-  const [interests, setInterests] = useState<string[]>(userProfile.interests || []);
+  const [bio, setBio] = useState(userProfile.bio || "");
+  const [interests, setInterests] = useState<string[]>(
+    userProfile.interests || []
+  );
   const [loading, setLoading] = useState(false);
 
   const interestsOptions = useMemo(() => {
-    const userSpecificInterests = userProfile.interests?.filter(interest => !baseInterests.includes(interest)) || [];
+    const userSpecificInterests =
+      userProfile.interests?.filter(
+        (interest) => !baseInterests.includes(interest)
+      ) || [];
     return [...baseInterests, ...userSpecificInterests];
   }, [userProfile.interests]);
 
@@ -30,10 +34,13 @@ const ProfileDetails: React.FC<ProfileDetailsProps> = ({ userProfile }) => {
     setLoading(true);
     try {
       await createOrUpdateUserProfile(user.uid, { bio, interests });
-      Alert.alert('Profile Updated', 'Your details have been saved successfully.');
+      Alert.alert(
+        "Profile Updated",
+        "Your details have been saved successfully."
+      );
     } catch (error) {
       console.error(error);
-      Alert.alert('Error', 'Could not update your profile. Please try again.');
+      Alert.alert("Error", "Could not update your profile. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -63,7 +70,11 @@ const ProfileDetails: React.FC<ProfileDetailsProps> = ({ userProfile }) => {
         <HelperText message="Select the topics that you are passionate about." />
 
         <View style={styles.saveButtonContainer}>
-          <PrimaryButton title="Save Details" onPress={handleSave} disabled={loading} />
+          <PrimaryButton
+            title="Save Details"
+            onPress={handleSave}
+            disabled={loading}
+          />
         </View>
       </View>
     </SectionCard>
@@ -73,8 +84,8 @@ const ProfileDetails: React.FC<ProfileDetailsProps> = ({ userProfile }) => {
 const styles = StyleSheet.create({
   title: {
     fontSize: 22,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontWeight: "bold",
+    color: "#fff",
     marginBottom: 10,
   },
   formContainer: {
@@ -82,14 +93,14 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
+    fontWeight: "600",
+    color: "#fff",
     marginTop: 15,
     marginBottom: 10,
   },
   bioInput: {
     height: 120, // Give the multiline input a larger height
-    textAlignVertical: 'top', // Start text from the top
+    textAlignVertical: "top", // Start text from the top
   },
   saveButtonContainer: {
     marginTop: 20,
