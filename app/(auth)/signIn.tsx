@@ -1,6 +1,5 @@
 import { ThemedText } from "@/components/themed-text";
 import { useAuth } from "@/lib/context/AuthContext";
-import { sendPasswordReset } from "@/lib/firebase/authService";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { StyleSheet, View } from "react-native";
@@ -8,6 +7,7 @@ import AuthButton from "./components/AuthButton";
 import AuthScreenContainer from "./components/AuthScreenContainer";
 import AuthTextInput from "./components/AuthTextInput";
 import SecondaryTextButton from "./components/SecondaryTextButton";
+import PasswordResetModal from "@/components/PasswordResetModal";
 
 const SignInScreen = () => {
   const router = useRouter();
@@ -16,12 +16,11 @@ const SignInScreen = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [resetMessage, setResetMessage] = useState("");
+  const [modalVisible, setModalVisible] = useState(false);
 
   const handleSignIn = async () => {
     setLoading(true);
     setError("");
-    setResetMessage("");
     try {
       await signIn(email, password);
     } catch (e: any) {
@@ -31,26 +30,18 @@ const SignInScreen = () => {
     }
   };
 
-  const handlePasswordReset = async () => {
-    if (!email) {
-      setError("Please enter your email address to reset your password.");
-      return;
-    }
-    setLoading(true);
-    setError("");
-    setResetMessage("");
-    try {
-      await sendPasswordReset(email);
-      setResetMessage("Password reset email sent! Check your inbox.");
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
+  const openPasswordResetModal = () => {
+    setModalVisible(true);
   };
 
   return (
     <AuthScreenContainer>
+      <PasswordResetModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        email={email}
+      />
+
       <View style={styles.header}>
         <ThemedText type="title" style={styles.title}>
           It's time to dance.
@@ -79,13 +70,9 @@ const SignInScreen = () => {
         <View style={{ alignItems: "flex-end" }}>
           <SecondaryTextButton
             text="Forgot password?"
-            onPress={handlePasswordReset}
+            onPress={openPasswordResetModal}
           />
         </View>
-
-        {resetMessage ? (
-          <ThemedText style={styles.resetMessage}>{resetMessage}</ThemedText>
-        ) : null}
 
         <AuthButton
           title="Sign In"
@@ -116,19 +103,6 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     marginBottom: 40,
-  },
-  resetMessage: {
-    color: "#4CAF50",
-    textAlign: "center",
-    marginVertical: 10,
-  },
-  socialLoginContainer: {
-    marginBottom: 20,
-  },
-  socialLoginText: {
-    textAlign: "center",
-    color: "#888",
-    marginBottom: 20,
   },
 });
 
