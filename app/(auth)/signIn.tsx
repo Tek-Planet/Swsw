@@ -8,6 +8,7 @@ import AuthButton from './components/AuthButton';
 import AuthScreenContainer from './components/AuthScreenContainer';
 import AuthTextInput from './components/AuthTextInput';
 import SecondaryTextButton from './components/SecondaryTextButton';
+import PasswordResetModal from '@/components/PasswordResetModal';
 
 const SignInScreen = () => {
   const router = useRouter();
@@ -16,6 +17,7 @@ const SignInScreen = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [modalVisible, setModalVisible] = useState(false);
 
   const handleSignIn = async () => {
     setLoading(true);
@@ -29,8 +31,18 @@ const SignInScreen = () => {
     }
   };
 
+  const openPasswordResetModal = () => {
+    setModalVisible(true);
+  };
+
   return (
     <AuthScreenContainer>
+      <PasswordResetModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        email={email}
+      />
+
       <View style={styles.header}>
         <ThemedText type="title" style={styles.title}>It's time to dance.</ThemedText>
       </View>
@@ -55,7 +67,7 @@ const SignInScreen = () => {
           error={error}
         />
         <View style={{alignItems: 'flex-end'}}>
-          <SecondaryTextButton text="Forgot password?" onPress={() => {}} />
+          <SecondaryTextButton text="Forgot password?" onPress={openPasswordResetModal} />
         </View>
 
         <AuthButton
@@ -65,12 +77,6 @@ const SignInScreen = () => {
           loading={loading}
         />
       </View>
-
-      {/* <View style={styles.socialLoginContainer}>
-        <ThemedText style={styles.socialLoginText}>or continue with</ThemedText>
-        <SocialLoginButton icon="logo-apple" text="Continue with Apple" onPress={() => {}} />
-        <SocialLoginButton icon="logo-google" text="Continue with Google" onPress={() => {}} />
-      </View> */}
 
       <SecondaryTextButton
         text="New here?"
@@ -93,14 +99,6 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     marginBottom: 40,
-  },
-  socialLoginContainer: {
-    marginBottom: 20,
-  },
-  socialLoginText: {
-    textAlign: 'center',
-    color: '#888',
-    marginBottom: 20,
   },
 });
 
