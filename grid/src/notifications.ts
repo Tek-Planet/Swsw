@@ -5,15 +5,14 @@ const messaging = admin.messaging();
 
 /**
  * Cloud Function that triggers when a new document is created in the
- * `event_notifications` collection. It sends a push notification to all
- * users who have purchased a ticket for that event.
+ * `event_notifications` collection. It sends a push notification AND an
+ * in-app notification to all users who have purchased a ticket for that event.
  */
 export const sendEventPushNotification = functions.firestore
   .document("event_notifications/{notificationId}")
   .onCreate(async (snapshot: functions.firestore.QueryDocumentSnapshot) => {
     const notificationData = snapshot.data();
 
-    // Ensure the notification data exists
     if (!notificationData) {
       console.log("No data associated with the notification.");
       return;
@@ -23,7 +22,6 @@ export const sendEventPushNotification = functions.firestore
     console.log(`New notification created for event: ${eventId}`);
 
     try {
-      // Step 1: Find all users who have a paid order for the event.
       const ordersSnapshot = await db
         .collection("orders")
         .where("eventId", "==", eventId)
@@ -31,11 +29,12 @@ export const sendEventPushNotification = functions.firestore
         .get();
 
       if (ordersSnapshot.empty) {
-        console.log("No paid orders found for this event. No notifications will be sent.");
+        console.log(
+          "No paid orders found for this event. No notifications will be sent."
+        );
         return;
       }
 
-      // Step 2: Collect the unique IDs of all attendees.
       const userIds = new Set<string>();
       ordersSnapshot.forEach((doc) => {
         const order = doc.data();
@@ -45,11 +44,32 @@ export const sendEventPushNotification = functions.firestore
       });
 
       console.log(`Found ${userIds.size} unique users to notify.`);
+      if (userIds.size === 0) return;
 
-      // Step 3: Gather all the FCM tokens for these users.
+      const inAppPayload = {
+        title: `📢 ${title || "Event Update"}`,
+        message,
+        link: `/events/${eventId}`,
+        read: false,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        icon: "calendar",
+      };
+
+      const inAppBatch = db.batch();
+      userIds.forEach((userId) => {
+        const userNotificationRef = db
+          .collection("notifications")
+          .doc(userId)
+          .collection("user_notifications")
+          .doc();
+        inAppBatch.set(userNotificationRef, inAppPayload);
+      });
+
       const tokens: string[] = [];
       const tokenPromises = Array.from(userIds).map(async (userId) => {
-        const tokensSnapshot = await db.collection(`users/${userId}/fcmTokens`).get();
+        const tokensSnapshot = await db
+          .collection(`users/${userId}/fcmTokens`)
+          .get();
         tokensSnapshot.forEach((tokenDoc) => {
           const tokenData = tokenDoc.data();
           if (tokenData.token) {
@@ -58,57 +78,53 @@ export const sendEventPushNotification = functions.firestore
         });
       });
 
-      // Wait for all token fetches to complete.
       await Promise.all(tokenPromises);
 
-      if (tokens.length === 0) {
-        console.log("No FCM tokens found for any of the users.");
-        return;
-      }
+      await inAppBatch.commit();
+      console.log(`Successfully created ${userIds.size} in-app notifications.`);
 
-      console.log(`Attempting to send notifications to ${tokens.length} device tokens.`);
+      if (tokens.length > 0) {
+        console.log(
+          `Attempting to send push notifications to ${tokens.length} device tokens.`
+        );
 
-      // Step 4: Construct and send the push notification payload.
-      const payload = {
-        notification: {
-          title: title || "New Event Announcement",
-          body: message,
-        },
-        webpush: {
+        console.log(tokens);
+
+        // The link is now a relative path to prevent FCM from trying to validate it.
+        const pushPayload = {
           notification: {
-            icon: "https://your-app-url.com/notification-icon.png",
+            title: title || "New Event Announcement",
+            body: message,
           },
-          fcmOptions: {
-            link: `https://your-app-url.com/events/${eventId}`,
-          },
-        },
-      } as admin.messaging.MessagingPayload;
+          // data: {
+          //   link: `/events/${eventId}`,
+          // },
+        };
 
-      // Send the message to all collected device tokens.
-      const response = await messaging.sendToDevice(tokens, payload);
-      console.log("Successfully sent messages:", response.successCount);
-      console.log("Failed messages:", response.failureCount);
+        console.log(pushPayload, "Payload");
 
+        const response = await messaging.sendToDevice(
+          tokens,
+          pushPayload as any
+        );
+        console.log("Successfully sent push messages:", response.successCount);
+        console.log("Failed push messages:", response.failureCount);
 
-      // Step 5 (Recommended): Clean up invalid or outdated FCM tokens.
-      response.results.forEach((result, index) => {
-        const error = result.error;
-        if (error) {
-          console.error(
-            "Failure sending notification to token:",
-            tokens[index],
-            error
-          );
-          if (
-            error.code === "messaging/invalid-registration-token" ||
-            error.code === "messaging/registration-token-not-registered"
-          ) {
-            console.log(`Consider deleting this invalid token: ${tokens[index]}`);
+        response.results.forEach((result, index) => {
+          if (result.error) {
+            console.error(
+              "Failure sending to token:",
+              tokens[index],
+              result.error
+            );
           }
-        }
-      });
-
+        });
+      } else {
+        console.log(
+          "No FCM tokens found for any of the users. Skipping push notifications."
+        );
+      }
     } catch (error) {
-      console.error("Error sending push notifications:", error);
+      console.error("Error sending notifications:", error);
     }
   });

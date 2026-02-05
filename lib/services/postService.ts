@@ -13,6 +13,7 @@ import {
   doc,
   deleteDoc,
   getDoc,
+  FirestoreError,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebaseConfig';
 import { Post, FirestorePost } from '@/types/post';
@@ -42,6 +43,7 @@ export async function userHasEventAccess(
 export function listenEventPosts(
   eventId: string,
   callback: (posts: Post[]) => void,
+  errorCallback?: (error: FirestoreError) => void,
   limitCount: number = 30
 ): () => void {
   const postsRef = collection(db, `events/${eventId}/posts`);
@@ -61,7 +63,7 @@ export function listenEventPosts(
       }
     });
     callback(posts);
-  });
+  }, errorCallback);
 
   return unsubscribe;
 }

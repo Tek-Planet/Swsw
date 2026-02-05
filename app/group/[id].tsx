@@ -1,4 +1,3 @@
-
 import React from "react";
 import { StyleSheet, ScrollView, View, Text } from "react-native";
 import { useLocalSearchParams } from "expo-router";
@@ -8,12 +7,13 @@ import GroupEventPlanner from "@/components/GroupEventPlanner";
 import GroupExpenses from "@/components/GroupExpenses";
 import PollWidget from "@/components/PollWidget";
 import { AppHeader } from "@/components/Header";
+import StickyTopBar from "@/components/StickyTopBar";
 
 const GroupDetailPage: React.FC = () => {
   const { id: groupId } = useLocalSearchParams<{ id: string }>();
 
   // Type check to ensure groupId is a valid string
-  if (typeof groupId !== 'string') {
+  if (typeof groupId !== "string") {
     return (
       <View style={styles.container}>
         <AppHeader title="Error" />
@@ -26,8 +26,8 @@ const GroupDetailPage: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <AppHeader title="Group" />
-      <ScrollView>
+      <StickyTopBar />
+      <ScrollView contentContainerStyle={{ paddingTop: 20 }}>
         <GroupHeader groupId={groupId} />
         <GroupEventPlanner groupId={groupId} />
         <PollWidget groupId={groupId} />

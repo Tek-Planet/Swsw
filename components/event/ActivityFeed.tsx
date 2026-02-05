@@ -27,6 +27,7 @@ type Props = {
 const ActivityFeed: React.FC<Props> = ({ eventId, hasAccess }) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const auth = getAuth();
   const userId = auth.currentUser?.uid;
 
@@ -37,21 +38,36 @@ const ActivityFeed: React.FC<Props> = ({ eventId, hasAccess }) => {
     }
 
     setLoading(true);
-    const unsubscribe = listenEventPosts(eventId, async (newPosts) => {
-      const postsWithLikes = await Promise.all(
-        newPosts.map(async (post) => ({
-          ...post,
-          isLiked: await getPostLikeStatusForUser(eventId, post.id, userId),
-        }))
-      );
-      setPosts(postsWithLikes);
-      setLoading(false);
-    });
+    const unsubscribe = listenEventPosts(
+      eventId,
+      async (newPosts) => {
+        try {
+          const postsWithLikes = await Promise.all(
+            newPosts.map(async (post) => ({
+              ...post,
+              isLiked: await getPostLikeStatusForUser(eventId, post.id, userId),
+            }))
+          );
+          setPosts(postsWithLikes);
+          setError(null);
+        } catch (e) {
+          console.error("Error processing posts:", e);
+          setError("There was an error loading the feed.");
+        } finally {
+          setLoading(false);
+        }
+      },
+      (err) => {
+        console.error("Firestore permission error:", err);
+        setError("You don't have permission to view this feed.");
+        setLoading(false);
+      }
+    );
 
     return () => {
       unsubscribe();
       setLoading(false);
-    }
+    };
   }, [hasAccess, eventId, userId]);
 
   const handleLikeToggle = useCallback(
@@ -59,8 +75,8 @@ const ActivityFeed: React.FC<Props> = ({ eventId, hasAccess }) => {
       if (!userId) return;
       try {
         await togglePostLike(eventId, postId, userId);
-      } catch (error) {
-        console.error('Failed to toggle like:', error);
+      } catch (e) {
+        console.error('Failed to toggle like:', e);
       }
     },
     [eventId, userId]
@@ -78,6 +94,14 @@ const ActivityFeed: React.FC<Props> = ({ eventId, hasAccess }) => {
   if (loading) {
     return (
       <View style={styles.center}><ActivityIndicator size="large" color="#fff" /></View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.errorText}>{error}</Text>
+      </View>
     );
   }
 
@@ -130,6 +154,11 @@ const styles = StyleSheet.create({
   emptyText: {
     color: '#A8A8A8',
     fontSize: 16,
+  },
+  errorText: {
+    color: '#E53935', // A red color for errors
+    fontSize: 16,
+    textAlign: 'center',
   },
   listContent: {
     paddingHorizontal: 16,

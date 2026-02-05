@@ -138,6 +138,7 @@ const EventDetailScreen = () => {
               total={event.attendeeIds?.length || 0}
             />
             <PhotoAlbum eventId={id} />
+            <ActivityFeed eventId={id} hasAccess={hasTicket} />
           </>
         ) : (
           <View style={styles.lockedSection}>
@@ -147,7 +148,6 @@ const EventDetailScreen = () => {
             </Text>
           </View>
         )}
-        {/* <ActivityFeed eventId={id} hasAccess={hasTicket} /> */}
       </ScrollView>
       <FloatingRSVPBar eventId={id} hasTicket={hasTicket} />
     </View>

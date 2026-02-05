@@ -1,8 +1,7 @@
-
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import React from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import React from "react";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 const StickyTopBar = () => {
   const navigation = useNavigation();
@@ -13,9 +12,9 @@ const StickyTopBar = () => {
         <Ionicons name="arrow-back" size={24} color="white" />
       </TouchableOpacity>
       <View style={styles.actions}>
-        <TouchableOpacity onPress={() => alert('Coming soon')} >
+        {/* <TouchableOpacity onPress={() => alert('Coming soon')} >
           <Ionicons name="share-outline" size={24} color="white" />
-        </TouchableOpacity>
+        </TouchableOpacity> */}
         {/* <TouchableOpacity>
           <Ionicons name="ellipsis-vertical" size={24} color="white" />
         </TouchableOpacity> */}
@@ -26,19 +25,19 @@ const StickyTopBar = () => {
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
     zIndex: 1,
   },
   actions: {
-    flexDirection: 'row',
+    flexDirection: "row",
   },
 });
 

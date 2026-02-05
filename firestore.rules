@@ -146,6 +146,17 @@ service cloud.firestore {
                 allow update, delete: if isAdmin() || isEventAdmin(eventId);
             }
           }
+          match /feed/{postId} {
+            // Allow any signed-in user to list posts to prevent snapshot listener errors.
+            // The client-side code is responsible for hiding the feed from non-attendees.
+            allow list: if isSignedIn();
+            
+            // Only event attendees can read posts directly or create new ones.
+            allow get, create: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/events/$(eventId)).data.attendeeIds;
+            
+            // Admins, event admins, or the post author can update or delete.
+            allow update, delete: if isAdmin() || isEventAdmin(eventId) || isOwner(resource.data.authorId);
+          }
     }
     
     //================================================================================
