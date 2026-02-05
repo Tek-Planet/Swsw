@@ -17,6 +17,7 @@ import {
   getEventCoverPhotoUrl,
   getUserAccessibleEvents,
   listenAlbumPhotos,
+  listenMyAlbumPhotos,
 } from "@/lib/services/galleryService";
 import { AccessibleEvent, Photo } from "@/types/gallery";
 
@@ -97,7 +98,7 @@ const GalleryScreen: React.FC = () => {
     let unsubscribe: () => void = () => {};
 
     const fetchPhotos = async () => {
-      if (!focusedEventId) {
+      if (!focusedEventId || !userId) {
         setPhotos([]);
         return;
       }
@@ -105,14 +106,26 @@ const GalleryScreen: React.FC = () => {
       try {
         setLoadingPhotos(true);
         const defaultAlbumId = await ensureDefaultAlbum(focusedEventId);
-        unsubscribe = listenAlbumPhotos(
-          focusedEventId,
-          defaultAlbumId,
-          (newPhotos: Photo[]) => {
-            setPhotos(newPhotos);
-            setLoadingPhotos(false);
-          }
-        );
+
+        const onPhotosUpdate = (newPhotos: Photo[]) => {
+          setPhotos(newPhotos);
+          setLoadingPhotos(false);
+        };
+
+        if (isMyPhotosFilterActive) {
+          unsubscribe = listenMyAlbumPhotos(
+            focusedEventId,
+            defaultAlbumId,
+            userId,
+            onPhotosUpdate
+          );
+        } else {
+          unsubscribe = listenAlbumPhotos(
+            focusedEventId,
+            defaultAlbumId,
+            onPhotosUpdate
+          );
+        }
       } catch (error) {
         console.error(
           `Failed to fetch photos for event ${focusedEventId}:`,
@@ -125,7 +138,7 @@ const GalleryScreen: React.FC = () => {
     fetchPhotos();
 
     return () => unsubscribe();
-  }, [focusedEventId]);
+  }, [focusedEventId, isMyPhotosFilterActive, userId]);
 
   const handleFocusChange = useCallback((eventId: string) => {
     setFocusedEventId(eventId);
@@ -165,10 +178,6 @@ const GalleryScreen: React.FC = () => {
     );
   }
 
-  const displayedPhotos = isMyPhotosFilterActive
-    ? photos.filter((photo) => photo.recognizedUserIds?.includes(userId ?? ""))
-    : photos;
-
   const initialIndex = focusedEventId
     ? carouselItems.findIndex((item) => item.id === focusedEventId)
     : 0;
@@ -205,7 +214,7 @@ const GalleryScreen: React.FC = () => {
           <ActivityIndicator size="large" color="#fff" />
         </View>
       ) : (
-        <AlbumPhotoGrid key={focusedEventId} photos={displayedPhotos} />
+        <AlbumPhotoGrid key={focusedEventId} photos={photos} />
       )}
     </View>
   );

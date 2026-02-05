@@ -28,8 +28,8 @@ const mapDocToPhoto = (doc: any): Photo => {
   const photo: Photo = {
     id: doc.id,
     s3Key: data.s3Key,
-    url: getPublicUrlFromS3Key(data.s3Key),
-    thumbUrl: getPublicUrlFromS3Key(data.s3Key),
+    url: data.url,
+    thumbUrl: data.thumbUrl || data.url,
     ...data,
   };
   return photo;
@@ -43,7 +43,26 @@ export function listenAlbumPhotos(
   const photosQuery = query(
     collection(db, "events", eventId, "albums", albumId, "photos"),
     orderBy("createdAt", "desc"),
-    limit(6)
+    limit(20)
+  );
+
+  return onSnapshot(photosQuery, (snapshot) => {
+    const photos = snapshot.docs.map(mapDocToPhoto);
+    callback(photos);
+  });
+}
+
+export function listenMyAlbumPhotos(
+  eventId: string,
+  albumId: string,
+  userId: string,
+  callback: (photos: Photo[]) => void
+): Unsubscribe {
+  const photosQuery = query(
+    collection(db, "events", eventId, "albums", albumId, "photos"),
+    where("recognizedUserIds", "array-contains", userId),
+    orderBy("createdAt", "desc"),
+    limit(20)
   );
 
   return onSnapshot(photosQuery, (snapshot) => {
@@ -140,7 +159,7 @@ export async function getEventCoverPhotoUrl(
     if (photoSnapshot.empty) return null;
 
     const photo = photoSnapshot.docs[0].data();
-    return getPublicUrlFromS3Key(photo.s3Key) ?? null;
+    return photo.url ?? null;
   } catch (error) {
     console.error(`Failed to get cover photo for event ${eventId}:`, error);
     return null;
@@ -167,7 +186,7 @@ export async function getEventAlbumPreview(
     let coverPhotoUrl: string | null = null;
     if (!photoSnapshot.empty) {
       const latestPhoto = photoSnapshot.docs[0].data();
-      coverPhotoUrl = getPublicUrlFromS3Key(latestPhoto.s3Key) ?? null;
+      coverPhotoUrl = latestPhoto.url ?? null;
     }
 
     const photoCount = albumSnapshot.exists()
