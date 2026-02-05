@@ -146,17 +146,16 @@ service cloud.firestore {
                 allow update, delete: if isAdmin() || isEventAdmin(eventId);
             }
           }
-          match /feed/{postId} {
-            // Allow any signed-in user to list posts to prevent snapshot listener errors.
-            // The client-side code is responsible for hiding the feed from non-attendees.
-            allow list: if isSignedIn();
-            
-            // Only event attendees can read posts directly or create new ones.
-            allow get, create: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/events/$(eventId)).data.attendeeIds;
-            
-            // Admins, event admins, or the post author can update or delete.
-            allow update, delete: if isAdmin() || isEventAdmin(eventId) || isOwner(resource.data.authorId);
-          }
+
+           // Rules for Event Posts (Activity Feed)
+      match /posts/{postId} {
+        allow read, create: if isSignedIn();
+
+        match /likes/{userId} {
+          allow read: if isSignedIn();
+          allow create, delete: if isOwner(userId);
+        }
+      }
     }
     
     //================================================================================
@@ -238,7 +237,11 @@ service cloud.firestore {
     match /notifications/{userId}/user_notifications/{notificationId} {
         allow read, write: if isOwner(userId);
     }
-
+    match /events/{eventId}/feed/{postId} {
+     allow read: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/events/$(eventId)).data.attendeeIds;
+     allow create: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/events/$(eventId)).data.attendeeIds;
+     allow update, delete: if isAdmin() || isEventAdmin(eventId) || isOwner(resource.data.authorId);
+    }
     //================================================================================
     // USER ROLES
     //================================================================================
