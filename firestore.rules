@@ -146,6 +146,16 @@ service cloud.firestore {
                 allow update, delete: if isAdmin() || isEventAdmin(eventId);
             }
           }
+
+           // Rules for Event Posts (Activity Feed)
+      match /posts/{postId} {
+        allow read, create: if isSignedIn();
+
+        match /likes/{userId} {
+          allow read: if isSignedIn();
+          allow create, delete: if isOwner(userId);
+        }
+      }
     }
     
     //================================================================================
