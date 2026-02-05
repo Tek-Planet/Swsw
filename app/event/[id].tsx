@@ -1,4 +1,3 @@
-
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
@@ -147,7 +146,7 @@ const EventDetailScreen = () => {
             </Text>
           </View>
         )}
-        {/* <ActivityFeed eventId={id} hasAccess={hasTicket} /> */}
+        <ActivityFeed eventId={id} hasAccess={hasTicket} />
       </ScrollView>
       <FloatingRSVPBar eventId={id} hasTicket={hasTicket} />
     </View>

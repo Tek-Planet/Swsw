@@ -227,7 +227,11 @@ service cloud.firestore {
     match /notifications/{userId}/user_notifications/{notificationId} {
         allow read, write: if isOwner(userId);
     }
-
+    match /events/{eventId}/feed/{postId} {
+     allow read: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/events/$(eventId)).data.attendeeIds;
+     allow create: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/events/$(eventId)).data.attendeeIds;
+     allow update, delete: if isAdmin() || isEventAdmin(eventId) || isOwner(resource.data.authorId);
+    }
     //================================================================================
     // USER ROLES
     //================================================================================
