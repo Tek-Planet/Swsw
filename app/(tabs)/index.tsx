@@ -7,13 +7,13 @@ import {
   Text,
   View,
   TouchableOpacity,
-  Modal,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import EventCard from "@/components/EventCard";
 import AlbumPreviewCard from "@/components/gallery/AlbumPreviewCard";
 import { Header, TopNavBar } from "@/components/Header";
+import FilterModal from "@/components/FilterModal"; // Import the new modal component
 import { useAuth } from "@/lib/context/AuthContext";
 import {
   getEvent,
@@ -199,33 +199,11 @@ const EventsSection: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      <Modal
-        animationType="fade"
-        transparent={true}
+      <FilterModal
         visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalContainer}
-          activeOpacity={1}
-          onPressOut={() => setModalVisible(false)}
-        >
-          <View style={styles.modalContent}>
-            <TouchableOpacity
-              onPress={() => handleSelectFilter("Upcoming")}
-              style={styles.modalOption}
-            >
-              <Text style={styles.modalOptionText}>Upcoming</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => handleSelectFilter("Past")}
-              style={styles.modalOption}
-            >
-              <Text style={styles.modalOptionText}>Past</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+        onClose={() => setModalVisible(false)}
+        onSelectFilter={handleSelectFilter}
+      />
 
       {events.length > 0 ? (
         <ScrollView horizontal contentContainerStyle={styles.horizontalScroll}>
@@ -365,31 +343,6 @@ const styles = StyleSheet.create({
     color: "#666",
     fontSize: 14,
     marginTop: 5,
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-  },
-  modalContent: {
-    backgroundColor: "#222",
-    borderRadius: 10,
-    padding: 10,
-    width: "60%",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  modalOption: {
-    paddingVertical: 15,
-    alignItems: "center",
-  },
-  modalOptionText: {
-    color: "#fff",
-    fontSize: 18,
   },
 });
 
