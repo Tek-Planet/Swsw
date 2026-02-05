@@ -1,4 +1,3 @@
-
 import {
   collection,
   doc,
@@ -14,6 +13,7 @@ import {
   serverTimestamp,
   QueryDocumentSnapshot,
   DocumentData,
+  documentId,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebaseConfig';
 import { Event, FirestoreEvent } from '@/types/event';
@@ -21,6 +21,7 @@ import { UserProfile } from '@/types/user';
 
 const eventCollection = collection(db, 'events');
 const userCollection = collection(db, 'users');
+const ordersCollection = collection(db, 'orders');
 
 const getEventDocRef = (eventId: string) => doc(db, 'events', eventId);
 
@@ -56,14 +57,15 @@ export async function getProfilesForUserIds(userIds: string[]): Promise<Map<stri
   const profiles = new Map<string, UserProfile>();
   if (!userIds || userIds.length === 0) return profiles;
 
+  // Firestore 'in' queries support up to 30 elements per query.
   const batches: string[][] = [];
-  for (let i = 0; i < userIds.length; i += 10) {
-    batches.push(userIds.slice(i, i + 10));
+  for (let i = 0; i < userIds.length; i += 30) {
+    batches.push(userIds.slice(i, i + 30));
   }
 
   await Promise.all(
     batches.map(async (batch) => {
-      const q = query(userCollection, where('__name__', 'in', batch));
+      const q = query(userCollection, where(documentId(), 'in', batch));
       const querySnapshot = await getDocs(q);
       querySnapshot.forEach((doc) => {
         profiles.set(doc.id, doc.data() as UserProfile);
@@ -113,19 +115,48 @@ export function listenToUserUpcomingEvents(
     userId: string,
     callback: (events: Event[]) => void
   ): () => void {
-    const now = new Date();
-    const q = query(
-      eventCollection,
-      where('status', '==', 'published'),
-      where('attendeeIds', 'array-contains', userId),
-      where('startTime', '>=', now),
-      orderBy('startTime', 'asc'),
-      limit(3)
+    const ordersQuery = query(
+      ordersCollection,
+      where('userId', '==', userId),
+      where('status', '==', 'paid')
     );
-  
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const events = querySnapshot.docs.map(doc => eventFromDoc(doc));
-      callback(events);
+
+    const unsubscribe = onSnapshot(ordersQuery, async (ordersSnapshot) => {
+      if (ordersSnapshot.empty) {
+        callback([]);
+        return;
+      }
+
+      const eventIds = [...new Set(ordersSnapshot.docs.map(doc => doc.data().eventId))];
+
+      if (eventIds.length === 0) {
+        callback([]);
+        return;
+      }
+
+      const allEvents: Event[] = [];
+      const eventIdBatches: string[][] = [];
+      for (let i = 0; i < eventIds.length; i += 30) {
+        eventIdBatches.push(eventIds.slice(i, i + 30));
+      }
+
+      await Promise.all(
+        eventIdBatches.map(async (batch) => {
+          if (batch.length === 0) return;
+          const eventsQuery = query(eventCollection, where(documentId(), 'in', batch));
+          const eventsSnapshot = await getDocs(eventsQuery);
+          const batchEvents = eventsSnapshot.docs.map(doc => eventFromDoc(doc));
+          allEvents.push(...batchEvents);
+        })
+      );
+      
+      const now = new Date();
+      const upcomingEvents = allEvents
+        .filter(event => event.startTime >= now)
+        .sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+      
+      callback(upcomingEvents.slice(0, 10));
+
     }, (error) => {
       console.error("Error listening to user upcoming events:", error);
     });
@@ -137,19 +168,48 @@ export function listenToUserPastEvents(
   userId: string,
   callback: (events: Event[]) => void
 ): () => void {
-  const now = new Date();
-  const q = query(
-    eventCollection,
-    where('status', '==', 'published'),
-    where('attendeeIds', 'array-contains', userId),
-    where('startTime', '<', now),
-    orderBy('startTime', 'desc'),
-    limit(3)
+  const ordersQuery = query(
+    ordersCollection,
+    where('userId', '==', userId),
+    where('status', '==', 'paid')
   );
 
-  const unsubscribe = onSnapshot(q, (querySnapshot) => {
-    const events = querySnapshot.docs.map(doc => eventFromDoc(doc));
-    callback(events);
+  const unsubscribe = onSnapshot(ordersQuery, async (ordersSnapshot) => {
+    if (ordersSnapshot.empty) {
+      callback([]);
+      return;
+    }
+
+    const eventIds = [...new Set(ordersSnapshot.docs.map(doc => doc.data().eventId))];
+
+    if (eventIds.length === 0) {
+      callback([]);
+      return;
+    }
+
+    const allEvents: Event[] = [];
+      const eventIdBatches: string[][] = [];
+      for (let i = 0; i < eventIds.length; i += 30) {
+        eventIdBatches.push(eventIds.slice(i, i + 30));
+      }
+
+      await Promise.all(
+        eventIdBatches.map(async (batch) => {
+          if (batch.length === 0) return;
+          const eventsQuery = query(eventCollection, where(documentId(), 'in', batch));
+          const eventsSnapshot = await getDocs(eventsQuery);
+          const batchEvents = eventsSnapshot.docs.map(doc => eventFromDoc(doc));
+          allEvents.push(...batchEvents);
+        })
+      );
+
+    const now = new Date();
+    const pastEvents = allEvents
+      .filter(event => event.startTime < now)
+      .sort((a, b) => b.startTime.getTime() - a.startTime.getTime());
+      
+    callback(pastEvents.slice(0, 10));
+
   }, (error) => {
     console.error("Error listening to user past events:", error);
   });

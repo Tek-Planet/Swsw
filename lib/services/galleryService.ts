@@ -48,7 +48,11 @@ async function getPhotos(
   let photosQuery = query(baseQuery, limit(PHOTOS_PER_PAGE));
 
   if (lastVisible) {
-    photosQuery = query(baseQuery, startAfter(lastVisible), limit(PHOTOS_PER_PAGE));
+    photosQuery = query(
+      baseQuery,
+      startAfter(lastVisible),
+      limit(PHOTOS_PER_PAGE)
+    );
   }
 
   const snapshot = await getDocs(photosQuery);

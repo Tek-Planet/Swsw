@@ -3,14 +3,13 @@ import { Link } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   FlatList,
-  Modal,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 
+import FilterModal from "@/components/FilterModal";
 import { AppHeader } from "@/components/Header";
 import { useAuth } from "@/lib/context/AuthContext";
 import {
@@ -67,33 +66,11 @@ const EventsScreen: React.FC = () => {
         }
       />
 
-      <Modal
-        animationType="fade"
-        transparent={true}
+      <FilterModal
         visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalContainer}
-          activeOpacity={1}
-          onPressOut={() => setModalVisible(false)}
-        >
-          <View style={styles.modalContent}>
-            <TouchableOpacity
-              onPress={() => handleSelectFilter("Upcoming")}
-              style={styles.modalOption}
-            >
-              <Text style={styles.modalOptionText}>Upcoming</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => handleSelectFilter("Past")}
-              style={styles.modalOption}
-            >
-              <Text style={styles.modalOptionText}>Past</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+        onClose={() => setModalVisible(false)}
+        onSelectFilter={handleSelectFilter}
+      />
 
       {events.length > 0 ? (
         <FlatList
@@ -109,12 +86,6 @@ const EventsScreen: React.FC = () => {
           </Text>
         </View>
       )}
-
-      {/* <Link href={{ pathname: "/" }} asChild>
-        <TouchableOpacity style={styles.fab}>
-          <Ionicons name="add" size={30} color="white" />
-        </TouchableOpacity>
-      </Link> */}
     </View>
   );
 };
@@ -164,26 +135,6 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     color: "#999",
-    fontSize: 18,
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-  },
-  modalContent: {
-    backgroundColor: "#2c2c2e",
-    borderRadius: 10,
-    padding: 10,
-    width: "60%",
-  },
-  modalOption: {
-    paddingVertical: 15,
-    alignItems: "center",
-  },
-  modalOptionText: {
-    color: "#fff",
     fontSize: 18,
   },
 });

@@ -20,7 +20,7 @@ dist/
 # Environment variables
 
 .env
-.env.*
+
 
 # IDE-specific
 .idea/
