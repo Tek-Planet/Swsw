@@ -13,12 +13,12 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { getAuth } from "firebase/auth";
-import { serverTimestamp, Unsubscribe } from "firebase/firestore";
+import { serverTimestamp } from "firebase/firestore";
 
 import {
-  listenAlbumPhotos,
   ensureDefaultAlbum,
   createPhotoDoc,
+  getAlbumPhotos,
 } from "@/lib/services/galleryService";
 import { uploadEventPhotoAndGetS3Key } from "@/lib/firebase/storageService";
 import { Photo } from "@/types/gallery";
@@ -36,34 +36,20 @@ const PhotoAlbum: React.FC<Props> = ({ eventId }) => {
   const userId = auth.currentUser?.uid;
 
   useEffect(() => {
-    let unsubscribe: Unsubscribe | undefined;
-    let isMounted = true;
-
-    const setupListener = async () => {
+    const fetchPreviewPhotos = async () => {
       try {
         setLoading(true);
         const albumId = await ensureDefaultAlbum(eventId);
-
-        if (isMounted) {
-          unsubscribe = listenAlbumPhotos(eventId, albumId, (newPhotos) => {
-            setPhotos(newPhotos.slice(0, 6));
-            if (loading) setLoading(false);
-          });
-        }
+        const { photos: newPhotos } = await getAlbumPhotos(eventId, albumId, null);
+        setPhotos(newPhotos.slice(0, 6));
       } catch (error) {
-        console.error("Failed to set up photo listener:", error);
-        if (isMounted) setLoading(false);
+        console.error("Failed to fetch photo previews:", error);
+      } finally {
+        setLoading(false);
       }
     };
 
-    setupListener();
-
-    return () => {
-      isMounted = false;
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
+    fetchPreviewPhotos();
   }, [eventId]);
 
   const handleImageUpload = async (result: ImagePicker.ImagePickerResult) => {

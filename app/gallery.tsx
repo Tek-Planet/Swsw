@@ -8,16 +8,18 @@ import {
   Text,
   TouchableOpacity,
   View,
+  FlatList,
+  Image,
 } from "react-native";
+import { QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
 
-import AlbumPhotoGrid from "@/components/gallery/AlbumPhotoGrid";
 import SwipeableEventCarousel from "@/components/gallery/SwipeableEventCarousel";
 import {
   ensureDefaultAlbum,
   getEventCoverPhotoUrl,
   getUserAccessibleEvents,
-  listenAlbumPhotos,
-  listenMyAlbumPhotos,
+  getAlbumPhotos,
+  getMyAlbumPhotos,
 } from "@/lib/services/galleryService";
 import { AccessibleEvent, Photo } from "@/types/gallery";
 
@@ -38,6 +40,10 @@ const GalleryScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [loadingPhotos, setLoadingPhotos] = useState(false);
   const [isMyPhotosFilterActive, setIsMyPhotosFilterActive] = useState(false);
+
+  const [lastVisible, setLastVisible] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -95,50 +101,47 @@ const GalleryScreen: React.FC = () => {
   }, [userId, eventIdFromParams]);
 
   useEffect(() => {
-    let unsubscribe: () => void = () => {};
-
-    const fetchPhotos = async () => {
-      if (!focusedEventId || !userId) {
-        setPhotos([]);
-        return;
-      }
-
-      try {
-        setLoadingPhotos(true);
-        const defaultAlbumId = await ensureDefaultAlbum(focusedEventId);
-
-        const onPhotosUpdate = (newPhotos: Photo[]) => {
-          setPhotos(newPhotos);
-          setLoadingPhotos(false);
-        };
-
-        if (isMyPhotosFilterActive) {
-          unsubscribe = listenMyAlbumPhotos(
-            focusedEventId,
-            defaultAlbumId,
-            userId,
-            onPhotosUpdate
-          );
-        } else {
-          unsubscribe = listenAlbumPhotos(
-            focusedEventId,
-            defaultAlbumId,
-            onPhotosUpdate
-          );
-        }
-      } catch (error) {
-        console.error(
-          `Failed to fetch photos for event ${focusedEventId}:`,
-          error
-        );
-        setLoadingPhotos(false);
-      }
-    };
-
-    fetchPhotos();
-
-    return () => unsubscribe();
+    setPhotos([]);
+    setLastVisible(null);
+    setHasMore(true);
+    if (focusedEventId && userId) {
+      loadPhotos(true);
+    }
   }, [focusedEventId, isMyPhotosFilterActive, userId]);
+
+  const loadPhotos = async (isInitial = false) => {
+    if ((!isInitial && loadingMore) || !hasMore || !focusedEventId || !userId) return;
+
+    if (isInitial) {
+      setLoadingPhotos(true);
+    } else {
+      setLoadingMore(true);
+    }
+
+    try {
+      const defaultAlbumId = await ensureDefaultAlbum(focusedEventId);
+      const result = isMyPhotosFilterActive
+        ? await getMyAlbumPhotos(focusedEventId, defaultAlbumId, userId, lastVisible)
+        : await getAlbumPhotos(focusedEventId, defaultAlbumId, lastVisible);
+
+      if (result.photos.length > 0) {
+        setPhotos((prev) => (isInitial ? result.photos : [...prev, ...result.photos]));
+        setLastVisible(result.lastVisible);
+      }
+      if (result.photos.length < 20) {
+        setHasMore(false);
+      }
+    } catch (error) {
+      console.error("Failed to fetch photos:", error);
+    } finally {
+      if (isInitial) {
+        setLoadingPhotos(false);
+      } else {
+        setLoadingMore(false);
+      }
+    }
+  };
+
 
   const handleFocusChange = useCallback((eventId: string) => {
     setFocusedEventId(eventId);
@@ -182,6 +185,12 @@ const GalleryScreen: React.FC = () => {
     ? carouselItems.findIndex((item) => item.id === focusedEventId)
     : 0;
 
+  const PhotoTile = ({ photo }: { photo: Photo }) => (
+    <TouchableOpacity style={styles.photoContainer}>
+      <Image source={{ uri: photo.thumbUrl }} style={styles.photo} />
+    </TouchableOpacity>
+  );
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -214,7 +223,17 @@ const GalleryScreen: React.FC = () => {
           <ActivityIndicator size="large" color="#fff" />
         </View>
       ) : (
-        <AlbumPhotoGrid key={focusedEventId} photos={photos} />
+        <FlatList
+          data={photos}
+          key={focusedEventId}
+          renderItem={({ item }) => <PhotoTile photo={item} />}
+          keyExtractor={(item) => item.id}
+          numColumns={3}
+          onEndReached={() => loadPhotos(false)}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={loadingMore ? <ActivityIndicator color="#fff" /> : null}
+          ListEmptyComponent={<View style={styles.center}><Text style={styles.errorText}>No photos found.</Text></View>}
+        />
       )}
     </View>
   );
@@ -256,6 +275,14 @@ const styles = StyleSheet.create({
   errorText: {
     color: "#A8A8A8",
     fontSize: 16,
+  },
+  photoContainer: {
+    flex: 1 / 3,
+    aspectRatio: 1,
+  },
+  photo: {
+    flex: 1,
+    margin: 1,
   },
 });
 

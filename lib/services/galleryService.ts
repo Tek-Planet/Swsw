@@ -5,12 +5,14 @@ import {
   orderBy,
   limit,
   getDocs,
-  onSnapshot,
-  Unsubscribe,
   doc,
   addDoc,
   serverTimestamp,
   getDoc,
+  startAfter,
+  QueryDocumentSnapshot,
+  Query,
+  DocumentData,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseConfig";
 import { AccessibleEvent, Album, Photo } from "@/types/gallery";
@@ -23,52 +25,63 @@ const getPublicUrlFromS3Key = (s3Key: string) => {
   return `https://${S3_BUCKET_NAME}.s3.${S3_REGION}.amazonaws.com/${s3Key}`;
 };
 
-const mapDocToPhoto = (doc: any): Photo => {
+const mapDocToPhoto = (doc: QueryDocumentSnapshot<DocumentData>): Photo => {
   const data = doc.data();
   const photo: Photo = {
     id: doc.id,
     s3Key: data.s3Key,
     url: data.url,
     thumbUrl: data.thumbUrl || data.url,
+    uploadedBy: data.uploadedBy,
+    uploaderId: data.uploaderId,
     ...data,
   };
   return photo;
 };
 
-export function listenAlbumPhotos(
-  eventId: string,
-  albumId: string,
-  callback: (photos: Photo[]) => void
-): Unsubscribe {
-  const photosQuery = query(
-    collection(db, "events", eventId, "albums", albumId, "photos"),
-    orderBy("createdAt", "desc"),
-    limit(20)
-  );
+const PHOTOS_PER_PAGE = 20;
 
-  return onSnapshot(photosQuery, (snapshot) => {
-    const photos = snapshot.docs.map(mapDocToPhoto);
-    callback(photos);
-  });
+async function getPhotos(
+  baseQuery: Query<DocumentData>,
+  lastVisible: QueryDocumentSnapshot<DocumentData> | null
+) {
+  let photosQuery = query(baseQuery, limit(PHOTOS_PER_PAGE));
+
+  if (lastVisible) {
+    photosQuery = query(baseQuery, startAfter(lastVisible), limit(PHOTOS_PER_PAGE));
+  }
+
+  const snapshot = await getDocs(photosQuery);
+  const photos = snapshot.docs.map(mapDocToPhoto);
+  const newLastVisible = snapshot.docs[snapshot.docs.length - 1] || null;
+
+  return { photos, lastVisible: newLastVisible };
 }
 
-export function listenMyAlbumPhotos(
+export async function getAlbumPhotos(
+  eventId: string,
+  albumId: string,
+  lastVisible: QueryDocumentSnapshot<DocumentData> | null
+) {
+  const baseQuery = query(
+    collection(db, "events", eventId, "albums", albumId, "photos"),
+    orderBy("createdAt", "desc")
+  );
+  return getPhotos(baseQuery, lastVisible);
+}
+
+export async function getMyAlbumPhotos(
   eventId: string,
   albumId: string,
   userId: string,
-  callback: (photos: Photo[]) => void
-): Unsubscribe {
-  const photosQuery = query(
+  lastVisible: QueryDocumentSnapshot<DocumentData> | null
+) {
+  const baseQuery = query(
     collection(db, "events", eventId, "albums", albumId, "photos"),
     where("recognizedUserIds", "array-contains", userId),
-    orderBy("createdAt", "desc"),
-    limit(20)
+    orderBy("createdAt", "desc")
   );
-
-  return onSnapshot(photosQuery, (snapshot) => {
-    const photos = snapshot.docs.map(mapDocToPhoto);
-    callback(photos);
-  });
+  return getPhotos(baseQuery, lastVisible);
 }
 
 export async function getEventPhotoPreview(
