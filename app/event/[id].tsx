@@ -117,6 +117,9 @@ const EventDetailScreen = () => {
     hour12: true,
   });
 
+  const isUpcoming =
+    event.startTime > new Date() && event.status === "published";
+
   return (
     <View style={styles.container}>
       <StickyTopBar />
@@ -147,9 +150,8 @@ const EventDetailScreen = () => {
             </Text>
           </View>
         )}
-      
       </ScrollView>
-      <FloatingRSVPBar eventId={id} hasTicket={hasTicket} />
+      {isUpcoming && <FloatingRSVPBar eventId={id} hasTicket={hasTicket} />}
     </View>
   );
 };
