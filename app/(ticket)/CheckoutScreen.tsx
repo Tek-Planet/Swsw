@@ -49,7 +49,7 @@ const CheckoutScreen = () => {
   const [selectedTiers, setSelectedTiers] = useState<{ [key: string]: number }>({});
   const [pricing, setPricing] = useState({ subtotal: 0, feeBase: 0, processingFee: 0, total: 0 });
   
-  const [attendees, setAttendees] = useState<{ name: string; email: string; }[]>([]);
+  const [attendees, setAttendees] = useState<{ name: string; email: string; phone: string; }[]>([]);
   const [tableContactDetails, setTableContactDetails] = useState<TableContactDetails>({
     fullName: '',
     email: '',
@@ -117,7 +117,7 @@ const CheckoutScreen = () => {
         return acc;
     }, 0);
 
-    setAttendees(Array(individualTicketCount).fill({ name: '', email: '' }));
+    setAttendees(Array(individualTicketCount).fill({ name: '', email: '', phone: '' }));
   }, [selectedTiers, ticketTiers]);
 
   useEffect(() => {
@@ -161,7 +161,7 @@ const CheckoutScreen = () => {
   }, [hasTableBooking, tableContactDetails]);
 
   const areAttendeeDetailsValid = useMemo(() => 
-    attendees.every(attendee => attendee.name.trim() !== '' && attendee.email.trim() !== ''), 
+    attendees.every(attendee => attendee.name.trim() !== '' && attendee.email.trim() !== '' && attendee.phone.trim() !== ''), 
   [attendees]);
 
   const hasSelection = Object.keys(selectedTiers).length > 0;
@@ -277,6 +277,11 @@ const CheckoutScreen = () => {
                         newAttendees[index] = { ...newAttendees[index], email };
                         setAttendees(newAttendees);
                       }} keyboardType="email-address" autoCapitalize="none" placeholderTextColor="#888" />
+                    <TextInput style={styles.input} placeholder={`Ticket ${index + 1} - Phone Number *`} value={attendee.phone} onChangeText={(phone) => {
+                        const newAttendees = [...attendees];
+                        newAttendees[index] = { ...newAttendees[index], phone };
+                        setAttendees(newAttendees);
+                      }} keyboardType="phone-pad" placeholderTextColor="#888" />
                   </View>
                 ))}
               </View>

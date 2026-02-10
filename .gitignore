@@ -2,6 +2,7 @@
 scripts/serviceAccountKey*
 scripts/seedEventTickets.ts
 
+.idx
 
 # Node dependencies
 node_modules/
