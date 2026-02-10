@@ -28,6 +28,19 @@ import { ThemedView } from "../../components/themed-view";
 import { db } from "../../lib/firebase/firebaseConfig";
 import { Event, TableContactDetails, TicketTier } from "../../types/event";
 
+// Add PromoCodeData interface
+interface PromoCodeData {
+  id: string;
+  code: string;
+  discountType: 'percent' | 'fixed' | 'free';
+  discountValue: number;
+  maxRedemptions: number;
+  currentRedemptions: number;
+  isActive: boolean;
+  eventId: string;
+}
+
+
 const getCurrencySymbol = (currency: string) => {
     switch (currency) {
         case 'INR': return '₹';
@@ -47,8 +60,8 @@ const CheckoutScreen = () => {
   const [event, setEvent] = useState<Event | null>(null);
   const [ticketTiers, setTicketTiers] = useState<TicketTier[]>([]);
   const [selectedTiers, setSelectedTiers] = useState<{ [key: string]: number }>({});
-  const [pricing, setPricing] = useState({ subtotal: 0, feeBase: 0, processingFee: 0, total: 0 });
-  
+  const [pricing, setPricing] = useState({ subtotal: 0, feeBase: 0, processingFee: 0, total: 0, discount: 0 });
+
   const [attendees, setAttendees] = useState<{ name: string; email: string; phone: string; }[]>([]);
   const [tableContactDetails, setTableContactDetails] = useState<TableContactDetails>({
     fullName: '',
@@ -56,10 +69,12 @@ const CheckoutScreen = () => {
     phone: '',
     notes: '',
   });
-  
+
   const [promoCode, setPromoCode] = useState("");
+  const [promoApplied, setPromoApplied] = useState<PromoCodeData | null>(null);
+  const [promoValidating, setPromoValidating] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
-  
+
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -74,7 +89,7 @@ const CheckoutScreen = () => {
       console.error("Invalid JSON from params:", e);
       setLoading(false);
     }
-    
+
     const fetchEventAndTiers = async () => {
       setLoading(true);
       try {
@@ -143,14 +158,101 @@ const CheckoutScreen = () => {
 
     const feePercentage = event.bookingFeePercent / 100;
     const processingFee = feeBase > 0 ? Math.round(feeBase * feePercentage) : 0;
-    setPricing({ subtotal: subtotalCharged, feeBase, processingFee, total: subtotalCharged + processingFee });
-  }, [selectedTiers, ticketTiers, event]);
 
-  const hasTableBooking = useMemo(() => 
+    // Calculate discount
+    let discount = 0;
+    if (promoApplied) {
+      // The discount should apply to the subtotal ONLY, not the processing fee.
+      const discountBase = subtotalCharged;
+      switch (promoApplied.discountType) {
+        case 'free':
+          // "Free" promo should waive the subtotal. The processing fee may still apply.
+          discount = discountBase;
+          break;
+        case 'percent':
+          discount = Math.round(discountBase * (promoApplied.discountValue / 100));
+          break;
+        case 'fixed':
+          discount = Math.min(promoApplied.discountValue, discountBase);
+          break;
+      }
+    }
+
+    // Final total is subtotal - discount + fee
+    const finalTotal = Math.max(0, subtotalCharged - discount + processingFee);
+
+    setPricing({
+      subtotal: subtotalCharged,
+      feeBase,
+      processingFee,
+      discount,
+      total: finalTotal
+    });
+  }, [selectedTiers, ticketTiers, event, promoApplied]);
+
+  const validatePromoCode = async () => {
+    if (!promoCode.trim() || !eventId) {
+      return;
+    }
+
+    setPromoValidating(true);
+    try {
+      const upperCode = promoCode.trim().toUpperCase();
+      const promoQuery = query(
+        collection(db, 'promoCodes'),
+        where('eventId', '==', eventId),
+        where('code', '==', upperCode)
+      );
+      const snapshot = await getDocs(promoQuery);
+
+      if (snapshot.empty) {
+        setPromoApplied(null);
+        Alert.alert("Invalid Code", "This promo code is not valid for this event.");
+        return;
+      }
+
+      const promoDoc = snapshot.docs[0];
+      const promoData = { id: promoDoc.id, ...promoDoc.data() } as PromoCodeData;
+
+      if (!promoData.isActive) {
+        setPromoApplied(null);
+        Alert.alert("Code Inactive", "This promo code is no longer active.");
+        return;
+      }
+
+      if (promoData.currentRedemptions >= promoData.maxRedemptions) {
+        setPromoApplied(null);
+        Alert.alert("Code Expired", "This promo code has reached its usage limit.");
+        return;
+      }
+
+      setPromoApplied(promoData);
+      Alert.alert(
+        "Promo Applied!",
+        promoData.discountType === 'free'
+          ? "Your order will be free!"
+          : promoData.discountType === 'percent'
+            ? `${promoData.discountValue}% discount applied!`
+            : `${getCurrencySymbol(event?.currency || 'INR')} ${promoData.discountValue} discount applied!`
+      );
+    } catch (error: any) {
+      console.error("Error validating promo:", error);
+      if (error?.message?.includes('index')) {
+        Alert.alert("Configuration Error", "Promo codes are not configured correctly. Please contact support.");
+      } else {
+        Alert.alert("Error", "Failed to validate promo code. Please try again.");
+      }
+      setPromoApplied(null);
+    } finally {
+      setPromoValidating(false);
+    }
+  };
+
+  const hasTableBooking = useMemo(() =>
     ticketTiers.length > 0 && Object.keys(selectedTiers).some(tierId => {
         const tier = ticketTiers.find(t => t.id === tierId);
         return tier && tier.type === 'table' && selectedTiers[tierId] > 0;
-    }), 
+    }),
   [selectedTiers, ticketTiers]);
 
   const isTableContactFormValid = useMemo(() => {
@@ -160,8 +262,8 @@ const CheckoutScreen = () => {
            tableContactDetails.phone.trim() !== '';
   }, [hasTableBooking, tableContactDetails]);
 
-  const areAttendeeDetailsValid = useMemo(() => 
-    attendees.every(attendee => attendee.name.trim() !== '' && attendee.email.trim() !== '' && attendee.phone.trim() !== ''), 
+  const areAttendeeDetailsValid = useMemo(() =>
+    attendees.every(attendee => attendee.name.trim() !== '' && attendee.email.trim() !== '' && attendee.phone.trim() !== ''),
   [attendees]);
 
   const hasSelection = Object.keys(selectedTiers).length > 0;
@@ -176,10 +278,10 @@ const CheckoutScreen = () => {
 
     try {
       const createPaymentIntent = httpsCallable(functions, "createPaymentIntent");
-      const res = await createPaymentIntent({ 
-          eventId: eventIdStr, 
-          selectedTiers, 
-          promoCode: promoCode.trim().toUpperCase() || undefined,
+      const res = await createPaymentIntent({
+          eventId: eventIdStr,
+          selectedTiers,
+          promoCode: promoApplied ? promoApplied.code : undefined, // Pass applied promo code
           attendees: attendees.length > 0 ? attendees : undefined,
           tableContactDetails: hasTableBooking ? tableContactDetails : undefined,
       });
@@ -190,7 +292,7 @@ const CheckoutScreen = () => {
           router.push({ pathname: "/(ticket)/PurchaseConfirmationScreen", params: { orderId } });
           return;
       }
-      
+
       if (!clientSecret) throw new Error("Payment intent not created successfully.");
 
       const { error: initError } = await initPaymentSheet({
@@ -200,7 +302,7 @@ const CheckoutScreen = () => {
           returnURL: 'https://grideventsapp.com',
       });
       if (initError) throw new Error(`Failed to initialize payment sheet: ${initError.message}`);
-      
+
       const { error: presentError } = await presentPaymentSheet();
       if (presentError) {
           if (presentError.code !== 'Canceled') {
@@ -246,6 +348,12 @@ const CheckoutScreen = () => {
                         <Text style={styles.summaryText}>{currencySymbol}{pricing.processingFee.toLocaleString()}</Text>
                     </View>
                 )}
+                {pricing.discount > 0 && (
+                    <View style={styles.subtotalContainer}>
+                        <Text style={[styles.summaryText, { color: '#4CAF50' }]}>Discount</Text>
+                        <Text style={[styles.summaryText, { color: '#4CAF50' }]}>-{currencySymbol}{pricing.discount.toLocaleString()}</Text>
+                    </View>
+                )}
                 <View style={styles.totalContainer}>
                     <Text style={styles.totalText}>Total</Text>
                     <Text style={styles.totalText}>{currencySymbol}{pricing.total.toLocaleString()}</Text>
@@ -287,17 +395,38 @@ const CheckoutScreen = () => {
               </View>
             )}
 
-            <View style={styles.promoContainer}>
-                <TextInput style={styles.promoInput} placeholder="Promo code (optional)" value={promoCode} onChangeText={setPromoCode} autoCapitalize="characters" placeholderTextColor="#888" />
+            {/* Promo Code Section */}
+            <View style={styles.promoSection}>
+                <Text style={styles.sectionTitle}>Promo Code</Text>
+                <View style={styles.promoInputContainer}>
+                    <TextInput
+                        style={styles.promoInput}
+                        placeholder="Enter promo code"
+                        value={promoCode}
+                        onChangeText={setPromoCode}
+                        autoCapitalize="characters"
+                        placeholderTextColor="#888"
+                        editable={!promoValidating && !promoApplied}
+                    />
+                    {promoApplied ? (
+                      <TouchableOpacity onPress={() => { setPromoCode(''); setPromoApplied(null); }} style={styles.promoButton}>
+                          <Text style={styles.promoButtonText}>Remove</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity onPress={validatePromoCode} style={styles.promoButton} disabled={promoValidating || !promoCode.trim()}>
+                          {promoValidating ? <ActivityIndicator color="#fff" /> : <Text style={styles.promoButtonText}>Apply</Text>}
+                      </TouchableOpacity>
+                    )}
+                </View>
             </View>
-            
+
             <View style={styles.termsContainer}>
                 <TouchableOpacity onPress={() => setAgreedToTerms(!agreedToTerms)} style={styles.checkbox}>
                     {agreedToTerms && <Feather name="check" size={18} color="#fff" />}
                 </TouchableOpacity>
                  <Text style={styles.termsText}>I agree to the Terms of Service and understand all sales are final.</Text>
             </View>
-            
+
             <TouchableOpacity style={[styles.ctaButton, !canProceed && styles.disabledButton]} onPress={handlePayment} disabled={!canProceed}>
                 {isProcessing ? <ActivityIndicator color="#fff" /> : <Text style={styles.ctaButtonText}>{pricing.total === 0 ? 'Complete Order' : 'Proceed to Payment'}</Text>}
             </TouchableOpacity>
@@ -320,8 +449,6 @@ const styles = StyleSheet.create({
   subtotalContainer: { flexDirection: "row", justifyContent: "space-between", marginTop: 10 },
   totalContainer: { flexDirection: "row", justifyContent: "space-between", borderTopWidth: 1, borderTopColor: "#333", paddingTop: 15, marginTop: 15 },
   totalText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
-  promoContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  promoInput: { flex: 1, backgroundColor: "#1a1a1a", borderRadius: 8, color: "#fff", paddingHorizontal: 15, paddingVertical: 12, fontSize: 16 },
   termsContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 25, paddingHorizontal: 5 },
   checkbox: { width: 24, height: 24, borderWidth: 1, borderColor: '#888', borderRadius: 4, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   termsText: { color: '#aaa', fontSize: 12, flex: 1 },
@@ -332,6 +459,11 @@ const styles = StyleSheet.create({
   sectionTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold', marginBottom: 15 },
   attendeeInputContainer: { marginBottom: 10, borderTopWidth: 1, borderTopColor: '#2c2c2e', paddingTop: 15 },
   input: { backgroundColor: '#2c2c2e', color: '#fff', borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 10 },
+  promoSection: { backgroundColor: '#1a1a1a', borderRadius: 10, padding: 20, marginBottom: 20 },
+  promoInputContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  promoInput: { flex: 1, backgroundColor: '#2c2c2e', color: '#fff', borderRadius: 8, padding: 12, fontSize: 16, marginRight: 10 },
+  promoButton: { paddingHorizontal: 15, height: 48, justifyContent: 'center', alignItems: 'center', backgroundColor: '#4a90e2', borderRadius: 8 },
+  promoButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
 });
 
 export default CheckoutScreen;
