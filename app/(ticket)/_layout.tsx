@@ -25,6 +25,7 @@ export default function TicketLayout() {
       <Stack>
         <Stack.Screen name="TicketSelectionScreen" options={{ headerShown: false }} />
         <Stack.Screen name="CheckoutScreen" options={{ headerShown: false }} />
+        <Stack.Screen name="RazorpayCheckoutScreen" options={{ headerShown: false }} />
         <Stack.Screen name="PurchaseProcessingScreen" options={{ headerShown: false }} />
         <Stack.Screen name="PurchaseConfirmationScreen" options={{ headerShown: false }} />
         <Stack.Screen name="TicketScreen" options={{ headerShown: false }} />

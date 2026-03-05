@@ -1,10 +1,18 @@
+
 import * as functions from "firebase-functions/v1";
 import Stripe from "stripe";
 import { admin, db } from "./lib/firebase";
+import Razorpay from "razorpay";
+import * as crypto from "crypto";
 
 const stripe = new Stripe(functions.config().stripe.secret_key, {
   apiVersion: "2023-10-16",
 } as any);
+
+const razorpay = new Razorpay({
+    key_id: functions.config().razorpay.key_id,
+    key_secret: functions.config().razorpay.key_secret,
+});
 
 type SelectedTiers = Record<string, number>;
 interface AttendeeInfo {
@@ -363,7 +371,7 @@ export const createPaymentIntent = functions.https.onCall(
       subtotalCharged - discountAmount + processingFee
     );
     const shouldBypassStripe = finalTotal === 0;
-    const orderId = db.collection("_").doc().id;
+    const orderId = db.collection(" ").doc().id;
     const now = admin.firestore.FieldValue.serverTimestamp();
 
     // --- Create Order Document ---
@@ -432,6 +440,226 @@ export const createPaymentIntent = functions.https.onCall(
     return { orderId, clientSecret: paymentIntent.client_secret };
   }
 );
+
+export const createRazorpayOrder = functions.https.onCall(
+  async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Must be logged in."
+      );
+    }
+    const userId = context.auth.uid;
+
+    const { eventId, selectedTiers, promoCode, attendees } = data as {
+      eventId?: string;
+      selectedTiers?: SelectedTiers;
+      promoCode?: string;
+      attendees?: AttendeeInfo[];
+    };
+
+    if (!eventId || !selectedTiers) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Missing eventId or selectedTiers."
+      );
+    }
+
+    const {
+      event,
+      eventRef,
+      itemsForOrder,
+      subtotalCharged,
+      feeBase,
+      processingFee,
+      currency,
+    } = await _calculateOrderDetails(eventId, selectedTiers);
+
+    // --- Promo Code Logic --
+    const normalizedPromo = (promoCode || "").trim().toUpperCase();
+    let appliedPromo: string | null = null;
+    let promoCodeId: string | null = null;
+    let discountAmount = 0;
+
+    if (normalizedPromo) {
+      const promo = await validatePromoCode(eventId, normalizedPromo);
+      if (!promo.ok) {
+        throw new functions.https.HttpsError(
+          "failed-precondition",
+          "Invalid or expired promo code."
+        );
+      }
+      appliedPromo = normalizedPromo;
+      promoCodeId = promo.promoId;
+      discountAmount = calculateDiscount(
+        promo.discountType,
+        promo.discountValue,
+        subtotalCharged
+      );
+    }
+
+    const finalTotal = Math.max(
+      0,
+      subtotalCharged - discountAmount + processingFee
+    );
+    const orderId = db.collection(" ").doc().id;
+    const now = admin.firestore.FieldValue.serverTimestamp();
+
+    const orderDoc: any = {
+      orderId,
+      eventId,
+      eventTitle: event.title || "Event",
+      userId,
+      items: itemsForOrder,
+      attendees,
+      subtotal: subtotalCharged,
+      feeBase,
+      processingFee,
+      total: finalTotal,
+      discount: discountAmount,
+      currency,
+      promoCode: appliedPromo,
+      promoCodeId,
+      status: finalTotal === 0 ? "paid" : "pending",
+      paymentMethod: "razorpay", // New payment method
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    // --- Handle Free Orders ---
+    if (finalTotal === 0) {
+      await db.runTransaction(async (tx) => {
+        tx.set(db.doc(`orders/${orderId}`), orderDoc);
+        await _fulfillOrder(tx, {
+          eventId,
+          eventRef,
+          userId,
+          orderId,
+          items: itemsForOrder,
+          promoCodeId,
+          attendees,
+        });
+      });
+      return { orderId, free: true };
+    }
+
+    // --- Paid Orders (Razorpay) ---
+    await db.doc(`orders/${orderId}`).set(orderDoc);
+
+    const razorpayOptions = {
+        amount: Math.round(finalTotal * 100), // amount in the smallest currency unit
+        currency: currency,
+        receipt: orderId,
+        notes: {
+            eventId,
+            userId,
+        }
+    };
+
+    try {
+        const razorpayOrder = await razorpay.orders.create(razorpayOptions);
+        
+        await db.doc(`orders/${orderId}`).update({ razorpayOrderId: razorpayOrder.id });
+        
+        return { 
+            orderId, // Our internal order ID
+            razorpayOrderId: razorpayOrder.id, // Razorpay's order ID
+            amount: razorpayOrder.amount,
+            currency: razorpayOrder.currency,
+        };
+
+    } catch (error) {
+        console.error("Razorpay order creation failed:", error);
+        throw new functions.https.HttpsError(
+            "internal",
+            "Failed to create a Razorpay order."
+        );
+    }
+  }
+);
+
+
+
+export const razorpayWebhook = functions.https.onRequest(async (req, res) => {
+    const secret = functions.config().razorpay.webhook_secret;
+    const signature = req.headers["x-razorpay-signature"];
+
+    if (!signature) {
+        res.status(400).send("Missing Razorpay signature");
+        return;
+    }
+    
+    try {
+        const shasum = crypto.createHmac('sha256', secret);
+        shasum.update(JSON.stringify(req.body));
+        const digest = shasum.digest('hex');
+
+        if (digest !== signature) {
+            res.status(400).send("Invalid webhook signature");
+            return;
+        }
+
+        const event = req.body.event;
+
+        if (event === 'payment.captured') {
+            const payment = req.body.payload.payment.entity;
+            const { order_id: razorpayOrderId } = payment;
+            const ourOrderId = payment.receipt; // We stored our orderId in receipt field
+
+            if (!ourOrderId) {
+                console.warn("Webhook ignored: Missing our orderId in receipt", razorpayOrderId);
+                res.status(200).send("Ignoring event with missing receipt.");
+                return;
+            }
+
+            const orderRef = db.doc(`orders/${ourOrderId}`);
+            const orderSnap = await orderRef.get();
+
+            if (!orderSnap.exists) {
+                console.error("Webhook failed: Order not found", ourOrderId);
+                res.status(404).send("Order not found");
+                return;
+            }
+
+            const order = orderSnap.data() as any;
+            const { eventId, userId } = order;
+            const eventRef = db.doc(`events/${eventId}`);
+
+            if (order.status === "paid") {
+                console.log("Webhook ignored: Order already fulfilled", ourOrderId);
+                res.status(200).send("Order already fulfilled.");
+                return;
+            }
+
+            await db.runTransaction(async (tx) => {
+                // Fulfill the order using the existing helper
+                await _fulfillOrder(tx, {
+                    eventId,
+                    eventRef,
+                    userId,
+                    orderId: ourOrderId,
+                    items: order.items,
+                    promoCodeId: order.promoCodeId,
+                    attendees: order.attendees,
+                });
+
+                // Update the order with payment details
+                tx.update(orderRef, {
+                    status: "paid",
+                    razorpayPaymentId: payment.id,
+                    razorpaySignature: signature,
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                });
+            });
+        }
+        
+        res.status(200).send("ok");
+
+    } catch (err: any) {
+        console.error("Webhook processing failed:", err.message);
+        res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+});
 
 /**
  * Updates an order with table contact details. This is callable by EITHER web or mobile.
@@ -797,7 +1025,7 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
     0,
     subtotalCharged - discountAmount + processingFee
   );
-  const orderId = db.collection("_").doc().id;
+  const orderId = db.collection(" ").doc().id;
 
   // If discount makes the order free, bypass Stripe
   if (finalTotal === 0) {
