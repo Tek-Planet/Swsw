@@ -15,9 +15,12 @@ import {
   createCheckoutSession,
   gpayCharge,
   stripeWebhook,
+  createRazorpayOrder,
+  razorpayWebhook,
 } from "./payments";
 import { setAdminStatus } from "./admin";
 import { sendEventPushNotification } from "./notifications";
+import { sendInvitationEmail } from "./emails";
 
 export {
   processSurveyAndFindMatches,
@@ -32,6 +35,9 @@ export {
   stripeWebhook,
   setAdminStatus,
   sendEventPushNotification,
+  createRazorpayOrder,
+  razorpayWebhook,
+  sendInvitationEmail,
 };
 
 export const helloWorld = functions.https.onRequest((_req, res) => {
