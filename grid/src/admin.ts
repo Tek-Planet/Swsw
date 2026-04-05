@@ -1,11 +1,10 @@
 import * as functions from "firebase-functions/v1";
-import { admin } from "./lib/firebase";
+import { admin, db } from "./lib/firebase"; // Use the shared db instance
+import { templates } from "./lib/email-templates";
 
 /**
  * Allows an admin user to set custom claims on another user.
  */
-// Firebase Cloud Function - setAdminStatus (modified)
-
 export const setAdminStatus = functions.https.onCall(async (data, context) => {
   // Only existing admins can perform this action
   if (!context.auth || context.auth.token.admin !== true) {
@@ -77,8 +76,7 @@ export const setAdminStatus = functions.https.onCall(async (data, context) => {
     await admin.auth().setCustomUserClaims(uid, newClaims);
 
     // Also update Firestore user_roles collection for consistency
-    const db = admin.firestore();
-    const userRoleRef = db.collection("user_roles").doc(uid);
+    const userRoleRef = db.collection("user_roles").doc(uid); // Use shared db
 
     if (isActive) {
       await userRoleRef.set(
@@ -109,3 +107,46 @@ export const setAdminStatus = functions.https.onCall(async (data, context) => {
     );
   }
 });
+
+/**
+ * [ADMIN] Uploads all email templates from the code definition (`lib/email-templates.ts`)
+ * to the Firestore collection used by the Trigger Email extension.
+ */
+export const adminUploadEmailTemplates = functions.https.onCall(
+  async (_, context) => {
+    // 1. Authentication: Only allow admins to run this function.
+    if (!context.auth || context.auth.token.admin !== true) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "This function can only be called by an administrator."
+      );
+    }
+
+    // This collection name MUST match the 'Templates collection' field in your
+    // "Trigger Email" extension config. If the field is empty, it defaults to "templates".
+    const templatesCollectionName = "templates";
+
+    const batch = db.batch();
+    const templatesCollection = db.collection(templatesCollectionName);
+    let count = 0;
+
+    // 2. Loop through the templates defined in the code and add them to the batch.
+    for (const templateId in templates) {
+      if (Object.prototype.hasOwnProperty.call(templates, templateId)) {
+        const templateData = templates[templateId];
+        const docRef = templatesCollection.doc(templateId);
+        batch.set(docRef, templateData);
+        count++;
+      }
+    }
+
+    // 3. Commit the batch write to Firestore.
+    await batch.commit();
+
+    // 4. Return a success message.
+    return {
+      status: "success",
+      message: `Successfully uploaded ${count} templates to the '${templatesCollectionName}' collection.`,
+    };
+  }
+);
