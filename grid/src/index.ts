@@ -18,7 +18,7 @@ import {
   createRazorpayOrder,
   razorpayWebhook,
 } from "./payments";
-import { setAdminStatus, adminUploadEmailTemplates } from "./admin";
+import { setAdminStatus, adminUploadEmailTemplates } from "./admin"; // Import the new function
 import { sendEventPushNotification } from "./notifications";
 import { sendInvitationEmail } from "./emails";
 
@@ -38,7 +38,7 @@ export {
   createRazorpayOrder,
   razorpayWebhook,
   sendInvitationEmail,
-  adminUploadEmailTemplates,
+  adminUploadEmailTemplates, // Export the new function
 };
 
 export const helloWorld = functions.https.onRequest((_req, res) => {

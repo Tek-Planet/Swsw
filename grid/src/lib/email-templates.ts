@@ -1,4 +1,3 @@
-
 /**
  * This file contains the definitions for all email templates.
  * The keys in the `templates` object (e.g., "invitation") must match the
@@ -53,4 +52,3 @@ export const templates: { [key: string]: EmailTemplate } = {
   //   html: `<h1>Click here to reset...</h1>`
   // }
 };
-
