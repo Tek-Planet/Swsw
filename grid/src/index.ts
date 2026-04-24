@@ -17,6 +17,7 @@ import {
   stripeWebhook,
   createRazorpayOrder,
   razorpayWebhook,
+  verifyRazorpayPayment,
 } from "./payments";
 import { setAdminStatus, adminUploadEmailTemplates } from "./admin"; // Import the new function
 import { sendEventPushNotification } from "./notifications";
@@ -37,6 +38,7 @@ export {
   sendEventPushNotification,
   createRazorpayOrder,
   razorpayWebhook,
+  verifyRazorpayPayment,
   sendInvitationEmail,
   adminUploadEmailTemplates, // Export the new function
 };

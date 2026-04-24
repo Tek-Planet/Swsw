@@ -1,4 +1,4 @@
-import "expo-env";
+// import "expo-env";
 
 export default () => ({
   expo: {
