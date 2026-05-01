@@ -442,7 +442,6 @@ export const createPaymentIntent = functions.https.onCall(
 
 export const createRazorpayOrder = functions.https.onCall(
   async (data, context) => {
-    console.log("Pass One");
     if (!context.auth) {
       throw new functions.https.HttpsError(
         "unauthenticated",
@@ -464,7 +463,7 @@ export const createRazorpayOrder = functions.https.onCall(
         "Missing eventId or selectedTiers."
       );
     }
-    console.log("Pass Two");
+
     const {
       event,
       eventRef,
@@ -497,7 +496,6 @@ export const createRazorpayOrder = functions.https.onCall(
         subtotalCharged
       );
     }
-    console.log("Pass Three");
 
     const finalTotal = Math.max(
       0,
@@ -543,7 +541,6 @@ export const createRazorpayOrder = functions.https.onCall(
       });
       return { orderId, free: true };
     }
-    console.log("Pass Four");
 
     // --- Paid Orders (Razorpay) ---
     await db.doc(`orders/${orderId}`).set(orderDoc);
@@ -560,11 +557,11 @@ export const createRazorpayOrder = functions.https.onCall(
 
     try {
       const razorpayOrder = await razorpay.orders.create(razorpayOptions);
-      console.log("Pass Five");
+
       await db
         .doc(`orders/${orderId}`)
         .update({ razorpayOrderId: razorpayOrder.id });
-      console.log("Pass Six");
+
       return {
         orderId, // Our internal order ID
         razorpayOrderId: razorpayOrder.id, // Razorpay's order ID
@@ -578,92 +575,6 @@ export const createRazorpayOrder = functions.https.onCall(
         "Failed to create a Razorpay order."
       );
     }
-  }
-);
-
-export const verifyRazorpayPayment = functions.https.onCall(
-  async (data, context) => {
-    if (!context.auth) {
-      throw new functions.https.HttpsError(
-        "unauthenticated",
-        "Must be logged in."
-      );
-    }
-    const userId = context.auth.uid;
-    const { orderId, razorpayPaymentId, razorpayOrderId, razorpaySignature } =
-      data;
-
-    if (
-      !orderId ||
-      !razorpayPaymentId ||
-      !razorpayOrderId ||
-      !razorpaySignature
-    ) {
-      throw new functions.https.HttpsError(
-        "invalid-argument",
-        "Missing required Razorpay payment details."
-      );
-    }
-
-    const orderRef = db.doc(`orders/${orderId}`);
-    const orderSnap = await orderRef.get();
-
-    if (!orderSnap.exists) {
-      throw new functions.https.HttpsError("not-found", "Order not found.");
-    }
-
-    const order = orderSnap.data() as any;
-
-    if (order.userId !== userId) {
-      throw new functions.https.HttpsError(
-        "permission-denied",
-        "You are not authorized to verify this payment."
-      );
-    }
-
-    if (order.status === "paid") {
-      // Order is already paid, probably by webhook.
-      return { success: true, message: "Order already fulfilled." };
-    }
-
-    // Verify the signature
-    const secret = functions.config().razorpay.key_secret;
-    const generated_signature = crypto
-      .createHmac("sha256", secret)
-      .update(razorpayOrderId + "|" + razorpayPaymentId)
-      .digest("hex");
-
-    if (generated_signature !== razorpaySignature) {
-      throw new functions.https.HttpsError(
-        "permission-denied",
-        "Invalid Razorpay signature."
-      );
-    }
-
-    // Signature is valid, fulfill the order
-    const { eventId } = order;
-    const eventRef = db.doc(`events/${eventId}`);
-
-    await db.runTransaction(async (tx) => {
-      await _fulfillOrder(tx, {
-        eventId,
-        eventRef,
-        userId,
-        orderId,
-        items: order.items,
-        promoCodeId: order.promoCodeId,
-        attendees: order.attendees,
-      });
-
-      tx.update(orderRef, {
-        status: "paid",
-        razorpayPaymentId: razorpayPaymentId,
-        razorpaySignature: razorpaySignature,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-    });
-
-    return { success: true };
   }
 );
 
@@ -691,43 +602,35 @@ export const razorpayWebhook = functions.https.onRequest(async (req, res) => {
     if (event === "payment.captured") {
       const payment = req.body.payload.payment.entity;
       const { order_id: razorpayOrderId } = payment;
+      const ourOrderId = payment.receipt; // We stored our orderId in receipt field
 
-      if (!razorpayOrderId) {
+      if (!ourOrderId) {
         console.warn(
-          "Webhook ignored: Missing razorpayOrderId in payment entity"
+          "Webhook ignored: Missing our orderId in receipt",
+          razorpayOrderId
         );
-        res.status(200).send("Webhook ignored: Missing razorpayOrderId.");
+        res.status(200).send("Ignoring event with missing receipt.");
         return;
       }
 
-      const ordersQuery = db
-        .collection("orders")
-        .where("razorpayOrderId", "==", razorpayOrderId)
-        .limit(1);
-      const orderSnapshot = await ordersQuery.get();
+      const orderRef = db.doc(`orders/${ourOrderId}`);
+      const orderSnap = await orderRef.get();
 
-      if (orderSnapshot.empty) {
-        console.error(
-          "Webhook failed: Order not found for razorpayOrderId",
-          razorpayOrderId
-        );
+      if (!orderSnap.exists) {
+        console.error("Webhook failed: Order not found", ourOrderId);
         res.status(404).send("Order not found");
         return;
       }
 
-      const orderDoc = orderSnapshot.docs[0];
-      const orderRef = orderDoc.ref;
-      const ourOrderId = orderDoc.id;
-      const order = orderDoc.data() as any;
+      const order = orderSnap.data() as any;
+      const { eventId, userId } = order;
+      const eventRef = db.doc(`events/${eventId}`);
 
       if (order.status === "paid") {
         console.log("Webhook ignored: Order already fulfilled", ourOrderId);
         res.status(200).send("Order already fulfilled.");
         return;
       }
-
-      const { eventId, userId } = order;
-      const eventRef = db.doc(`events/${eventId}`);
 
       await db.runTransaction(async (tx) => {
         // Fulfill the order using the existing helper
@@ -745,10 +648,24 @@ export const razorpayWebhook = functions.https.onRequest(async (req, res) => {
         tx.update(orderRef, {
           status: "paid",
           razorpayPaymentId: payment.id,
-          razorpaySignature: signature, // The signature of the webhook, not the payment
+          razorpaySignature: signature,
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
       });
+    } else if (event === "payment.failed") {
+      const payment = req.body.payload.payment.entity;
+      const ourOrderId = payment.receipt;
+      if (ourOrderId) {
+        const orderRef = db.doc(`orders/${ourOrderId}`);
+        const orderSnap = await orderRef.get();
+        if (orderSnap.exists && orderSnap.data()?.status === "pending") {
+          await orderRef.update({
+            status: "failed",
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          console.log(`Order ${ourOrderId} marked as failed.`);
+        }
+      }
     }
 
     res.status(200).send("ok");
@@ -757,6 +674,122 @@ export const razorpayWebhook = functions.https.onRequest(async (req, res) => {
     res.status(400).send(`Webhook Error: ${err.message}`);
   }
 });
+
+export const verifyRazorpayPayment = functions.https.onCall(
+  async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Must be logged in."
+      );
+    }
+
+    const {
+      orderId, // Our internal order ID
+      razorpayPaymentId,
+      razorpayOrderId,
+      razorpaySignature,
+    } = data as {
+      orderId?: string;
+      razorpayPaymentId?: string;
+      razorpayOrderId?: string;
+      razorpaySignature?: string;
+    };
+
+    if (
+      !orderId ||
+      !razorpayPaymentId ||
+      !razorpayOrderId ||
+      !razorpaySignature
+    ) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Missing required Razorpay payment details."
+      );
+    }
+
+    const secret = functions.config().razorpay.key_secret;
+
+    // 1. Verify signature
+    const generated_signature = crypto
+      .createHmac("sha256", secret)
+      .update(razorpayOrderId + "|" + razorpayPaymentId)
+      .digest("hex");
+
+    if (generated_signature !== razorpaySignature) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Invalid Razorpay signature."
+      );
+    }
+
+    const orderRef = db.doc(`orders/${orderId}`);
+
+    // 2. Fulfill order in a transaction
+    try {
+      await db.runTransaction(async (tx) => {
+        const orderSnap = await tx.get(orderRef);
+        if (!orderSnap.exists) {
+          throw new functions.https.HttpsError("not-found", "Order not found.");
+        }
+
+        const order = orderSnap.data() as any;
+
+        // Check if order is already paid
+        if (order.status === "paid") {
+          console.log("Verification skipped: Order already fulfilled", orderId);
+          return; // Already fulfilled, just return success
+        }
+
+        // Security check: Verify that the razorpayOrderId from client matches the one we created
+        if (order.razorpayOrderId !== razorpayOrderId) {
+          throw new functions.https.HttpsError(
+            "permission-denied",
+            "Mismatched Razorpay Order ID."
+          );
+        }
+
+        const { eventId, userId, items, promoCodeId, attendees } = order;
+        const eventRef = db.doc(`events/${eventId}`);
+
+        // Fulfill the order using the existing helper
+        await _fulfillOrder(tx, {
+          eventId,
+          eventRef,
+          userId,
+          orderId,
+          items,
+          promoCodeId,
+          attendees,
+        });
+
+        // Update the order with payment details
+        tx.update(orderRef, {
+          status: "paid", // This is also in _fulfillOrder but good to be explicit
+          razorpayPaymentId,
+          razorpaySignature,
+          paidAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      });
+
+      return {
+        success: true,
+        orderId: orderId,
+        message: "Payment verified and order fulfilled.",
+      };
+    } catch (error) {
+      console.error("Razorpay verification and fulfillment failed:", error);
+      if (error instanceof functions.https.HttpsError) {
+        throw error;
+      }
+      throw new functions.https.HttpsError(
+        "internal",
+        "Failed to process Razorpay payment verification."
+      );
+    }
+  }
+);
 
 /**
  * Updates an order with table contact details. This is callable by EITHER web or mobile.
@@ -1241,58 +1274,265 @@ export const stripeWebhook = functions.https.onRequest(async (req, res) => {
     return;
   }
 
+  let evt: Stripe.Event;
   try {
-    const evt = stripe.webhooks.constructEvent(
+    evt = stripe.webhooks.constructEvent(
       (req as any).rawBody,
       sig,
       functions.config().stripe.webhook_secret
     );
+  } catch (err: any) {
+    console.error("Webhook signature verification failed:", err.message);
+    res.status(400).send(`Webhook Error: ${err.message}`);
+    return;
+  }
 
-    if (evt.type === "checkout.session.completed") {
-      const session = evt.data.object as Stripe.Checkout.Session;
-      const { orderId, eventId, userId } = session.metadata || {};
+  if (evt.type === "checkout.session.completed") {
+    const session = evt.data.object as Stripe.Checkout.Session;
+    const { orderId, eventId, userId } = session.metadata || {};
 
-      if (!orderId || !eventId || !userId) {
-        console.warn(
-          "Webhook ignored: Missing metadata in session",
-          session.id
+    if (!orderId || !eventId || !userId) {
+      console.warn("Webhook ignored: Missing metadata in session", session.id);
+      res.status(200).send("Ignoring event with missing metadata.");
+      return;
+    }
+
+    const orderSnap = await db.doc(`orders/${orderId}`).get();
+    const eventRef = db.doc(`events/${eventId}`);
+    if (!orderSnap.exists) {
+      console.error("Webhook failed: Order not found", orderId);
+      res.status(404).send("Order not found");
+      return;
+    }
+    const order = orderSnap.data() as any;
+
+    // Make sure we haven't already fulfilled this order
+    if (order.status === "paid") {
+      console.log("Webhook ignored: Order already fulfilled", orderId);
+      res.status(200).send("Order already fulfilled.");
+      return;
+    }
+
+    await db.runTransaction(async (tx) => {
+      await _fulfillOrder(tx, {
+        eventId,
+        eventRef,
+        userId,
+        orderId,
+        items: order.items,
+        promoCodeId: order.promoCodeId,
+        attendees: order.attendees,
+      });
+    });
+  } else if (evt.type === "checkout.session.expired") {
+    const session = evt.data.object as Stripe.Checkout.Session;
+    const { orderId } = session.metadata || {};
+
+    if (orderId) {
+      const orderRef = db.doc(`orders/${orderId}`);
+      const orderSnap = await orderRef.get();
+      if (orderSnap.exists && orderSnap.data()?.status === "pending") {
+        await orderRef.update({
+          status: "failed",
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        console.log(
+          `Order ${orderId} marked as failed due to session expiration.`
         );
-        res.status(200).send("Ignoring event with missing metadata.");
-        return;
       }
+    }
+  }
 
-      const orderSnap = await db.doc(`orders/${orderId}`).get();
-      const eventRef = db.doc(`events/${eventId}`);
-      if (!orderSnap.exists) {
-        console.error("Webhook failed: Order not found", orderId);
-        res.status(404).send("Order not found");
-        return;
-      }
-      const order = orderSnap.data() as any;
+  res.status(200).send("ok");
+});
 
-      // Make sure we haven't already fulfilled this order
-      if (order.status === "paid") {
-        console.log("Webhook ignored: Order already fulfilled", orderId);
-        res.status(200).send("Order already fulfilled.");
-        return;
-      }
+/**
+ * [ADMIN] Manually marks an order as paid and fulfills it.
+ * This should only be used for manual payments (e.g., cash, bank transfer).
+ */
+export const manuallyFulfillOrder = functions.https.onCall(
+  async (data, context) => {
+    // 1. Authentication: Only allow admins to run this function.
+    if (!context.auth || !context.auth.token.admin) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "This function can only be called by an administrator."
+      );
+    }
 
+    const { orderId } = data as { orderId?: string };
+
+    if (!orderId) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "The function must be called with an 'orderId'."
+      );
+    }
+
+    const orderRef = db.doc(`orders/${orderId}`);
+    const now = admin.firestore.FieldValue.serverTimestamp();
+
+    try {
       await db.runTransaction(async (tx) => {
+        const orderSnap = await tx.get(orderRef);
+        if (!orderSnap.exists) {
+          throw new functions.https.HttpsError("not-found", "Order not found.");
+        }
+
+        const order = orderSnap.data() as any;
+
+        if (order.status === "paid") {
+          // If already paid, we don't need to do anything.
+          // Log a warning and return successfully.
+          console.warn(
+            `Order ${orderId} is already fulfilled. No action taken.`
+          );
+          return;
+        }
+
+        const { eventId, userId, items, promoCodeId, attendees } = order;
+        if (!eventId || !userId || !items) {
+          throw new functions.https.HttpsError(
+            "failed-precondition",
+            "Order document is missing required fields (eventId, userId, items)."
+          );
+        }
+
+        const eventRef = db.doc(`events/${eventId}`);
+
+        // Fulfill the order using the existing helper
         await _fulfillOrder(tx, {
           eventId,
           eventRef,
           userId,
           orderId,
-          items: order.items,
-          promoCodeId: order.promoCodeId,
-          attendees: order.attendees,
+          items,
+          promoCodeId,
+          attendees,
+        });
+
+        // Also update the order with a note about manual fulfillment
+        tx.update(orderRef, {
+          status: "paid", // This is also done in _fulfillOrder but good to be explicit
+          paidAt: now,
+          manuallyFulfilledBy: context.auth?.uid,
+          manuallyFulfilledAt: now,
+          updatedAt: now,
         });
       });
+
+      return {
+        success: true,
+        message: `Order ${orderId} marked as paid and fulfilled.`,
+      };
+    } catch (error) {
+      console.error(`Failed to manually fulfill order ${orderId}:`, error);
+      if (error instanceof functions.https.HttpsError) {
+        throw error;
+      }
+      throw new functions.https.HttpsError(
+        "internal",
+        "An unexpected error occurred during manual fulfillment."
+      );
+    }
+  }
+);
+
+export const cleanupExpiredOrders = functions.pubsub
+  .schedule("0 0 * * *")
+  .onRun(async (context) => {
+    const now = admin.firestore.Timestamp.now();
+    const twentyFourHoursAgo = admin.firestore.Timestamp.fromMillis(
+      now.toMillis() - 24 * 60 * 60 * 1000
+    );
+
+    const pendingOrdersQuery = db
+      .collection("orders")
+      .where("status", "==", "pending")
+      .where("createdAt", "<=", twentyFourHoursAgo);
+
+    const snapshot = await pendingOrdersQuery.get();
+
+    if (snapshot.empty) {
+      console.log("No expired pending orders to clean up.");
+      return null;
     }
 
-    res.status(200).send("ok");
-  } catch (err: any) {
-    console.error("Webhook signature verification failed:", err.message);
-    res.status(400).send(`Webhook Error: ${err.message}`);
+    const batch = db.batch();
+    snapshot.forEach((doc) => {
+      console.log(`Marking order ${doc.id} as failed.`);
+      const orderRef = db.collection("orders").doc(doc.id);
+      batch.update(orderRef, {
+        status: "failed",
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    });
+
+    await batch.commit();
+    console.log(`Cleaned up ${snapshot.size} expired orders.`);
+    return null;
+  });
+
+/**
+ * Allows a user to cancel their own pending order.
+ */
+export const cancelOrder = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "You must be logged in to cancel an order."
+    );
+  }
+  const userId = context.auth.uid;
+  const { orderId } = data as { orderId: string };
+
+  if (!orderId) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Missing required field: orderId."
+    );
+  }
+
+  const orderRef = db.doc(`orders/${orderId}`);
+
+  try {
+    const docSnap = await orderRef.get();
+    if (!docSnap.exists) {
+      throw new functions.https.HttpsError("not-found", "Order not found.");
+    }
+
+    const orderData = docSnap.data();
+    if (orderData?.userId !== userId) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "You do not have permission to cancel this order."
+      );
+    }
+
+    if (orderData.status !== "pending") {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        `Order cannot be canceled because its status is '${orderData.status}'.`
+      );
+    }
+
+    await orderRef.update({
+      status: "canceled",
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return {
+      success: true,
+      message: "Order has been successfully canceled.",
+    };
+  } catch (error) {
+    console.error("Error canceling order:", error);
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    throw new functions.https.HttpsError(
+      "internal",
+      "An unexpected error occurred while canceling the order."
+    );
   }
 });

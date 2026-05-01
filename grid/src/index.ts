@@ -18,10 +18,14 @@ import {
   createRazorpayOrder,
   razorpayWebhook,
   verifyRazorpayPayment,
+  manuallyFulfillOrder,
+  cleanupExpiredOrders,
+  cancelOrder,
 } from "./payments";
 import { setAdminStatus, adminUploadEmailTemplates } from "./admin"; // Import the new function
 import { sendEventPushNotification } from "./notifications";
 import { sendInvitationEmail } from "./emails";
+import { sendTicketEmail } from "./tickets";
 
 export {
   processSurveyAndFindMatches,
@@ -40,7 +44,11 @@ export {
   razorpayWebhook,
   verifyRazorpayPayment,
   sendInvitationEmail,
-  adminUploadEmailTemplates, // Export the new function
+  adminUploadEmailTemplates,
+  manuallyFulfillOrder,
+  cleanupExpiredOrders,
+  cancelOrder,
+  sendTicketEmail,
 };
 
 export const helloWorld = functions.https.onRequest((_req, res) => {

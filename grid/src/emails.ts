@@ -3,14 +3,16 @@ import { db } from "./lib/firebase"; // Correctly import the shared db instance
 
 // This function sends an email when an event application is approved.
 export const sendInvitationEmail = functions.firestore
-  .document('/events/{eventId}/applications/{appId}')
+  .document("/events/{eventId}/applications/{appId}")
   .onUpdate(async (change, context) => {
     const beforeData = change.before.data();
     const afterData = change.after.data();
 
     // Check if the status was changed from something else to 'approved'.
-    if (beforeData.status !== 'approved' && afterData.status === 'approved') {
-      functions.logger.log(`Application ${context.params.appId} approved. Sending email.`);
+    if (beforeData.status !== "approved" && afterData.status === "approved") {
+      functions.logger.log(
+        `Application ${context.params.appId} approved. Sending email.`
+      );
 
       const userEmail = afterData.email;
       const eventId = context.params.eventId;
@@ -21,8 +23,8 @@ export const sendInvitationEmail = functions.firestore
       }
 
       // Get the event details to include in the email.
-      const eventDoc = await db.collection('events').doc(eventId).get();
-      const eventName = eventDoc.data()?.title || 'the event';
+      const eventDoc = await db.collection("events").doc(eventId).get();
+      const eventName = eventDoc.data()?.title || "the event";
 
       const appUrl = functions.config().app.url;
       if (!appUrl) {
@@ -36,7 +38,7 @@ export const sendInvitationEmail = functions.firestore
       const mailData = {
         to: userEmail,
         template: {
-          name: 'invitation', // Make sure you have a template with this name.
+          name: "invitation", // Make sure you have a template with this name.
           data: {
             eventName: eventName,
             link: eventLink,
@@ -44,7 +46,7 @@ export const sendInvitationEmail = functions.firestore
         },
       };
 
-      await db.collection('mail').add(mailData);
+      await db.collection("mail").add(mailData);
 
       functions.logger.log(`Email document created for ${userEmail}.`);
     }
