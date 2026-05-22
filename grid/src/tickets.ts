@@ -12,49 +12,62 @@ export const sendTicketEmail = functions.firestore
 
     if (beforeData.status !== "paid" && afterData.status === "paid") {
       const orderId = context.params.orderId;
+      const isMovie = afterData.orderType === "movie";
+      const seatItems = Array.isArray(afterData.items)
+        ? afterData.items.filter((it: any) => it && it.seatId)
+        : [];
       const attendees = afterData.attendees;
 
-      if (!attendees || attendees.length === 0) {
-        functions.logger.error(`No attendees found for order ${orderId}`);
+      // For movie orders the tickets are per-SEAT (one QR per seat label).
+      // For other orders the tickets are per-ATTENDEE (existing behaviour).
+      const ticketHolders: Array<{ id: string; label: string; name?: string }> = isMovie
+        ? seatItems.map((it: any, i: number) => ({
+            id: `${orderId}-seat-${it.seatId}`,
+            label: `Row ${it.rowLabel}, Seat ${it.seatLabel}`,
+            name: attendees?.[0]?.name,
+          }))
+        : (attendees || []).map((a: any, i: number) => ({
+            id: `${orderId}-${i}`,
+            label: a.name || `Ticket ${i + 1}`,
+            name: a.name,
+          }));
+
+      if (ticketHolders.length === 0) {
+        functions.logger.error(`No ticket holders for order ${orderId}`);
+        return;
+      }
+
+      const recipientEmail =
+        attendees?.[0]?.email ||
+        afterData.donor?.email ||
+        afterData.tableContactDetails?.email;
+      if (!recipientEmail) {
+        functions.logger.error(`No recipient email for order ${orderId}`);
         return;
       }
 
       const attachments = [];
-      let qrCodesHtml = "";
-
-      for (let i = 0; i < attendees.length; i++) {
-        const attendee = attendees[i];
-        // Create a unique ID for each ticket's QR code
-        const ticketId = `${orderId}-${i}`;
-
-        const qrCodeBuffer = await qrcode.toBuffer(ticketId, {
+      for (let i = 0; i < ticketHolders.length; i++) {
+        const t = ticketHolders[i];
+        const qrCodeBuffer = await qrcode.toBuffer(t.id, {
           type: "png",
           width: 256,
           margin: 1,
         });
-
-        const qrCodeBase64 = qrCodeBuffer.toString("base64");
-        const contentId = `qr_code_ticket_${i}`;
-
         attachments.push({
-          filename: `qrcode_${attendee.name || i}.png`,
-          content: qrCodeBase64,
-          content_id: contentId, // Use 'content_id' for inline images
+          filename: `qrcode_${(t.name || t.label).replace(/\s+/g, "_")}.png`,
+          content: qrCodeBuffer.toString("base64"),
+          content_id: `qr_code_ticket_${i}`,
           disposition: "attachment",
           type: "image/png",
         });
-
-        qrCodesHtml += `
-          <div style="margin-bottom: 25px; text-align: center;">
-              <p style="margin-top: 10px; font-weight: bold; color: #ffffff;">${
-                attendee.name || `Ticket ${i + 1}`
-              }</p>
-              <img src="cid:${contentId}" alt="QR Code for ${
-          attendee.name || `Ticket ${i + 1}`
-        }" style="border-radius: 10px;" />
-          </div>
-        `;
       }
+
+      const seatListHtml = isMovie
+        ? `<ul style="margin-top:12px;padding-left:18px;color:#ffffff">${ticketHolders
+            .map((t) => `<li>${t.label}</li>`) 
+            .join("")}</ul>`
+        : "";
 
       const html = `
        <!DOCTYPE html>
@@ -65,7 +78,6 @@ export const sendTicketEmail = functions.firestore
             .container { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; padding: 40px; color: #ffffff; width: 100%; max-width: 600px; margin: auto; background-color: #2a2a2a; border-radius: 10px; }
             .header { font-size: 28px; font-weight: bold; color: #ffffff; }
             .body { margin-top: 20px; font-size: 16px; line-height: 1.6; color: #ffffff; }
-            .qr-code-section { margin-top: 20px; text-align: center; }
             .footer { margin-top: 40px; font-size: 12px; color: #888888; text-align: center; }
           </style>
         </head>
@@ -74,10 +86,8 @@ export const sendTicketEmail = functions.firestore
             <div class="header">Your Tickets for ${afterData.eventTitle}</div>
             <div class="body">
               <p>Hello,</p>
-              <p>Thank you for your order. Your ticket(s) are below. Please present the relevant QR code at the event for entry.</p>
-              <div class="qr-code-section">
-                ${qrCodesHtml}
-              </div>
+              <p>Thank you for your order. Your ticket(s) are attached. Please present the relevant QR code at the venue for entry.</p>
+              ${isMovie ? `<p><strong>Your seats:</strong></p>${seatListHtml}` : ""}
               <p>We look forward to seeing you there!</p>
               <p>- The Grid Events Team</p>
             </div>
@@ -90,7 +100,7 @@ export const sendTicketEmail = functions.firestore
       `;
 
       await sgMail.send({
-        to: afterData.attendees[0].email,
+        to: recipientEmail,
         from: "info@grideventsapp.com",
         subject: `Your tickets for ${afterData.eventTitle}`,
         html,
@@ -98,7 +108,7 @@ export const sendTicketEmail = functions.firestore
       });
 
       functions.logger.log(
-        `Ticket email sent for order ${orderId} with ${attendees.length} QR code(s).`
+        `Ticket email sent for order ${orderId} with ${ticketHolders.length} QR code(s).`
       );
     }
   });

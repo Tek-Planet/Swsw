@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { admin, db } from "./lib/firebase";
 import Razorpay from "razorpay";
 import * as crypto from "crypto";
+import { fulfilMovieSeatsForOrder } from "./movies";
 
 const stripe = new Stripe(functions.config().stripe.secret_key, {
   apiVersion: "2023-10-16",
@@ -53,6 +54,7 @@ async function validatePromoCode(eventId: string, code: string) {
     promoId: promoDoc.id,
     discountType: promoData.discountType as "percent" | "fixed" | "free",
     discountValue: promoData.discountValue ?? 0,
+    applicableTierIds: promoData.applicableTierIds,
   };
 }
 
@@ -213,6 +215,25 @@ async function _calculateOrderDetails(
   };
 }
 
+function _calculateDiscountableSubtotal(
+  items: any[],
+  applicableTierIds: string[]
+): number {
+  if (!applicableTierIds || applicableTierIds.length === 0) {
+    return items.reduce(
+      (acc, item) => acc + item.chargeAmount * item.quantity,
+      0
+    );
+  }
+
+  return items.reduce((acc, item) => {
+    if (applicableTierIds.includes(item.tierId)) {
+      return acc + item.chargeAmount * item.quantity;
+    }
+    return acc;
+  }, 0);
+}
+
 //================================================================================
 // REFACTORED FULFILL ORDER
 //================================================================================
@@ -227,6 +248,7 @@ async function _fulfillOrder(
     items,
     promoCodeId,
     attendees,
+    donor,
   }: {
     eventId: string;
     eventRef: FirebaseFirestore.DocumentReference;
@@ -235,6 +257,7 @@ async function _fulfillOrder(
     items: any[];
     promoCodeId?: string | null;
     attendees?: AttendeeInfo[];
+    donor?: AttendeeInfo;
   }
 ) {
   const now = admin.firestore.FieldValue.serverTimestamp();
@@ -297,6 +320,11 @@ async function _fulfillOrder(
   if (promoCodeId) {
     await incrementPromoRedemption(tx, promoCodeId);
   }
+
+  // 6. If there's a donor, add it to the order
+  if (donor) {
+    tx.update(orderRef, { donor: donor, updatedAt: now });
+  }
 }
 
 //================================================================================
@@ -316,11 +344,12 @@ export const createPaymentIntent = functions.https.onCall(
     }
     const userId = context.auth.uid;
 
-    const { eventId, selectedTiers, promoCode, attendees } = data as {
+    const { eventId, selectedTiers, promoCode, attendees, donor } = data as {
       eventId?: string;
       selectedTiers?: SelectedTiers;
       promoCode?: string;
       attendees?: AttendeeInfo[];
+      donor?: AttendeeInfo;
     };
 
     if (!eventId || !selectedTiers) {
@@ -356,11 +385,14 @@ export const createPaymentIntent = functions.https.onCall(
       }
       appliedPromo = normalizedPromo;
       promoCodeId = promo.promoId;
-      // CORRECTED: Calculate discount on subtotal ONLY
+      const discountableSubtotal = _calculateDiscountableSubtotal(
+        itemsForOrder,
+        promo.applicableTierIds
+      );
       discountAmount = calculateDiscount(
         promo.discountType,
         promo.discountValue,
-        subtotalCharged
+        discountableSubtotal
       );
     }
 
@@ -373,7 +405,7 @@ export const createPaymentIntent = functions.https.onCall(
     const orderId = db.collection(" ").doc().id;
     const now = admin.firestore.FieldValue.serverTimestamp();
 
-    // --- Create Order Document ---
+    // --- Create Order Document --
     const orderDoc: any = {
       orderId,
       eventId,
@@ -381,6 +413,7 @@ export const createPaymentIntent = functions.https.onCall(
       userId,
       items: itemsForOrder,
       attendees,
+      donor,
       subtotal: subtotalCharged,
       feeBase,
       processingFee: shouldBypassStripe ? 0 : processingFee,
@@ -407,6 +440,7 @@ export const createPaymentIntent = functions.https.onCall(
           items: itemsForOrder,
           promoCodeId,
           attendees,
+          donor,
         });
       });
       return {
@@ -450,11 +484,12 @@ export const createRazorpayOrder = functions.https.onCall(
     }
     const userId = context.auth.uid;
 
-    const { eventId, selectedTiers, promoCode, attendees } = data as {
+    const { eventId, selectedTiers, promoCode, attendees, donor } = data as {
       eventId?: string;
       selectedTiers?: SelectedTiers;
       promoCode?: string;
       attendees?: AttendeeInfo[];
+      donor?: AttendeeInfo;
     };
 
     if (!eventId || !selectedTiers) {
@@ -490,10 +525,14 @@ export const createRazorpayOrder = functions.https.onCall(
       }
       appliedPromo = normalizedPromo;
       promoCodeId = promo.promoId;
+      const discountableSubtotal = _calculateDiscountableSubtotal(
+        itemsForOrder,
+        promo.applicableTierIds
+      );
       discountAmount = calculateDiscount(
         promo.discountType,
         promo.discountValue,
-        subtotalCharged
+        discountableSubtotal
       );
     }
 
@@ -511,6 +550,7 @@ export const createRazorpayOrder = functions.https.onCall(
       userId,
       items: itemsForOrder,
       attendees,
+      donor,
       subtotal: subtotalCharged,
       feeBase,
       processingFee,
@@ -537,6 +577,7 @@ export const createRazorpayOrder = functions.https.onCall(
           items: itemsForOrder,
           promoCodeId,
           attendees,
+          donor,
         });
       });
       return { orderId, free: true };
@@ -642,6 +683,7 @@ export const razorpayWebhook = functions.https.onRequest(async (req, res) => {
           items: order.items,
           promoCodeId: order.promoCodeId,
           attendees: order.attendees,
+          donor: order.donor,
         });
 
         // Update the order with payment details
@@ -749,7 +791,7 @@ export const verifyRazorpayPayment = functions.https.onCall(
           );
         }
 
-        const { eventId, userId, items, promoCodeId, attendees } = order;
+        const { eventId, userId, items, promoCodeId, attendees, donor } = order;
         const eventRef = db.doc(`events/${eventId}`);
 
         // Fulfill the order using the existing helper
@@ -761,6 +803,7 @@ export const verifyRazorpayPayment = functions.https.onCall(
           items,
           promoCodeId,
           attendees,
+          donor,
         });
 
         // Update the order with payment details
@@ -876,9 +919,23 @@ export const updateOrderContactDetails = functions.https.onCall(
  */
 export const createCheckoutSession = functions.https.onCall(
   async (data, context) => {
-    const { eventId, selectedTiers, promoCode, attendees } = data;
+    const {
+      eventId,
+      selectedTiers,
+      selectedSeats,
+      promoCode,
+      attendees,
+      donor,
+    } = data as {
+      eventId?: string;
+      selectedTiers?: Record<string, number>;
+      selectedSeats?: string[];
+      promoCode?: string;
+      attendees?: AttendeeInfo[];
+      donor?: AttendeeInfo;
+    };
 
-    if (!eventId || !selectedTiers) {
+    if (!eventId || (!selectedTiers && !selectedSeats)) {
       throw new functions.https.HttpsError(
         "invalid-argument",
         "Missing required fields"
@@ -903,6 +960,150 @@ export const createCheckoutSession = functions.https.onCall(
     const currency = (eventData.currency || "INR").toUpperCase();
     const feePercent = eventData.bookingFeePercent ?? 10;
 
+    // -------------------------------------------------------------------------
+    // MOVIE / CINEMA-SEAT BRANCH: client sends selectedSeats instead of tiers.
+    // We re-hold the seats inside the transaction, then build line items from
+    // the live seat prices (server-side trust), then create the Stripe session.
+    // -------------------------------------------------------------------------
+    if (Array.isArray(selectedSeats) && selectedSeats.length > 0) {
+      if (selectedSeats.length > 10) {
+        throw new functions.https.HttpsError(
+          "failed-precondition",
+          "Maximum 10 seats per order."
+        );
+      }
+      const seatsCol = db.collection("events").doc(eventId).collection("seats");
+      const now = admin.firestore.Timestamp.now();
+      const expiresAt = admin.firestore.Timestamp.fromMillis(
+        now.toMillis() + 8 * 60 * 1000
+      );
+
+      const orderRef = db.collection("orders").doc();
+      const seatItems: any[] = [];
+      let seatSubtotal = 0;
+
+      await db.runTransaction(async (tx) => {
+        const refs = selectedSeats.map((id) => seatsCol.doc(id));
+        const snaps = await Promise.all(refs.map((r) => tx.get(r)));
+        for (let i = 0; i < snaps.length; i++) {
+          const s = snaps[i];
+          const id = selectedSeats[i];
+          if (!s.exists) {
+            throw new functions.https.HttpsError(
+              "not-found",
+              `Seat ${id} not found.`
+            );
+          }
+          const seat = s.data() as any;
+          const isMine = seat.heldBy === userId;
+          const expired =
+            seat.heldUntil &&
+            seat.heldUntil.toMillis &&
+            seat.heldUntil.toMillis() < now.toMillis();
+          const available =
+            seat.status === "available" ||
+            isMine ||
+            (seat.status === "held" && expired);
+          if (!available) {
+            throw new functions.https.HttpsError(
+              "failed-precondition",
+              `Seat ${id} is no longer available.`
+            );
+          }
+          const price = Number(seat.price ?? 0);
+          seatSubtotal += price;
+          seatItems.push({
+            tierId: `seat_${id}`,
+            tierName: `Row ${seat.rowLabel}, Seat ${seat.seatLabel}`,
+            tierType: "ticket",
+            seatId: id,
+            rowLabel: seat.rowLabel,
+            seatLabel: seat.seatLabel,
+            price,
+            chargeAmount: price,
+            quantity: 1,
+          });
+          tx.update(refs[i], {
+            status: "held",
+            heldBy: userId,
+            heldUntil: expiresAt,
+            orderId: orderRef.id,
+            updatedAt: now,
+          });
+        }
+      });
+
+      const seatProcessingFee = Math.round(seatSubtotal * (feePercent / 100));
+      const seatTotal = seatSubtotal + seatProcessingFee;
+
+      const orderData: Record<string, any> = {
+        userId,
+        eventId,
+        eventTitle,
+        items: seatItems,
+        seatIds: selectedSeats,
+        attendees: attendees ?? null,
+        donor: donor ?? null,
+        subtotal: seatSubtotal,
+        feeBase: seatSubtotal,
+        processingFee: seatProcessingFee,
+        total: seatTotal,
+        currency,
+        status: "pending",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        paymentMethod: "stripe_checkout",
+        orderType: "movie",
+      };
+      await orderRef.set(orderData);
+
+      const seatLineItems: any[] = seatItems.map((it) => ({
+        price_data: {
+          currency: currency.toLowerCase(),
+          unit_amount: Math.round(it.chargeAmount * 100),
+          product_data: {
+            name: `${eventTitle} — ${it.tierName}`,
+            description: "Cinema seat",
+          },
+        },
+        quantity: 1,
+      }));
+      if (seatProcessingFee > 0) {
+        seatLineItems.push({
+          price_data: {
+            currency: currency.toLowerCase(),
+            unit_amount: Math.round(seatProcessingFee * 100),
+            product_data: {
+              name: "Processing Fee",
+              description: "Booking and transaction fee",
+            },
+          },
+          quantity: 1,
+        });
+      }
+
+      const seatSession = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        line_items: seatLineItems,
+        mode: "payment",
+        expires_at: Math.floor(now.toMillis() / 1000) + 30 * 60, // Stripe min 30 min
+        success_url: `${functions.config().app.url}/success?orderId=${
+          orderRef.id
+        }`,
+        cancel_url: `${functions.config().app.url}/cancel?orderId=${
+          orderRef.id
+        }`,
+        metadata: {
+          orderId: orderRef.id,
+          userId: userId,
+          eventId: eventId,
+          orderType: "movie",
+        },
+      });
+
+      await orderRef.update({ stripeSessionId: seatSession.id });
+      return { url: seatSession.url, orderId: orderRef.id };
+    }
+
     // Get ticket tiers
     const tiersSnapshot = await db
       .collection("events")
@@ -920,7 +1121,7 @@ export const createCheckoutSession = functions.https.onCall(
     let feeBase = 0;
     const items: any[] = [];
 
-    for (const [tierId, qty] of Object.entries(selectedTiers)) {
+    for (const [tierId, qty] of Object.entries(selectedTiers || {})) {
       const quantity = typeof qty === "number" ? qty : (qty as any).quantity;
       if (!quantity || quantity <= 0) continue;
 
@@ -966,11 +1167,14 @@ export const createCheckoutSession = functions.https.onCall(
 
       const promoData = await validatePromoCode(eventId, upperCode);
       if (promoData && promoData.discountType) {
-        // CORRECTED: Calculate discount on subtotal ONLY
+        const discountableSubtotal = _calculateDiscountableSubtotal(
+          items,
+          promoData.applicableTierIds
+        );
         discountAmount = calculateDiscount(
           promoData.discountType,
           promoData.discountValue,
-          subtotal
+          discountableSubtotal
         );
         promoCodeId = promoData.promoId;
         validatedPromoCode = upperCode;
@@ -988,6 +1192,7 @@ export const createCheckoutSession = functions.https.onCall(
       eventTitle,
       items,
       attendees,
+      donor,
       subtotal,
       feeBase,
       processingFee,
@@ -1020,6 +1225,7 @@ export const createCheckoutSession = functions.https.onCall(
           items,
           promoCodeId,
           attendees,
+          donor,
         });
       });
 
@@ -1106,8 +1312,14 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
     );
   }
   const uid = context.auth.uid;
-  const { eventId, selectedTiers, promoCode, paymentMethodId, attendees } =
-    data;
+  const {
+    eventId,
+    selectedTiers,
+    promoCode,
+    paymentMethodId,
+    attendees,
+    donor,
+  } = data;
 
   if (!eventId || !selectedTiers || !paymentMethodId) {
     throw new functions.https.HttpsError(
@@ -1142,11 +1354,14 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
     }
     appliedPromo = normalizedPromo;
     promoCodeId = promo.promoId;
-    // CORRECTED: Calculate discount on subtotal ONLY
+    const discountableSubtotal = _calculateDiscountableSubtotal(
+      itemsForOrder,
+      promo.applicableTierIds
+    );
     discountAmount = calculateDiscount(
       promo.discountType,
       promo.discountValue,
-      subtotalCharged
+      discountableSubtotal
     );
   }
 
@@ -1168,6 +1383,7 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
         userId: uid,
         items: itemsForOrder,
         attendees,
+        donor,
         subtotal: subtotalCharged,
         feeBase,
         processingFee: 0,
@@ -1190,6 +1406,7 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
         items: itemsForOrder,
         promoCodeId,
         attendees,
+        donor,
       });
     });
     return { success: true, orderId, free: true };
@@ -1221,6 +1438,7 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
           userId: uid,
           items: itemsForOrder,
           attendees,
+          donor,
           subtotal: subtotalCharged,
           feeBase,
           processingFee,
@@ -1244,6 +1462,7 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
           items: itemsForOrder,
           promoCodeId,
           attendees,
+          donor,
         });
       });
       return { success: true, orderId };
@@ -1322,8 +1541,30 @@ export const stripeWebhook = functions.https.onRequest(async (req, res) => {
         items: order.items,
         promoCodeId: order.promoCodeId,
         attendees: order.attendees,
+        donor: order.donor,
       });
     });
+
+    // Movie-seat orders: also mark each seat as sold.
+    if (
+      order.orderType === "movie" &&
+      Array.isArray(order.seatIds) &&
+      order.seatIds.length > 0
+    ) {
+      try {
+        await fulfilMovieSeatsForOrder({
+          eventId,
+          userId,
+          orderId,
+          seatIds: order.seatIds,
+        });
+      } catch (e: any) {
+        console.error(
+          `Failed to fulfil movie seats for order ${orderId}:`,
+          e?.message || e
+        );
+      }
+    }
   } else if (evt.type === "checkout.session.expired") {
     const session = evt.data.object as Stripe.Checkout.Session;
     const { orderId } = session.metadata || {};
@@ -1332,6 +1573,7 @@ export const stripeWebhook = functions.https.onRequest(async (req, res) => {
       const orderRef = db.doc(`orders/${orderId}`);
       const orderSnap = await orderRef.get();
       if (orderSnap.exists && orderSnap.data()?.status === "pending") {
+        const o = orderSnap.data() as any;
         await orderRef.update({
           status: "failed",
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -1339,6 +1581,30 @@ export const stripeWebhook = functions.https.onRequest(async (req, res) => {
         console.log(
           `Order ${orderId} marked as failed due to session expiration.`
         );
+        // Release seat holds for movie orders so seats become available again.
+        if (
+          o.orderType === "movie" &&
+          Array.isArray(o.seatIds) &&
+          o.seatIds.length > 0
+        ) {
+          const seatsCol = db
+            .collection("events")
+            .doc(o.eventId)
+            .collection("seats");
+          const batch = db.batch();
+          o.seatIds.forEach((id: string) => {
+            batch.update(seatsCol.doc(id), {
+              status: "available",
+              heldBy: null,
+              heldUntil: null,
+              orderId: null,
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+          });
+          await batch
+            .commit()
+            .catch((e) => console.error("Seat release on expiry failed", e));
+        }
       }
     }
   }
@@ -1390,7 +1656,7 @@ export const manuallyFulfillOrder = functions.https.onCall(
           return;
         }
 
-        const { eventId, userId, items, promoCodeId, attendees } = order;
+        const { eventId, userId, items, promoCodeId, attendees, donor } = order;
         if (!eventId || !userId || !items) {
           throw new functions.https.HttpsError(
             "failed-precondition",
@@ -1409,6 +1675,7 @@ export const manuallyFulfillOrder = functions.https.onCall(
           items,
           promoCodeId,
           attendees,
+          donor,
         });
 
         // Also update the order with a note about manual fulfillment

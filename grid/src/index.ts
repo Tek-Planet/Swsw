@@ -22,10 +22,16 @@ import {
   cleanupExpiredOrders,
   cancelOrder,
 } from "./payments";
-import { setAdminStatus, adminUploadEmailTemplates } from "./admin"; // Import the new function
+import { setAdminStatus, adminUploadEmailTemplates, seedVenueHouse6 } from "./admin"; // Import the new function
 import { sendEventPushNotification } from "./notifications";
 import { sendInvitationEmail, sendEmailToAttendees } from "./emails";
 import { sendTicketEmail } from "./tickets";
+import {
+  onMovieEventCreated,
+  holdMovieSeats,
+  releaseMovieSeats,
+  cleanupExpiredSeatHolds,
+} from "./movies";
 
 export {
   processSurveyAndFindMatches,
@@ -50,6 +56,11 @@ export {
   cancelOrder,
   sendTicketEmail,
   sendEmailToAttendees,
+  onMovieEventCreated,
+  holdMovieSeats,
+  releaseMovieSeats,
+  cleanupExpiredSeatHolds,
+  seedVenueHouse6
 };
 
 export const helloWorld = functions.https.onRequest((_req, res) => {

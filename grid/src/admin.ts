@@ -150,3 +150,83 @@ export const adminUploadEmailTemplates = functions.https.onCall(
     };
   }
 );
+
+/**
+ * [ADMIN] One-time seed for the partner cinema's House 6 venue.
+ * This is an admin-callable function that populates the 'venues' collection.
+ * It is idempotent and will overwrite the 'house6' document if it already exists.
+ */
+export const seedVenueHouse6 = functions.https.onCall(async (_, context) => {
+  // 1. Authentication: Only allow admins to run this function.
+  if (!context.auth || context.auth.token.admin !== true) {
+    throw new functions.https.HttpsError(
+      "permission-denied",
+      "This function can only be called by an administrator."
+    );
+  }
+
+  // 2. Define venue configuration
+  const VENUE_ID = "house6";
+  const SEATS_PER_ROW = 23;
+  const ROW_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
+  const DISCOUNT_ROWS = new Set(['B', 'C']);
+  const DISCOUNT_PRICE = 140;
+  const STANDARD_PRICE = 160;
+  const AISLE_AFTER_SEAT = 10; // Visual gap between seat 10 and 11
+
+  // 3. Helper functions to build the venue structure
+  const buildSeatsForRow = (rowLabel: string) => {
+    const seats: { label: string; type: string }[] = [];
+    for (let i = 1; i <= SEATS_PER_ROW; i++) {
+      seats.push({ label: String(i), type: "normal" });
+      if (i === AISLE_AFTER_SEAT) seats.push({ label: "", type: "aisle" });
+    }
+    // Add wheelchair spaces to the last row
+    if (rowLabel === "L") {
+      for (let w = 1; w <= 4; w++)
+        seats.push({ label: `W${w}`, type: "wheelchair" });
+    }
+    return seats;
+  };
+
+  const buildRows = () => {
+    return ROW_LABELS.map((label) => ({
+      label,
+      price: DISCOUNT_ROWS.has(label) ? DISCOUNT_PRICE : STANDARD_PRICE,
+      seats: buildSeatsForRow(label),
+    }));
+  };
+
+  // 4. Construct the final venue object
+  const venue = {
+    name: "House 6 — Premiere Elements",
+    hallName: "House 6",
+    screenPosition: "top",
+    currency: "HKD",
+    rows: buildRows(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+
+  try {
+    // 5. Write the object to Firestore
+    await db.collection("venues").doc(VENUE_ID).set(venue);
+
+    const seatCount = venue.rows.reduce(
+      (n, r) => n + r.seats.filter((s) => s.type !== "aisle").length,
+      0
+    );
+
+    // 6. Return a success response
+    return {
+      status: "success",
+      message: `Successfully seeded venues/${VENUE_ID}: ${seatCount} bookable seats across ${venue.rows.length} rows.`,
+    };
+  } catch (error) {
+    console.error("Venue seed failed:", error);
+    // 7. Return an error response
+    throw new functions.https.HttpsError(
+      "internal",
+      "An unexpected error occurred while seeding the venue."
+    );
+  }
+});
