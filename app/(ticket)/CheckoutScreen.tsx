@@ -28,6 +28,10 @@ import { ThemedView } from "../../components/themed-view";
 import { db } from "../../lib/firebase/firebaseConfig";
 import { Event, TableContactDetails, TicketTier } from "../../types/event";
 import Constants from "expo-constants";
+import { useEvent } from "@/hooks/useEvent";
+import { MovieSeat, Seat } from "@/types/movie";
+import OrderSummaryCard from "@/components/OrderSummaryCard";
+import { createOrder } from "@/lib/services/eventService";
 
 // Add PromoCodeData interface
 interface PromoCodeData {
@@ -55,26 +59,29 @@ const getCurrencySymbol = (currency: string) => {
 const razorpay_api_key = Constants?.expoConfig?.extra?.razorpay_api_key;
 
 const CheckoutScreen = () => {
-  const { eventId, selectedTiers: selectedTiersJSON } = useLocalSearchParams();
+  const {
+    eventId,
+    selectedTiers: selectedTiersJSON,
+    selectedSeats: selectedSeatsJSON,
+  } = useLocalSearchParams();
   const router = useRouter();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
   const functions = useMemo(() => getFunctions(), []);
   const eventIdStr = Array.isArray(eventId) ? eventId[0] : eventId;
 
-  const [event, setEvent] = useState<Event | null>(null);
+  // Unified State
+  const { event, loading: eventLoading } = useEvent(eventIdStr);
+  const [orderType, setOrderType] = useState<"movie" | "regular" | null>(null);
+
+  // Movie Order State
+  const [selectedSeats, setSelectedSeats] = useState<MovieSeat[]>([]);
+
+  // Regular Order State
   const [ticketTiers, setTicketTiers] = useState<TicketTier[]>([]);
   const [selectedTiers, setSelectedTiers] = useState<{ [key: string]: number }>(
     {}
   );
-  const [pricing, setPricing] = useState({
-    subtotal: 0,
-    feeBase: 0,
-    processingFee: 0,
-    total: 0,
-    discount: 0,
-  });
-
   const [attendees, setAttendees] = useState<
     { name: string; email: string; phone: string }[]
   >([]);
@@ -86,42 +93,47 @@ const CheckoutScreen = () => {
       notes: "",
     });
 
+  // Common State
+  const [pricing, setPricing] = useState({
+    subtotal: 0,
+    feeBase: 0,
+    processingFee: 0,
+    total: 0,
+    discount: 0,
+  });
   const [promoCode, setPromoCode] = useState("");
   const [promoApplied, setPromoApplied] = useState<PromoCodeData | null>(null);
   const [promoValidating, setPromoValidating] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
-
-  const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [loading, setLoading] = useState(true);
 
+  // Determine Order Type
   useEffect(() => {
-    if (!eventIdStr || !selectedTiersJSON) {
-      setLoading(false);
-      return;
+    if (selectedSeatsJSON) {
+      setOrderType("movie");
+      try {
+        setSelectedSeats(JSON.parse(selectedSeatsJSON as string));
+      } catch (e) {
+        console.error("Invalid JSON for selected seats:", e);
+      }
+    } else if (selectedTiersJSON) {
+      setOrderType("regular");
+      try {
+        setSelectedTiers(JSON.parse(selectedTiersJSON as string));
+      } catch (e) {
+        console.error("Invalid JSON for selected tiers:", e);
+      }
     }
-    try {
-      setSelectedTiers(JSON.parse(selectedTiersJSON as string));
-    } catch (e) {
-      console.error("Invalid JSON from params:", e);
-      setLoading(false);
-    }
+  }, [selectedSeatsJSON, selectedTiersJSON]);
 
-    const fetchEventAndTiers = async () => {
+  // Fetch Data for Regular Orders
+  useEffect(() => {
+    if (orderType !== "regular" || !eventIdStr) return;
+
+    const fetchRegularOrderData = async () => {
       setLoading(true);
       try {
-        const eventRef = doc(db, "events", eventIdStr);
-        const eventSnap = await getDoc(eventRef);
-        if (eventSnap.exists()) {
-          const eventData = { id: eventSnap.id, ...eventSnap.data() } as Event;
-          setEvent({
-            ...eventData,
-            currency: eventData.currency || "INR",
-            bookingFeePercent: eventData.bookingFeePercent || 10,
-          });
-        } else {
-          throw new Error("Event not found.");
-        }
-
         const tiersRef = collection(db, "events", eventIdStr, "ticketTiers");
         const q = query(
           tiersRef,
@@ -139,11 +151,12 @@ const CheckoutScreen = () => {
         setLoading(false);
       }
     };
-    fetchEventAndTiers();
-  }, [eventIdStr, selectedTiersJSON]);
+    fetchRegularOrderData();
+  }, [orderType, eventIdStr]);
 
+  // Set up Attendee Forms for Regular Orders
   useEffect(() => {
-    if (ticketTiers.length === 0) return;
+    if (orderType !== "regular" || ticketTiers.length === 0) return;
     const individualTicketCount = Object.entries(selectedTiers).reduce(
       (acc, [tierId, qty]) => {
         const tier = ticketTiers.find((t) => t.id === tierId);
@@ -157,32 +170,41 @@ const CheckoutScreen = () => {
     setAttendees(
       Array(individualTicketCount).fill({ name: "", email: "", phone: "" })
     );
-  }, [selectedTiers, ticketTiers]);
+  }, [orderType, selectedTiers, ticketTiers]);
 
+  // Calculate Pricing (Unified)
   useEffect(() => {
-    if (!event || ticketTiers.length === 0) return;
-    const getChargeAmount = (tier: TicketTier): number => {
-      if (tier.type === "table" && tier.chargeAmount != null)
-        return tier.chargeAmount;
-      return tier.price;
-    };
+    if (!event) return;
 
     let subtotalCharged = 0;
     let feeBase = 0;
-    Object.entries(selectedTiers).forEach(([tierId, qty]) => {
-      const tier = ticketTiers.find((t) => t.id === tierId);
-      if (tier && typeof qty === "number" && qty > 0) {
-        const chargeAmount = getChargeAmount(tier);
-        subtotalCharged += chargeAmount * qty;
-        if (tier.type !== "table") {
-          feeBase += chargeAmount * qty;
-        }
-      }
-    });
 
-    const feePercentage = event.bookingFeePercent / 100;
+    if (orderType === "movie") {
+      const seatPrice = event.ticketPrice || 0;
+      subtotalCharged = selectedSeats.length * seatPrice;
+      feeBase = subtotalCharged; // For movies, fee is on the full amount
+    } else if (orderType === "regular" && ticketTiers.length > 0) {
+      const getChargeAmount = (tier: TicketTier): number => {
+        if (tier.type === "table" && tier.chargeAmount != null)
+          return tier.chargeAmount;
+        return tier.price;
+      };
+      Object.entries(selectedTiers).forEach(([tierId, qty]) => {
+        const tier = ticketTiers.find((t) => t.id === tierId);
+        if (tier && typeof qty === "number" && qty > 0) {
+          const chargeAmount = getChargeAmount(tier);
+          subtotalCharged += chargeAmount * qty;
+          if (tier.type !== "table") {
+            feeBase += chargeAmount * qty;
+          }
+        }
+      });
+    }
+
+    const feePercentage = (event.bookingFeePercent || 10) / 100;
     const processingFee = feeBase > 0 ? Math.round(feeBase * feePercentage) : 0;
     let discount = 0;
+
     if (promoApplied) {
       const discountBase = subtotalCharged;
       switch (promoApplied.discountType) {
@@ -199,7 +221,9 @@ const CheckoutScreen = () => {
           break;
       }
     }
+
     const finalTotal = Math.max(0, subtotalCharged - discount + processingFee);
+
     setPricing({
       subtotal: subtotalCharged,
       feeBase,
@@ -207,8 +231,16 @@ const CheckoutScreen = () => {
       discount,
       total: finalTotal,
     });
-  }, [selectedTiers, ticketTiers, event, promoApplied]);
+  }, [
+    orderType,
+    event,
+    selectedSeats,
+    selectedTiers,
+    ticketTiers,
+    promoApplied,
+  ]);
 
+  // --- All other functions (validatePromoCode, form validation, etc.) remain largely the same ---
   const validatePromoCode = async () => {
     if (!promoCode.trim() || !eventId) return;
     setPromoValidating(true);
@@ -265,15 +297,15 @@ const CheckoutScreen = () => {
       setPromoValidating(false);
     }
   };
-
   const hasTableBooking = useMemo(
     () =>
+      orderType === "regular" &&
       ticketTiers.length > 0 &&
       Object.keys(selectedTiers).some((tierId) => {
         const tier = ticketTiers.find((t) => t.id === tierId);
         return tier && tier.type === "table" && selectedTiers[tierId] > 0;
       }),
-    [selectedTiers, ticketTiers]
+    [orderType, selectedTiers, ticketTiers]
   );
 
   const isTableContactFormValid = useMemo(() => {
@@ -287,16 +319,18 @@ const CheckoutScreen = () => {
 
   const areAttendeeDetailsValid = useMemo(
     () =>
+      orderType === "movie" ||
       attendees.every(
         (attendee) =>
           attendee.name.trim() !== "" &&
           attendee.email.trim() !== "" &&
           attendee.phone.trim() !== ""
       ),
-    [attendees]
+    [orderType, attendees]
   );
-
-  const hasSelection = Object.keys(selectedTiers).length > 0;
+  const hasSelection =
+    (orderType === "movie" && selectedSeats.length > 0) ||
+    (orderType === "regular" && Object.keys(selectedTiers).length > 0);
   const canProceed =
     hasSelection &&
     agreedToTerms &&
@@ -304,20 +338,26 @@ const CheckoutScreen = () => {
     isTableContactFormValid &&
     areAttendeeDetailsValid;
 
+  // --- UNIFIED PAYMENT HANDLER ---
   const handlePayment = async () => {
     if (!canProceed) {
-      Alert.alert(
-        "Incomplete Information",
-        "Please fill out all required fields and agree to the terms."
-      );
+      let message =
+        "Please fill out all required fields and agree to the terms.";
+      if (!hasSelection) {
+        message = "Your cart is empty.";
+      } else if (!agreedToTerms) {
+        message = "Please agree to the terms of service.";
+      }
+      Alert.alert("Incomplete Information", message);
       return;
     }
     setIsProcessing(true);
 
-    // Conditional Payment Logic
-    if (event?.currency === "INR") {
+    if (event?.currency === "INR" && orderType !== "movie") {
+      // Razorpay for regular INR orders
       await handleRazorpayPayment();
     } else {
+      // Stripe for all movie orders and international regular orders
       await handleStripePayment();
     }
 
@@ -325,21 +365,34 @@ const CheckoutScreen = () => {
   };
 
   const handleStripePayment = async () => {
+    if (!event || !orderType) return;
+
     try {
-      const createPaymentIntent = httpsCallable(
-        functions,
-        "createPaymentIntent"
-      );
-      const res = await createPaymentIntent({
-        eventId: eventIdStr,
-        selectedTiers,
-        promoCode: promoApplied ? promoApplied.code : undefined,
-        attendees: attendees.length > 0 ? attendees : undefined,
-      });
+      // Determine payload based on order type
+      const payload =
+        orderType === "movie"
+          ? {
+              orderType: "movie",
+              eventId: eventIdStr,
+              items: selectedSeats.map((s) => s.id), // Send seat IDs
+              total: pricing.total,
+              currency: event.currency,
+              promoCode: promoApplied ? promoApplied.code : undefined,
+            }
+          : {
+              orderType: "regular",
+              eventId: eventIdStr,
+              items: selectedTiers,
+              total: pricing.total,
+              currency: event.currency,
+              promoCode: promoApplied ? promoApplied.code : undefined,
+              attendees: attendees.length > 0 ? attendees : undefined,
+            };
 
-      const { orderId, clientSecret, free } = res.data as any;
+      const { clientSecret, orderId, free } = await createOrder(payload as any);
 
-      if (hasTableBooking) {
+      // This part remains mostly the same, just handling the result
+      if (hasTableBooking && orderId) {
         const updateOrderContact = httpsCallable(
           functions,
           "updateOrderContactDetails"
@@ -393,6 +446,7 @@ const CheckoutScreen = () => {
   };
 
   const handleRazorpayPayment = async () => {
+    // This remains for regular, INR orders only.
     try {
       const createRazorpayOrder = httpsCallable(
         functions,
@@ -467,8 +521,9 @@ const CheckoutScreen = () => {
       );
     }
   };
-
-  if (loading)
+  // --- Loading and Not Found States ---
+  const isLoading = eventLoading || loading;
+  if (isLoading)
     return (
       <ThemedView style={styles.centeredContainer}>
         <ActivityIndicator size="large" color="#fff" />
@@ -483,70 +538,82 @@ const CheckoutScreen = () => {
 
   const currencySymbol = getCurrencySymbol(event.currency);
 
+  // --- RENDER ---
   return (
     <ThemedView style={styles.container}>
       <TopNavBar title="Order Summary" onBackPress={() => router.back()} />
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.summaryCard}>
-          <Text style={styles.eventTitle}>{event.title}</Text>
-          {Object.keys(selectedTiers).map((tierId) => {
-            const tier = ticketTiers.find((t) => t.id === tierId);
-            if (!tier) return null;
-            const displayAmount =
-              tier.type === "table" && tier.chargeAmount != null
-                ? tier.chargeAmount
-                : tier.price;
-            return (
-              <View key={tierId} style={styles.itemRow}>
-                <Text style={styles.itemName}>
-                  {tier.name} x {selectedTiers[tierId]}
-                </Text>
-                <Text style={styles.itemPrice}>
-                  {currencySymbol}
-                  {(displayAmount * selectedTiers[tierId]).toLocaleString()}
-                </Text>
-              </View>
-            );
-          })}
-          <View style={styles.subtotalContainer}>
-            <Text style={styles.summaryText}>Subtotal</Text>
-            <Text style={styles.summaryText}>
-              {currencySymbol}
-              {pricing.subtotal.toLocaleString()}
-            </Text>
-          </View>
-          {pricing.processingFee > 0 && (
+        {orderType === "movie" && (
+          <OrderSummaryCard
+            event={event}
+            selectedSeats={selectedSeats}
+            pricing={pricing}
+            currencySymbol={currencySymbol}
+          />
+        )}
+
+        {orderType === "regular" && (
+          <View style={styles.summaryCard}>
+            <Text style={styles.eventTitle}>{event.title}</Text>
+            {Object.keys(selectedTiers).map((tierId) => {
+              const tier = ticketTiers.find((t) => t.id === tierId);
+              if (!tier) return null;
+              const displayAmount =
+                tier.type === "table" && tier.chargeAmount != null
+                  ? tier.chargeAmount
+                  : tier.price;
+              return (
+                <View key={tierId} style={styles.itemRow}>
+                  <Text style={styles.itemName}>
+                    {tier.name} x {selectedTiers[tierId]}
+                  </Text>
+                  <Text style={styles.itemPrice}>
+                    {currencySymbol}
+                    {(displayAmount * selectedTiers[tierId]).toLocaleString()}
+                  </Text>
+                </View>
+              );
+            })}
             <View style={styles.subtotalContainer}>
-              <Text style={styles.summaryText}>
-                Processing fee ({event.bookingFeePercent}%)
-              </Text>
+              <Text style={styles.summaryText}>Subtotal</Text>
               <Text style={styles.summaryText}>
                 {currencySymbol}
-                {pricing.processingFee.toLocaleString()}
+                {pricing.subtotal.toLocaleString()}
               </Text>
             </View>
-          )}
-          {pricing.discount > 0 && (
-            <View style={styles.subtotalContainer}>
-              <Text style={[styles.summaryText, { color: "#4CAF50" }]}>
-                Discount
-              </Text>
-              <Text style={[styles.summaryText, { color: "#4CAF50" }]}>
-                -{currencySymbol}
-                {pricing.discount.toLocaleString()}
+            {pricing.processingFee > 0 && (
+              <View style={styles.subtotalContainer}>
+                <Text style={styles.summaryText}>
+                  Processing fee ({event.bookingFeePercent}%)
+                </Text>
+                <Text style={styles.summaryText}>
+                  {currencySymbol}
+                  {pricing.processingFee.toLocaleString()}
+                </Text>
+              </View>
+            )}
+            {pricing.discount > 0 && (
+              <View style={styles.subtotalContainer}>
+                <Text style={[styles.summaryText, { color: "#4CAF50" }]}>
+                  Discount
+                </Text>
+                <Text style={[styles.summaryText, { color: "#4CAF50" }]}>
+                  -{currencySymbol}
+                  {pricing.discount.toLocaleString()}
+                </Text>
+              </View>
+            )}
+            <View style={styles.totalContainer}>
+              <Text style={styles.totalText}>Total</Text>
+              <Text style={styles.totalText}>
+                {currencySymbol}
+                {pricing.total.toLocaleString()}
               </Text>
             </View>
-          )}
-          <View style={styles.totalContainer}>
-            <Text style={styles.totalText}>Total</Text>
-            <Text style={styles.totalText}>
-              {currencySymbol}
-              {pricing.total.toLocaleString()}
-            </Text>
           </View>
-        </View>
+        )}
 
-        {hasTableBooking && (
+        {orderType === "regular" && hasTableBooking && (
           <View style={styles.attendeeSection}>
             <Text style={styles.sectionTitle}>Table Contact Details</Text>
             <TextInput
@@ -591,7 +658,7 @@ const CheckoutScreen = () => {
           </View>
         )}
 
-        {attendees.length > 0 && (
+        {orderType === "regular" && attendees.length > 0 && (
           <View style={styles.attendeeSection}>
             <Text style={styles.sectionTitle}>Attendee Details</Text>
             {attendees.map((attendee, index) => (
@@ -637,6 +704,7 @@ const CheckoutScreen = () => {
           </View>
         )}
 
+        {/* Common Sections: Promo, Terms, and CTA */}
         <View style={styles.promoSection}>
           <Text style={styles.sectionTitle}>Promo Code</Text>
           <View style={styles.promoInputContainer}>
@@ -836,3 +904,4 @@ const styles = StyleSheet.create({
 });
 
 export default CheckoutScreen;
+''
