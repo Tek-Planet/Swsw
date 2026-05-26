@@ -217,7 +217,7 @@ const TicketSelectionScreen = () => {
   return (
     <ThemedView style={styles.container}>
       <View style={{ paddingHorizontal: 20 }}>
-        <TopNavBar title={"Select Ticket"} onBackPress={() => router.back()} />
+        <TopNavBar title={"Select Tickets"} onBackPress={() => router.back()} />
       </View>
       <FlatList
         data={ticketTiers}

@@ -1,4 +1,3 @@
-
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
@@ -150,7 +149,7 @@ const EventDetailScreen = () => {
   };
 
   const handleCheckout = () => {
-    if (!venue || !eventId) return;
+    if (!venue || !id) return;
 
     const seatsToCheckout = selectedSeats.map((seatId) => {
       const [rowLabel] = seatId.split("-");
@@ -167,7 +166,7 @@ const EventDetailScreen = () => {
     router.push({
       pathname: "/(ticket)/CheckoutScreen",
       params: {
-        eventId: eventId,
+        eventId: id,
         selectedSeats: selectedSeatsJSON,
       },
     });
