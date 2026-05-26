@@ -29,7 +29,7 @@ import { db } from "../../lib/firebase/firebaseConfig";
 import { Event, TableContactDetails, TicketTier } from "../../types/event";
 import Constants from "expo-constants";
 import { useEvent } from "@/hooks/useEvent";
-import { MovieSeat, Seat } from "@/types/movie";
+import { Seat } from "@/types/movie";
 import OrderSummaryCard from "@/components/OrderSummaryCard";
 import { createOrder } from "@/lib/services/eventService";
 
@@ -75,7 +75,7 @@ const CheckoutScreen = () => {
   const [orderType, setOrderType] = useState<"movie" | "regular" | null>(null);
 
   // Movie Order State
-  const [selectedSeats, setSelectedSeats] = useState<MovieSeat[]>([]);
+  const [selectedSeats, setSelectedSeats] = useState<Seat[]>([]);
 
   // Regular Order State
   const [ticketTiers, setTicketTiers] = useState<TicketTier[]>([]);
@@ -904,4 +904,4 @@ const styles = StyleSheet.create({
 });
 
 export default CheckoutScreen;
-''
+("");

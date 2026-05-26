@@ -1,8 +1,9 @@
+import React from "react";
+import { View, Text, StyleSheet } from "react-native";
+import { Colors, Fonts } from "@/constants/theme";
+import { EventCurrency } from "@/types/event";
 
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { theme } from '@/constants/theme';
-import { EventCurrency } from '@/types/movie';
+const theme = { colors: Colors.dark, fonts: Fonts };
 
 interface OrderSummaryCardProps {
   eventTitle: string;
@@ -13,10 +14,18 @@ interface OrderSummaryCardProps {
 }
 
 const formatCurrency = (amount: number, currency: EventCurrency) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
-}
+  return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(
+    amount
+  );
+};
 
-const OrderSummaryCard: React.FC<OrderSummaryCardProps> = ({ eventTitle, subtotal, fee, total, currency }) => {
+const OrderSummaryCard: React.FC<OrderSummaryCardProps> = ({
+  eventTitle,
+  subtotal,
+  fee,
+  total,
+  currency,
+}) => {
   return (
     <View style={styles.card}>
       <Text style={styles.title}>{eventTitle}</Text>
@@ -39,48 +48,48 @@ const OrderSummaryCard: React.FC<OrderSummaryCardProps> = ({ eventTitle, subtota
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: theme.colors.card,
+    backgroundColor: theme.colors.background,
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
   },
   title: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: theme.colors.text,
     marginBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    borderBottomColor: theme.colors.text,
     paddingBottom: 10,
   },
   row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginVertical: 4,
   },
   label: {
     fontSize: 14,
-    color: theme.colors.textSecondary,
+    color: theme.colors.text,
   },
   value: {
     fontSize: 14,
     color: theme.colors.text,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   divider: {
     height: 1,
-    backgroundColor: theme.colors.border,
+    backgroundColor: theme.colors.tint,
     marginVertical: 10,
   },
   totalLabel: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: theme.colors.text,
   },
   totalValue: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: theme.colors.text,
   },
 });
