@@ -65,7 +65,7 @@ interface OrderPayload {
   currency: string;
 }
 
-export const createOrder = async (payload: OrderPayload): Promise<{ clientSecret: string; orderId: string; }> => {
+export const createOrder = async (payload: OrderPayload): Promise<{ clientSecret: string; orderId: string; free: boolean; }> => {
   console.log(`Creating order with type: ${payload.orderType}`);
   
   const functionName = payload.orderType === 'movie' 
@@ -75,9 +75,9 @@ export const createOrder = async (payload: OrderPayload): Promise<{ clientSecret
   try {
     const createOrderFunction = httpsCallable(functions, functionName);
     const result = await createOrderFunction(payload);
-    const data = result.data as { clientSecret: string; orderId: string; };
+    const data = result.data as { clientSecret: string; orderId: string; free: boolean; };
     
-    if (!data.clientSecret || !data.orderId) {
+    if (!data.orderId) {
         throw new Error('Invalid response from create order function.');
     }
 
@@ -325,7 +325,7 @@ export function listenToMostRecentEvent(
   );
 
   return onSnapshot(q, async (snapshot) => {
-    if (.empty) {
+    if (snapshot.empty) {
       callback(null);
       return;
     }

@@ -17,28 +17,33 @@ import EventMetaCard from "@/components/EventMetaCard";
 import FloatingRSVPBar from "@/components/FloatingRSVPBar";
 import HostInfo from "@/components/HostInfo";
 import PhotoAlbum from "@/components/PhotoAlbum";
-import SeatMap from "@/components/SeatMap"; // Import the new component
+import SeatMap from "@/components/SeatMap";
 import StickyTopBar from "@/components/StickyTopBar";
 import TicketHoldersList from "@/components/TicketHoldersList";
 import ActivityFeed from "@/components/event/ActivityFeed";
-import { theme } from "@/constants/theme";
+import { Colors, Fonts } from "@/constants/theme";
 import { useAuth } from "@/lib/context/AuthContext";
 import {
   getProfilesForUserIds,
   listenToEvent,
 } from "@/lib/services/eventService";
-import { useEventSeats } from "@/hooks/useEventSeats"; // Import the new hooks
+import { useEventSeats } from "@/hooks/useEventSeats";
 import { useVenue } from "@/hooks/useVenue";
 import { Event } from "@/types/event";
-import { TicketHolder } from "@/types/user";
 
-// Define the shape expected by the HostInfo component
+const theme = { colors: Colors.dark, fonts: Fonts.default };
+
 interface HostInfoProps {
   name: string;
   photoURL?: string;
 }
 
-// --- New Movie Booking Bar Component ---
+export interface TicketHolder {
+  id: string;
+  avatar: string;
+  firstName: string;
+}
+
 const MovieBookingBar = ({
   selectedSeats,
   venue,
@@ -82,7 +87,6 @@ const MovieBookingBar = ({
     </TouchableOpacity>
   );
 };
-// --- End of Movie Booking Bar Component ---
 
 const EventDetailScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -95,20 +99,19 @@ const EventDetailScreen = () => {
   const [ticketHolders, setTicketHolders] = useState<TicketHolder[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // --- State and hooks for Movie Flow ---
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
+  const eventId = typeof id === 'string' ? id : undefined;
   const { venue, loading: venueLoading } = useVenue(
     event?.eventType === "movie" ? event.venueId : undefined
   );
   const { seats, loading: seatsLoading } = useEventSeats(
-    event?.eventType === "movie" ? id : undefined
+    event?.eventType === "movie" ? eventId : undefined
   );
-  // ---
 
   useEffect(() => {
-    if (!id) return;
+    if (!eventId) return;
 
-    const unsubscribe = listenToEvent(id, async (eventData) => {
+    const unsubscribe = listenToEvent(eventId, async (eventData) => {
       setEvent(eventData);
       if (eventData) {
         if (eventData.hostId) {
@@ -127,7 +130,7 @@ const EventDetailScreen = () => {
           profilesMap.entries()
         ).map(([profId, profile]) => ({
           id: profId,
-          avatar: profile.photoUrl || \`https://i.pravatar.cc/150?u=\${profId}\`,
+          avatar: profile.photoUrl || `https://i.pravatar.cc/150?u=${profId}`,
           firstName: profile.displayName || profile.username,
         }));
         setTicketHolders(holdersList);
@@ -136,7 +139,7 @@ const EventDetailScreen = () => {
     });
 
     return () => unsubscribe();
-  }, [id]);
+  }, [eventId]);
 
   const handleToggleSeat = (seatId: string) => {
     setSelectedSeats((prev) =>
@@ -147,9 +150,27 @@ const EventDetailScreen = () => {
   };
 
   const handleCheckout = () => {
-    // Navigate to checkout with the selected seats
-    const seatsQuery = selectedSeats.join(',');
-    router.push(`/checkout/${id}?orderType=movie&seats=${seatsQuery}`);
+    if (!venue || !eventId) return;
+
+    const seatsToCheckout = selectedSeats.map((seatId) => {
+      const [rowLabel] = seatId.split("-");
+      const row = venue.rows.find((r: any) => r.label === rowLabel);
+      return {
+        id: seatId,
+        price: row?.price || 0,
+        tier: row?.tier || "Standard",
+      };
+    });
+
+    const selectedSeatsJSON = JSON.stringify(seatsToCheckout);
+
+    router.push({
+      pathname: "/(ticket)/CheckoutScreen",
+      params: {
+        eventId: eventId,
+        selectedSeats: selectedSeatsJSON,
+      },
+    });
   };
 
   const hasTicket = useMemo(() => {
@@ -160,14 +181,15 @@ const EventDetailScreen = () => {
   const memoizedTicketHolders = useMemo(() => ticketHolders, [ticketHolders]);
 
   const isMovieEvent = event?.eventType === "movie";
-  const fullLoading = loading || (isMovieEvent && (venueLoading || seatsLoading));
+  const fullLoading =
+    loading || (isMovieEvent && (venueLoading || seatsLoading));
 
   if (fullLoading) {
     return (
       <ActivityIndicator
         style={styles.centerContainer}
         size="large"
-        color={theme.colors.primary}
+        color={theme.colors.tint}
       />
     );
   }
@@ -203,15 +225,14 @@ const EventDetailScreen = () => {
         {host && <HostInfo host={host} />}
         <DescriptionBlock text={event.description} />
 
-        {/* --- Conditional Content: Movie vs. Regular Event --- */}
         {hasTicket ? (
           <>
             <TicketHoldersList
               ticketHolders={memoizedTicketHolders}
               total={event.attendeeIds?.length || 0}
             />
-            <PhotoAlbum eventId={id} />
-            <ActivityFeed eventId={id} hasAccess={true} />
+            <PhotoAlbum eventId={eventId} />
+            <ActivityFeed eventId={eventId} hasAccess={true} />
           </>
         ) : isMovieEvent ? (
           venue && Object.keys(seats).length > 0 ? (
@@ -225,21 +246,20 @@ const EventDetailScreen = () => {
             />
           ) : (
             <View style={styles.lockedSection}>
-               <ActivityIndicator size="large" color={theme.colors.primary} />
-               <Text style={styles.lockedText}>Loading Seating Map...</Text>
+              <ActivityIndicator size="large" color={theme.colors.tint} />
+              <Text style={styles.lockedText}>Loading Seating Map...</Text>
             </View>
           )
         ) : (
           <View style={styles.lockedSection}>
             <Ionicons name="lock-closed" size={32} color="#A8A8A8" />
             <Text style={styles.lockedText}>
-              Buy a ticket to see photos and who\'s going
+              Buy a ticket to see photos and who's going
             </Text>
           </View>
         )}
       </ScrollView>
 
-      {/* --- Conditional Floating Bar --- */}
       {isUpcoming &&
         (isMovieEvent ? (
           <MovieBookingBar
@@ -248,7 +268,7 @@ const EventDetailScreen = () => {
             onCheckout={handleCheckout}
           />
         ) : (
-          <FloatingRSVPBar eventId={id} hasTicket={hasTicket} />
+          <FloatingRSVPBar eventId={eventId} hasTicket={hasTicket} />
         ))}
     </View>
   );
@@ -274,7 +294,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   lockedSection: {
-    backgroundColor: theme.colors.card,
+    backgroundColor: "#1C1C1E",
     borderRadius: 12,
     padding: 20,
     margin: 20,
@@ -282,12 +302,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   lockedText: {
-    color: theme.colors.textSecondary,
+    color: "#A8A8A8",
     fontSize: 16,
     marginTop: 10,
     textAlign: "center",
   },
-  // --- Floating Bar Styles ---
   floatingBar: {
     position: "absolute",
     bottom: 20,
@@ -301,19 +320,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   floatingBarDisabled: {
-    backgroundColor: theme.colors.disabled,
+    backgroundColor: "#333",
     justifyContent: "center",
   },
   floatingBarActive: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.tint,
   },
   floatingBarText: {
-    color: theme.colors.white,
+    color: theme.colors.text,
     fontSize: 16,
     fontWeight: "bold",
   },
   floatingBarPrice: {
-    color: theme.colors.white,
+    color: theme.colors.text,
     fontSize: 12,
   },
 });

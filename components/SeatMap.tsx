@@ -1,11 +1,12 @@
 
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { Venue, Seat, MAX_MOVIE_SEATS_PER_ORDER, EventCurrency, SeatStatus } from '../../types/movie';
-import { useAuth } from '../../lib/context/AuthContext';
-import { theme } from '../../constants/theme';
-// Assuming an icon library like Feather is available, which is common in Expo projects
-import { Feather } from '@expo/vector-icons'; 
+import { Venue, Seat, MAX_MOVIE_SEATS_PER_ORDER, EventCurrency, SeatStatus } from '../types/movie';
+import { useAuth } from '../lib/context/AuthContext';
+import { Colors, Fonts } from '../constants/theme';
+import { Feather } from '@expo/vector-icons';
+
+const theme = { colors: Colors.dark, fonts: Fonts.default };
 
 // Helper to format price
 const formatPrice = (price: number, currency: EventCurrency = 'HKD') => {
@@ -88,7 +89,7 @@ const SeatMap: React.FC<SeatMapProps> = ({ venue, seats, soldSeatIds, selected, 
                     style={[styles.seat, getSeatStyle(), isDisabled && styles.disabledSeat]}
                   >
                     {venueSeat.type === 'wheelchair' ? (
-                       <Feather name="wheelchair" size={14} color={isSelected ? theme.colors.white : theme.colors.primary} />
+                       <Feather name="wheelchair" size={14} color={isSelected ? '#fff' : theme.colors.tint} />
                     ) : (
                       <Text style={getTextStyle()}>{venueSeat.label}</Text>
                     )}
@@ -138,14 +139,14 @@ const styles = StyleSheet.create({
     width: '80%',
     height: 20,
     borderTopWidth: 4,
-    borderTopColor: theme.colors.primary,
+    borderTopColor: theme.colors.tint,
     borderStyle: 'solid',
     borderRadius: 10,
     opacity: 0.7,
   },
   screenText: {
     marginTop: 4,
-    color: theme.colors.textSecondary,
+    color: theme.colors.icon,
     fontSize: 10,
     letterSpacing: 2,
   },
@@ -161,7 +162,7 @@ const styles = StyleSheet.create({
     width: 20,
     textAlign: 'center',
     fontSize: 12,
-    color: theme.colors.textSecondary,
+    color: theme.colors.icon,
     marginHorizontal: 4,
   },
   seat: {
@@ -177,41 +178,41 @@ const styles = StyleSheet.create({
     width: 15,
   },
   availableSeat: {
-    backgroundColor: theme.colors.card,
-    borderColor: theme.colors.border,
+    backgroundColor: '#1C1C1E',
+    borderColor: '#333',
   },
   availableSeatText: {
     fontSize: 10,
     color: theme.colors.text,
   },
   selectedSeat: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.tint,
+    borderColor: theme.colors.tint,
   },
   selectedSeatText: {
     fontSize: 10,
-    color: theme.colors.white,
+    color: '#000',
     fontWeight: 'bold',
   },
   soldSeat: {
-    backgroundColor: theme.colors.disabled,
-    borderColor: theme.colors.border,
+    backgroundColor: '#333',
+    borderColor: '#555',
   },
   soldSeatText: {
       fontSize: 10,
-      color: theme.colors.textSecondary
+      color: '#888'
   },
   heldSeat: {
-    backgroundColor: '#FFC107', // Amber color
+    backgroundColor: '#FFC107',
     borderColor: '#FFC107',
   },
   heldSeatText: {
       fontSize: 10,
-      color: theme.colors.white
+      color: '#000'
   },
   blockedSeat: {
-    backgroundColor: theme.colors.error,
-    borderColor: theme.colors.error,
+    backgroundColor: '#ff4d4d',
+    borderColor: '#ff4d4d',
   },
   disabledSeat: {
     opacity: 0.5,
@@ -237,12 +238,12 @@ const styles = StyleSheet.create({
   },
   legendLabel: {
     fontSize: 11,
-    color: theme.colors.textSecondary,
+    color: theme.colors.icon,
   },
   capWarning: {
     textAlign: 'center',
     fontSize: 12,
-    color: '#FFC107', // Amber
+    color: '#FFC107',
     marginTop: 10,
   },
 });
