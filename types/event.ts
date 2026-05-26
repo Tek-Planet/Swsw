@@ -1,6 +1,27 @@
 
 import { Timestamp } from 'firebase/firestore';
 
+// New types added from web
+export type EventCurrency = 'INR' | 'USD' | 'HKD';
+
+export interface CustomQuestion {
+  id: string;
+  label: string;
+  type: 'text' | 'select';
+  options?: string[];
+  required?: boolean;
+}
+
+export interface MovieDetails {
+  title: string;
+  durationMins?: number;
+  language?: string;
+  rating?: string;
+  posterUrl?: string;
+  synopsis?: string;
+}
+
+// Existing types
 export type EventVisibility = 'public' | 'private' | 'buds';
 export type EventStatus = 'draft' | 'published' | 'cancelled';
 
@@ -13,6 +34,7 @@ export type EventLocation = {
   onlineUrl?: string;
 };
 
+// Updated Event interface
 export interface Event {
   id: string;
   title: string;
@@ -23,7 +45,7 @@ export interface Event {
   hostAvatarUrl?: string;
   visibility: EventVisibility;
   status: EventStatus;
-  startTime: Date; // Converted from Firestore Timestamp in app code
+  startTime: Date;
   endTime: Date;
   timeZone?: string;
   location: EventLocation;
@@ -40,9 +62,20 @@ export interface Event {
   photoCount?: number;
   latestPhotoThumbUrl?: string;
   latestPhotoAt?: any;
-  currency: string; 
-  bookingFeePercent: number; 
+  currency: EventCurrency; // Changed from string to the new type
+  bookingFeePercent: number;
+
+  // --- Fields added for Movie and Invite-Only Support ---
+  soldSeatIds?: string[];
+  isInviteOnly?: boolean;
+  customQuestions?: CustomQuestion[];
+  eventType?: 'regular' | 'movie';
+  venueId?: string;
+  showtime?: Date;
+  movie?: MovieDetails;
+  // --- End of added fields ---
 }
+
 
 export interface Attendee {
   name: string;
@@ -66,7 +99,7 @@ export interface TicketTier {
   id: string;
   name: string;
   price: number;
-  chargeAmount?: number; 
+  chargeAmount?: number;
   currency: string;
   type: TicketTierType;
   description?: string;
@@ -79,16 +112,17 @@ export interface TicketTier {
 }
 
 export type FirestoreTicketTier = Omit<TicketTier, 'id' | 'createdAt' | 'updatedAt'> & {
-    chargeAmount?: number; 
+    chargeAmount?: number;
     createdAt: Timestamp;
     updatedAt: Timestamp;
 };
 
-export type FirestoreEvent = Omit<Event, 'id' | 'startTime' | 'endTime' | 'createdAt' | 'updatedAt'> & {
+export type FirestoreEvent = Omit<Event, 'id' | 'startTime' | 'endTime' | 'createdAt' | 'updatedAt' | 'showtime'> & {
   startTime: Timestamp;
   endTime: Timestamp;
   createdAt: Timestamp;
   updatedAt: Timestamp;
+  showtime?: Timestamp;
 };
 
 export interface OrderItem {
@@ -119,13 +153,13 @@ export interface Order {
   total: number;
   currency: string;
   status: OrderStatus;
-  createdAt: Date; 
-  updatedAt: Date; 
+  createdAt: Date;
+  updatedAt: Date;
   stripeSessionId?: string;
   stripePaymentIntentId?: string;
   paymentMethod?: string;
   eventTitle?: string;
-  eventDate?: Date; 
+  eventDate?: Date;
   promoCode?: string;
   tableContactDetails?: TableContactDetails;
   attendees?: Attendee[];

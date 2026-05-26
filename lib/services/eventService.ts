@@ -1,10 +1,9 @@
+
 import {
   collection,
   doc,
-  addDoc,
   getDoc,
   getDocs,
-  updateDoc,
   onSnapshot,
   query,
   where,
@@ -15,10 +14,12 @@ import {
   DocumentData,
   documentId,
 } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db } from '@/lib/firebase/firebaseConfig';
 import { Event, FirestoreEvent } from '@/types/event';
 import { UserProfile } from '@/types/user';
 
+const functions = getFunctions();
 const eventCollection = collection(db, 'events');
 const userCollection = collection(db, 'users');
 const ordersCollection = collection(db, 'orders');
@@ -34,6 +35,8 @@ const eventFromDoc = (doc: QueryDocumentSnapshot<DocumentData>): Event => {
     endTime: data.endTime ? data.endTime.toDate() : new Date(),
     createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
     updatedAt: data.updatedAt ? data.updatedAt.toDate() : new Date(),
+    // Handle potential showtime timestamp
+    ...(data.showtime && { showtime: data.showtime.toDate() }),
   };
 };
 
@@ -48,16 +51,48 @@ export async function getEvent(eventId: string): Promise<Event | null> {
         return null;
       }
     } catch (error) {
-      console.error("Error fetching event:", error);
+      console.error('Error fetching event:', error);
       return null;
     }
+}
+
+// --- NEW createOrder FUNCTION ---
+interface OrderPayload {
+  orderType: 'movie' | 'regular';
+  eventId: string;
+  items: any; // Could be seat IDs or tier selections
+  total: number;
+  currency: string;
+}
+
+export const createOrder = async (payload: OrderPayload): Promise<{ clientSecret: string; orderId: string; }> => {
+  console.log(`Creating order with type: ${payload.orderType}`);
+  
+  const functionName = payload.orderType === 'movie' 
+    ? 'createMovieOrder' 
+    : 'createTieredOrder'; // Assuming this is the name for regular orders
+
+  try {
+    const createOrderFunction = httpsCallable(functions, functionName);
+    const result = await createOrderFunction(payload);
+    const data = result.data as { clientSecret: string; orderId: string; };
+    
+    if (!data.clientSecret || !data.orderId) {
+        throw new Error('Invalid response from create order function.');
+    }
+
+    return data;
+  } catch (error) {
+    console.error(`Error calling ${functionName}:`, error);
+    throw new Error('Failed to create order. Please try again.');
   }
+};
+
 
 export async function getProfilesForUserIds(userIds: string[]): Promise<Map<string, UserProfile>> {
   const profiles = new Map<string, UserProfile>();
   if (!userIds || userIds.length === 0) return profiles;
 
-  // Firestore 'in' queries support up to 30 elements per query.
   const batches: string[][] = [];
   for (let i = 0; i < userIds.length; i += 30) {
     batches.push(userIds.slice(i, i + 30));
@@ -95,7 +130,7 @@ export function listenToEvent(
             eventData.hostAvatarUrl = userData.photoUrl;
           }
         } catch (error) {
-          console.error("Error fetching host profile:", error);
+          console.error('Error fetching host profile:', error);
         }
       }
 
@@ -104,13 +139,14 @@ export function listenToEvent(
       callback(null);
     }
   }, (error) => {
-    console.error("Error listening to event:", error);
+    console.error('Error listening to event:', error);
     callback(null);
   });
 
   return unsubscribe;
 }
 
+// Keep all other listening functions as they are...
 export function listenToUserUpcomingEvents(
     userId: string,
     callback: (events: Event[]) => void
@@ -158,7 +194,7 @@ export function listenToUserUpcomingEvents(
       callback(upcomingEvents.slice(0, 10));
 
     }, (error) => {
-      console.error("Error listening to user upcoming events:", error);
+      console.error('Error listening to user upcoming events:', error);
     });
   
     return unsubscribe;
@@ -211,7 +247,7 @@ export function listenToUserPastEvents(
     callback(pastEvents.slice(0, 10));
 
   }, (error) => {
-    console.error("Error listening to user past events:", error);
+    console.error('Error listening to user past events:', error);
   });
 
   return unsubscribe;
@@ -247,7 +283,7 @@ export function listenToRecommendedEvents(
 
     callback(events.slice(0, 5));
   }, (error) => {
-    console.error("Error listening to recommended events:", error);
+    console.error('Error listening to recommended events:', error);
   });
 
   return unsubscribe;
@@ -271,7 +307,7 @@ export function listenToTrendingEvents(
     const events = querySnapshot.docs.map(doc => eventFromDoc(doc));
     callback(events);
   }, (error) => {
-    console.error("Error listening to trending events:", error);
+    console.error('Error listening to trending events:', error);
   });
 
   return unsubscribe;
@@ -289,7 +325,7 @@ export function listenToMostRecentEvent(
   );
 
   return onSnapshot(q, async (snapshot) => {
-    if (snapshot.empty) {
+    if (.empty) {
       callback(null);
       return;
     }
