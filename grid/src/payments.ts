@@ -55,6 +55,7 @@ async function validatePromoCode(eventId: string, code: string) {
     discountType: promoData.discountType as "percent" | "fixed" | "free",
     discountValue: promoData.discountValue ?? 0,
     applicableTierIds: promoData.applicableTierIds,
+    waiveProcessingFee: promoData.waiveProcessingFee === true,
   };
 }
 
@@ -359,7 +360,7 @@ export const createPaymentIntent = functions.https.onCall(
       );
     }
 
-    const {
+    let {
       event,
       eventRef,
       itemsForOrder,
@@ -394,6 +395,10 @@ export const createPaymentIntent = functions.https.onCall(
         promo.discountValue,
         discountableSubtotal
       );
+
+      if (promo.waiveProcessingFee) {
+        processingFee = 0;
+      }
     }
 
     // CORRECTED: Final total calculation
@@ -499,7 +504,7 @@ export const createRazorpayOrder = functions.https.onCall(
       );
     }
 
-    const {
+    let {
       event,
       eventRef,
       itemsForOrder,
@@ -534,6 +539,10 @@ export const createRazorpayOrder = functions.https.onCall(
         promo.discountValue,
         discountableSubtotal
       );
+
+      if (promo.waiveProcessingFee) {
+        processingFee = 0;
+      }
     }
 
     const finalTotal = Math.max(
@@ -1155,7 +1164,7 @@ export const createCheckoutSession = functions.https.onCall(
       });
     }
 
-    const processingFee = Math.round(feeBase * (feePercent / 100));
+    let processingFee = Math.round(feeBase * (feePercent / 100));
 
     // Validate promo code
     let discountAmount = 0;
@@ -1166,7 +1175,7 @@ export const createCheckoutSession = functions.https.onCall(
       const upperCode = promoCode.trim().toUpperCase();
 
       const promoData = await validatePromoCode(eventId, upperCode);
-      if (promoData && promoData.discountType) {
+      if (promoData && promoData.ok) {
         const discountableSubtotal = _calculateDiscountableSubtotal(
           items,
           promoData.applicableTierIds
@@ -1178,6 +1187,10 @@ export const createCheckoutSession = functions.https.onCall(
         );
         promoCodeId = promoData.promoId;
         validatedPromoCode = upperCode;
+
+        if (promoData.waiveProcessingFee) {
+          processingFee = 0;
+        }
       }
     }
 
@@ -1328,7 +1341,7 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
     );
   }
 
-  const {
+  let {
     event,
     eventRef,
     itemsForOrder,
@@ -1363,6 +1376,10 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
       promo.discountValue,
       discountableSubtotal
     );
+
+    if (promo.waiveProcessingFee) {
+      processingFee = 0;
+    }
   }
 
   // CORRECTED: Final total calculation

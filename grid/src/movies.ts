@@ -58,7 +58,9 @@ export const onMovieEventCreated = functions.firestore
 
     const venueSnap = await db.collection("venues").doc(data.venueId).get();
     if (!venueSnap.exists) {
-      functions.logger.error(`Venue ${data.venueId} not found for event ${eventId}`);
+      functions.logger.error(
+        `Venue ${data.venueId} not found for event ${eventId}`
+      );
       return null;
     }
     const venue = venueSnap.data() as { rows: VenueRow[] };
@@ -100,7 +102,10 @@ export const onMovieEventCreated = functions.firestore
  */
 export const holdMovieSeats = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "Must be logged in.");
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "Must be logged in."
+    );
   }
   const userId = context.auth.uid;
   const { eventId, seatIds } = data as { eventId?: string; seatIds?: string[] };
@@ -128,18 +133,28 @@ export const holdMovieSeats = functions.https.onCall(async (data, context) => {
     const refs = seatIds.map((id) => seatsCol.doc(id));
     const snaps = await Promise.all(refs.map((r) => tx.get(r)));
 
-    const summaries: Array<{ id: string; price: number; rowLabel: string; seatLabel: string }> = [];
+    const summaries: Array<{
+      id: string;
+      price: number;
+      rowLabel: string;
+      seatLabel: string;
+    }> = [];
 
     for (let i = 0; i < snaps.length; i++) {
       const s = snaps[i];
       const id = seatIds[i];
       if (!s.exists) {
-        throw new functions.https.HttpsError("not-found", `Seat ${id} not found.`);
+        throw new functions.https.HttpsError(
+          "not-found",
+          `Seat ${id} not found.`
+        );
       }
       const seat = s.data() as any;
       const isMine = seat.heldBy === userId;
       const expired =
-        seat.heldUntil && seat.heldUntil.toMillis && seat.heldUntil.toMillis() < now.toMillis();
+        seat.heldUntil &&
+        seat.heldUntil.toMillis &&
+        seat.heldUntil.toMillis() < now.toMillis();
       const available =
         seat.status === "available" ||
         isMine ||
@@ -180,42 +195,51 @@ export const holdMovieSeats = functions.https.onCall(async (data, context) => {
 /**
  * Voluntarily release the user's holds on the given seats (no payment).
  */
-export const releaseMovieSeats = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "Must be logged in.");
-  }
-  const userId = context.auth.uid;
-  const { eventId, seatIds } = data as { eventId?: string; seatIds?: string[] };
-  if (!eventId || !Array.isArray(seatIds) || seatIds.length === 0) {
-    return { success: true, released: 0 };
-  }
+export const releaseMovieSeats = functions.https.onCall(
+  async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Must be logged in."
+      );
+    }
+    const userId = context.auth.uid;
+    const { eventId, seatIds } = data as {
+      eventId?: string;
+      seatIds?: string[];
+    };
+    if (!eventId || !Array.isArray(seatIds) || seatIds.length === 0) {
+      return { success: true, released: 0 };
+    }
 
-  const seatsCol = db.collection("events").doc(eventId).collection("seats");
-  let released = 0;
-  await db.runTransaction(async (tx) => {
-    const refs = seatIds.map((id) => seatsCol.doc(id));
-    const snaps = await Promise.all(refs.map((r) => tx.get(r)));
-    snaps.forEach((s, i) => {
-      if (!s.exists) return;
-      const d = s.data() as any;
-      if (d.status === "held" && d.heldBy === userId) {
-        tx.update(refs[i], {
-          status: "available",
-          heldBy: null,
-          heldUntil: null,
-          orderId: null,
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-        released++;
-      }
+    const seatsCol = db.collection("events").doc(eventId).collection("seats");
+    let released = 0;
+    await db.runTransaction(async (tx) => {
+      const refs = seatIds.map((id) => seatsCol.doc(id));
+      const snaps = await Promise.all(refs.map((r) => tx.get(r)));
+      snaps.forEach((s, i) => {
+        if (!s.exists) return;
+        const d = s.data() as any;
+        if (d.status === "held" && d.heldBy === userId) {
+          tx.update(refs[i], {
+            status: "available",
+            heldBy: null,
+            heldUntil: null,
+            orderId: null,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          released++;
+        }
+      });
     });
-  });
-  return { success: true, released };
-});
+    return { success: true, released };
+  }
+);
 
 /**
  * Shared fulfilment used by Stripe webhook to mark held seats sold for an order.
  * Safe to call multiple times (idempotent — sold seats stay sold).
+ * NOW ALSO UPDATES THE MASTER EVENT DOC WITH SOLD SEAT IDs.
  */
 export async function fulfilMovieSeatsForOrder(params: {
   eventId: string;
@@ -226,21 +250,31 @@ export async function fulfilMovieSeatsForOrder(params: {
   const { eventId, userId, orderId, seatIds } = params;
   if (!seatIds || seatIds.length === 0) return;
 
-  const seatsCol = db.collection("events").doc(eventId).collection("seats");
+  const eventRef = db.collection("events").doc(eventId); // Get ref to the main event
+  const seatsCol = eventRef.collection("seats");
+
   await db.runTransaction(async (tx) => {
+    // 1. Update individual seat documents to "sold"
     const refs = seatIds.map((id) => seatsCol.doc(id));
     const snaps = await Promise.all(refs.map((r) => tx.get(r)));
     snaps.forEach((s, i) => {
-      if (!s.exists) return;
+      if (!s.exists) return; // Seat doc should always exist
       const d = s.data() as any;
-      if (d.status === "sold" && d.orderId === orderId) return; // already done
+      if (d.status === "sold" && d.orderId === orderId) return; // Idempotency check
+
       tx.update(refs[i], {
         status: "sold",
         userId,
         orderId,
-        heldUntil: null,
+        heldUntil: null, // Clear hold data
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
+    });
+
+    // 2. Atomically add the sold seats to the main event document
+    // Using arrayUnion is atomic and prevents duplicates.
+    tx.update(eventRef, {
+      soldSeatIds: admin.firestore.FieldValue.arrayUnion(...seatIds),
     });
   });
 }
