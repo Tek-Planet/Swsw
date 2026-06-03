@@ -14,12 +14,9 @@ import {
 } from "../types/movie";
 import { EventCurrency } from "../types/event";
 
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { Venue, Seat, MAX_MOVIE_SEATS_PER_ORDER, EventCurrency, SeatStatus } from '../types/movie';
-import { useAuth } from '../lib/context/AuthContext';
-import { Colors, Fonts } from '../constants/theme';
-import { Feather } from '@expo/vector-icons';
+import { useAuth } from "../lib/context/AuthContext";
+import { Colors, Fonts } from "../constants/theme";
+import { Feather } from "@expo/vector-icons";
 
 const theme = { colors: Colors.dark, fonts: Fonts.default };
 
@@ -114,8 +111,12 @@ const SeatMap: React.FC<SeatMapProps> = ({
                       isDisabled && styles.disabledSeat,
                     ]}
                   >
-                    {venueSeat.type === 'wheelchair' ? (
-                       <Feather name="wheelchair" size={14} color={isSelected ? '#fff' : theme.colors.tint} />
+                    {venueSeat.type === "wheelchair" ? (
+                      <Feather
+                        name="wheelchair"
+                        size={14}
+                        color={isSelected ? "#fff" : theme.colors.tint}
+                      />
                     ) : (
                       <Text style={getTextStyle()}>{venueSeat.label}</Text>
                     )}
@@ -166,7 +167,7 @@ const styles = StyleSheet.create({
     height: 20,
     borderTopWidth: 4,
     borderTopColor: theme.colors.tint,
-    borderStyle: 'solid',
+    borderStyle: "solid",
     borderRadius: 10,
     opacity: 0.7,
   },
@@ -213,7 +214,7 @@ const styles = StyleSheet.create({
   },
   selectedSeat: {
     backgroundColor: theme.colors.tint,
-    borderColor: theme.colors.tint,
+    borderColor: theme.colors.tabIconDefault,
   },
   selectedSeatText: {
     fontSize: 10,

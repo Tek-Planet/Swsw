@@ -66,14 +66,10 @@ function calculateDiscount(
 ): number {
   switch (discountType) {
     case "free":
-      // In a "free" scenario, the discount should cover the whole amount it's applied to.
-      // We will apply this to the subtotal only.
       return baseAmount;
     case "percent":
-      // Calculate percentage discount on the base amount.
       return Math.round((baseAmount * discountValue) / 100);
     case "fixed":
-      // Fixed discount cannot exceed the base amount.
       return Math.min(discountValue, baseAmount);
     default:
       return 0;
@@ -200,7 +196,6 @@ async function _calculateOrderDetails(
 
   const processingFee =
     feeBase > 0 ? Math.round(feeBase * (bookingFeePercent / 100)) : 0;
-  // This is now just for reference before discount. Final total is calculated later.
   const totalBeforeDiscount = subtotalCharged + processingFee;
 
   return {
@@ -210,7 +205,7 @@ async function _calculateOrderDetails(
     subtotalCharged,
     feeBase,
     processingFee,
-    totalBeforeDiscount, // Renamed for clarity
+    totalBeforeDiscount,
     currency,
     bookingFeePercent,
   };
@@ -234,10 +229,6 @@ function _calculateDiscountableSubtotal(
     return acc;
   }, 0);
 }
-
-//================================================================================
-// REFACTORED FULFILL ORDER
-//================================================================================
 
 async function _fulfillOrder(
   tx: admin.firestore.Transaction,
@@ -264,21 +255,19 @@ async function _fulfillOrder(
   const now = admin.firestore.FieldValue.serverTimestamp();
   const orderRef = db.doc(`orders/${orderId}`);
 
-  // 1. Mark order paid
   tx.set(orderRef, { status: "paid", updatedAt: now }, { merge: true });
 
-  // 2. Add purchaser to event attendeeIds array
   tx.update(eventRef, {
     attendeeIds: admin.firestore.FieldValue.arrayUnion(userId),
   });
 
-  // 3. Update ticket tiers
   const tiersCol = db
     .collection("events")
     .doc(eventId)
     .collection("ticketTiers");
 
   for (const item of items || []) {
+    if (item.tierId.startsWith("seat_")) continue; // Skip seat-based items
     tx.set(
       tiersCol.doc(item.tierId),
       { quantitySold: admin.firestore.FieldValue.increment(item.quantity) },
@@ -297,7 +286,6 @@ async function _fulfillOrder(
     }
   }
 
-  // 4. Write attendees into event subcollection
   if (attendees && attendees.length > 0) {
     const attendeesCol = eventRef.collection("attendees");
     attendees.forEach((attendee, idx) => {
@@ -317,12 +305,10 @@ async function _fulfillOrder(
     });
   }
 
-  // 5. Redeem promo code if used
   if (promoCodeId) {
     await incrementPromoRedemption(tx, promoCodeId);
   }
 
-  // 6. If there's a donor, add it to the order
   if (donor) {
     tx.update(orderRef, { donor: donor, updatedAt: now });
   }
@@ -334,6 +320,7 @@ async function _fulfillOrder(
 
 /**
  * Creates a Payment Intent for use with the mobile app's Payment Sheet.
+ * THIS FUNCTION IS NOW FIXED TO SUPPORT BOTH MOVIE SEATS AND TIERED EVENTS.
  */
 export const createPaymentIntent = functions.https.onCall(
   async (data, context) => {
@@ -345,32 +332,118 @@ export const createPaymentIntent = functions.https.onCall(
     }
     const userId = context.auth.uid;
 
-    const { eventId, selectedTiers, promoCode, attendees, donor } = data as {
+    const {
+      eventId,
+      selectedTiers,
+      selectedSeats,
+      promoCode,
+      attendees,
+      donor,
+    } = data as {
       eventId?: string;
       selectedTiers?: SelectedTiers;
+      selectedSeats?: string[];
       promoCode?: string;
       attendees?: AttendeeInfo[];
       donor?: AttendeeInfo;
     };
 
-    if (!eventId || !selectedTiers) {
+    if (!eventId || (!selectedTiers && !selectedSeats)) {
       throw new functions.https.HttpsError(
         "invalid-argument",
-        "Missing eventId or selectedTiers."
+        "Missing eventId, selectedTiers, or selectedSeats."
       );
     }
 
-    let {
-      event,
-      eventRef,
-      itemsForOrder,
-      subtotalCharged,
-      feeBase,
-      processingFee,
-      currency,
-    } = await _calculateOrderDetails(eventId, selectedTiers);
+    const eventRef = db.collection("events").doc(eventId);
+    const eventSnap = await eventRef.get();
+    if (!eventSnap.exists) {
+      throw new functions.https.HttpsError("not-found", "Event not found.");
+    }
+    const event = eventSnap.data()!;
+    const currency = (event.currency || "INR").toUpperCase();
+    const feePercent = event.bookingFeePercent ?? 10;
 
-    // --- Promo Code Logic --
+    let itemsForOrder: any[] = [];
+    let subtotalCharged = 0;
+    let feeBase = 0;
+    let seatIds: string[] = [];
+
+    // --- MOVIE SEAT LOGIC (Copied from createCheckoutSession) ---
+    if (Array.isArray(selectedSeats) && selectedSeats.length > 0) {
+      seatIds = selectedSeats;
+      if (seatIds.length > 10) {
+        throw new functions.https.HttpsError(
+          "failed-precondition",
+          "Maximum 10 seats per order."
+        );
+      }
+      const seatsCol = eventRef.collection("seats");
+      const now = admin.firestore.Timestamp.now();
+      const expiresAt = admin.firestore.Timestamp.fromMillis(
+        now.toMillis() + 8 * 60 * 1000 // 8 minutes
+      );
+
+      await db.runTransaction(async (tx) => {
+        const refs = seatIds.map((id) => seatsCol.doc(id));
+        const snaps = await Promise.all(refs.map((r) => tx.get(r)));
+        for (let i = 0; i < snaps.length; i++) {
+          const s = snaps[i];
+          const id = seatIds[i];
+          if (!s.exists) {
+            throw new functions.https.HttpsError(
+              "not-found",
+              `Seat ${id} not found.`
+            );
+          }
+          const seat = s.data()!;
+          const isMine = seat.heldBy === userId;
+          const expired =
+            seat.heldUntil && seat.heldUntil.toMillis() < now.toMillis();
+          const available =
+            seat.status === "available" ||
+            isMine ||
+            (seat.status === "held" && expired);
+          if (!available) {
+            throw new functions.https.HttpsError(
+              "failed-precondition",
+              `Seat ${id} is no longer available.`
+            );
+          }
+          const price = Number(seat.price ?? 0);
+          subtotalCharged += price;
+          feeBase += price; // For movies, fee base is the same as subtotal
+          itemsForOrder.push({
+            tierId: `seat_${id}`,
+            tierName: `Row ${seat.rowLabel}, Seat ${seat.seatLabel}`,
+            tierType: "ticket",
+            seatId: id,
+            rowLabel: seat.rowLabel,
+            seatLabel: seat.seatLabel,
+            price,
+            chargeAmount: price,
+            quantity: 1,
+          });
+          tx.update(refs[i], {
+            status: "held",
+            heldBy: userId,
+            heldUntil: expiresAt,
+            updatedAt: now,
+          });
+        }
+      });
+    }
+    // --- REGULAR TIER LOGIC ---
+    else if (selectedTiers) {
+      const details = await _calculateOrderDetails(eventId, selectedTiers);
+      itemsForOrder = details.itemsForOrder;
+      subtotalCharged = details.subtotalCharged;
+      feeBase = details.feeBase;
+    }
+
+    let processingFee = Math.round(feeBase * (feePercent / 100));
+
+    // --- Promo Code Logic ---
     const normalizedPromo = (promoCode || "").trim().toUpperCase();
     let appliedPromo: string | null = null;
     let promoCodeId: string | null = null;
@@ -401,40 +474,42 @@ export const createPaymentIntent = functions.https.onCall(
       }
     }
 
-    // CORRECTED: Final total calculation
     const finalTotal = Math.max(
       0,
       subtotalCharged - discountAmount + processingFee
     );
-    const shouldBypassStripe = finalTotal === 0;
-    const orderId = db.collection(" ").doc().id;
+    const orderId = db.collection("orders").doc().id;
     const now = admin.firestore.FieldValue.serverTimestamp();
 
-    // --- Create Order Document --
+    // --- Create Order Document ---
     const orderDoc: any = {
       orderId,
       eventId,
       eventTitle: event.title || "Event",
       userId,
       items: itemsForOrder,
-      attendees,
-      donor,
+      attendees: attendees ?? null,
+      donor: donor ?? null,
       subtotal: subtotalCharged,
       feeBase,
-      processingFee: shouldBypassStripe ? 0 : processingFee,
+      processingFee: finalTotal === 0 ? 0 : processingFee,
       total: finalTotal,
       discount: discountAmount,
       currency,
       promoCode: appliedPromo,
       promoCodeId,
-      status: shouldBypassStripe ? "paid" : "pending",
+      status: finalTotal === 0 ? "paid" : "pending",
       paymentMethod: "stripe_payment_sheet",
       createdAt: now,
       updatedAt: now,
     };
+    if (seatIds.length > 0) {
+      orderDoc.orderType = "movie";
+      orderDoc.seatIds = seatIds;
+    }
 
     // --- Handle Free Orders ---
-    if (shouldBypassStripe) {
+    if (finalTotal === 0) {
       await db.runTransaction(async (tx) => {
         tx.set(db.doc(`orders/${orderId}`), orderDoc);
         await _fulfillOrder(tx, {
@@ -447,6 +522,9 @@ export const createPaymentIntent = functions.https.onCall(
           attendees,
           donor,
         });
+        if (seatIds.length > 0) {
+          await fulfilMovieSeatsForOrder({ eventId, userId, orderId, seatIds });
+        }
       });
       return {
         orderId,
@@ -514,7 +592,7 @@ export const createRazorpayOrder = functions.https.onCall(
       currency,
     } = await _calculateOrderDetails(eventId, selectedTiers);
 
-    // --- Promo Code Logic --
+    // --- Promo Code Logic ---
     const normalizedPromo = (promoCode || "").trim().toUpperCase();
     let appliedPromo: string | null = null;
     let promoCodeId: string | null = null;
@@ -549,7 +627,7 @@ export const createRazorpayOrder = functions.https.onCall(
       0,
       subtotalCharged - discountAmount + processingFee
     );
-    const orderId = db.collection(" ").doc().id;
+    const orderId = db.collection("orders").doc().id;
     const now = admin.firestore.FieldValue.serverTimestamp();
 
     const orderDoc: any = {
@@ -558,8 +636,8 @@ export const createRazorpayOrder = functions.https.onCall(
       eventTitle: event.title || "Event",
       userId,
       items: itemsForOrder,
-      attendees,
-      donor,
+      attendees: attendees ?? null,
+      donor: donor ?? null,
       subtotal: subtotalCharged,
       feeBase,
       processingFee,
@@ -569,12 +647,11 @@ export const createRazorpayOrder = functions.https.onCall(
       promoCode: appliedPromo,
       promoCodeId,
       status: finalTotal === 0 ? "paid" : "pending",
-      paymentMethod: "razorpay", // New payment method
+      paymentMethod: "razorpay",
       createdAt: now,
       updatedAt: now,
     };
 
-    // --- Handle Free Orders ---
     if (finalTotal === 0) {
       await db.runTransaction(async (tx) => {
         tx.set(db.doc(`orders/${orderId}`), orderDoc);
@@ -592,11 +669,10 @@ export const createRazorpayOrder = functions.https.onCall(
       return { orderId, free: true };
     }
 
-    // --- Paid Orders (Razorpay) ---
     await db.doc(`orders/${orderId}`).set(orderDoc);
 
     const razorpayOptions = {
-      amount: Math.round(finalTotal * 100), // amount in the smallest currency unit
+      amount: Math.round(finalTotal * 100),
       currency: currency,
       receipt: orderId,
       notes: {
@@ -613,8 +689,8 @@ export const createRazorpayOrder = functions.https.onCall(
         .update({ razorpayOrderId: razorpayOrder.id });
 
       return {
-        orderId, // Our internal order ID
-        razorpayOrderId: razorpayOrder.id, // Razorpay's order ID
+        orderId,
+        razorpayOrderId: razorpayOrder.id,
         amount: razorpayOrder.amount,
         currency: razorpayOrder.currency,
       };
@@ -652,7 +728,7 @@ export const razorpayWebhook = functions.https.onRequest(async (req, res) => {
     if (event === "payment.captured") {
       const payment = req.body.payload.payment.entity;
       const { order_id: razorpayOrderId } = payment;
-      const ourOrderId = payment.receipt; // We stored our orderId in receipt field
+      const ourOrderId = payment.receipt;
 
       if (!ourOrderId) {
         console.warn(
@@ -683,7 +759,6 @@ export const razorpayWebhook = functions.https.onRequest(async (req, res) => {
       }
 
       await db.runTransaction(async (tx) => {
-        // Fulfill the order using the existing helper
         await _fulfillOrder(tx, {
           eventId,
           eventRef,
@@ -695,7 +770,6 @@ export const razorpayWebhook = functions.https.onRequest(async (req, res) => {
           donor: order.donor,
         });
 
-        // Update the order with payment details
         tx.update(orderRef, {
           status: "paid",
           razorpayPaymentId: payment.id,
@@ -735,17 +809,13 @@ export const verifyRazorpayPayment = functions.https.onCall(
       );
     }
 
-    const {
-      orderId, // Our internal order ID
-      razorpayPaymentId,
-      razorpayOrderId,
-      razorpaySignature,
-    } = data as {
-      orderId?: string;
-      razorpayPaymentId?: string;
-      razorpayOrderId?: string;
-      razorpaySignature?: string;
-    };
+    const { orderId, razorpayPaymentId, razorpayOrderId, razorpaySignature } =
+      data as {
+        orderId?: string;
+        razorpayPaymentId?: string;
+        razorpayOrderId?: string;
+        razorpaySignature?: string;
+      };
 
     if (
       !orderId ||
@@ -761,7 +831,6 @@ export const verifyRazorpayPayment = functions.https.onCall(
 
     const secret = functions.config().razorpay.key_secret;
 
-    // 1. Verify signature
     const generated_signature = crypto
       .createHmac("sha256", secret)
       .update(razorpayOrderId + "|" + razorpayPaymentId)
@@ -776,7 +845,6 @@ export const verifyRazorpayPayment = functions.https.onCall(
 
     const orderRef = db.doc(`orders/${orderId}`);
 
-    // 2. Fulfill order in a transaction
     try {
       await db.runTransaction(async (tx) => {
         const orderSnap = await tx.get(orderRef);
@@ -786,13 +854,11 @@ export const verifyRazorpayPayment = functions.https.onCall(
 
         const order = orderSnap.data() as any;
 
-        // Check if order is already paid
         if (order.status === "paid") {
           console.log("Verification skipped: Order already fulfilled", orderId);
-          return; // Already fulfilled, just return success
+          return;
         }
 
-        // Security check: Verify that the razorpayOrderId from client matches the one we created
         if (order.razorpayOrderId !== razorpayOrderId) {
           throw new functions.https.HttpsError(
             "permission-denied",
@@ -803,7 +869,6 @@ export const verifyRazorpayPayment = functions.https.onCall(
         const { eventId, userId, items, promoCodeId, attendees, donor } = order;
         const eventRef = db.doc(`events/${eventId}`);
 
-        // Fulfill the order using the existing helper
         await _fulfillOrder(tx, {
           eventId,
           eventRef,
@@ -815,9 +880,8 @@ export const verifyRazorpayPayment = functions.https.onCall(
           donor,
         });
 
-        // Update the order with payment details
         tx.update(orderRef, {
-          status: "paid", // This is also in _fulfillOrder but good to be explicit
+          status: "paid",
           razorpayPaymentId,
           razorpaySignature,
           paidAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -843,9 +907,6 @@ export const verifyRazorpayPayment = functions.https.onCall(
   }
 );
 
-/**
- * Updates an order with table contact details. This is callable by EITHER web or mobile.
- */
 export const updateOrderContactDetails = functions.https.onCall(
   async (data, context) => {
     if (!context.auth) {
@@ -923,9 +984,6 @@ export const updateOrderContactDetails = functions.https.onCall(
   }
 );
 
-/**
- * [REFACTORED] Creates a Stripe Checkout session for web clients.
- */
 export const createCheckoutSession = functions.https.onCall(
   async (data, context) => {
     const {
@@ -959,7 +1017,6 @@ export const createCheckoutSession = functions.https.onCall(
       );
     }
 
-    // Get event details
     const eventDoc = await db.collection("events").doc(eventId).get();
     if (!eventDoc.exists) {
       throw new functions.https.HttpsError("not-found", "Event not found");
@@ -969,11 +1026,6 @@ export const createCheckoutSession = functions.https.onCall(
     const currency = (eventData.currency || "INR").toUpperCase();
     const feePercent = eventData.bookingFeePercent ?? 10;
 
-    // -------------------------------------------------------------------------
-    // MOVIE / CINEMA-SEAT BRANCH: client sends selectedSeats instead of tiers.
-    // We re-hold the seats inside the transaction, then build line items from
-    // the live seat prices (server-side trust), then create the Stripe session.
-    // -------------------------------------------------------------------------
     if (Array.isArray(selectedSeats) && selectedSeats.length > 0) {
       if (selectedSeats.length > 10) {
         throw new functions.https.HttpsError(
@@ -1094,7 +1146,7 @@ export const createCheckoutSession = functions.https.onCall(
         payment_method_types: ["card"],
         line_items: seatLineItems,
         mode: "payment",
-        expires_at: Math.floor(now.toMillis() / 1000) + 30 * 60, // Stripe min 30 min
+        expires_at: Math.floor(now.toMillis() / 1000) + 30 * 60,
         success_url: `${functions.config().app.url}/success?orderId=${
           orderRef.id
         }`,
@@ -1113,7 +1165,6 @@ export const createCheckoutSession = functions.https.onCall(
       return { url: seatSession.url, orderId: orderRef.id };
     }
 
-    // Get ticket tiers
     const tiersSnapshot = await db
       .collection("events")
       .doc(eventId)
@@ -1125,7 +1176,6 @@ export const createCheckoutSession = functions.https.onCall(
       tiers[doc.id] = { id: doc.id, ...doc.data() };
     });
 
-    // Calculate totals
     let subtotal = 0;
     let feeBase = 0;
     const items: any[] = [];
@@ -1149,7 +1199,6 @@ export const createCheckoutSession = functions.https.onCall(
 
       subtotal += chargeAmount * quantity;
 
-      // Only tickets and addons contribute to fee base
       if (tier.type !== "table") {
         feeBase += chargeAmount * quantity;
       }
@@ -1166,7 +1215,6 @@ export const createCheckoutSession = functions.https.onCall(
 
     let processingFee = Math.round(feeBase * (feePercent / 100));
 
-    // Validate promo code
     let discountAmount = 0;
     let promoCodeId: string | null = null;
     let validatedPromoCode: string | null = null;
@@ -1194,18 +1242,16 @@ export const createCheckoutSession = functions.https.onCall(
       }
     }
 
-    // CORRECTED: Final total calculation
     const finalTotal = Math.max(0, subtotal - discountAmount + processingFee);
 
-    // Create order document first
     const orderRef = db.collection("orders").doc();
     const orderData: Record<string, any> = {
       userId,
       eventId,
       eventTitle,
       items,
-      attendees,
-      donor,
+      attendees: attendees ?? null,
+      donor: donor ?? null,
       subtotal,
       feeBase,
       processingFee,
@@ -1247,12 +1293,8 @@ export const createCheckoutSession = functions.https.onCall(
 
     await orderRef.set(orderData);
 
-    // This part requires a different approach for Stripe Checkout
-    // We will pass the final line items and a coupon for the discount
-
     const line_items: any[] = [];
 
-    // Add main items to line_items
     for (const item of items) {
       line_items.push({
         price_data: {
@@ -1267,7 +1309,6 @@ export const createCheckoutSession = functions.https.onCall(
       });
     }
 
-    // Add processing fee as a separate line item
     if (processingFee > 0) {
       line_items.push({
         price_data: {
@@ -1282,7 +1323,6 @@ export const createCheckoutSession = functions.https.onCall(
       });
     }
 
-    // Create a coupon for the discount amount
     let discountCoupon: string | undefined;
     if (discountAmount > 0) {
       const coupon = await stripe.coupons.create({
@@ -1314,9 +1354,6 @@ export const createCheckoutSession = functions.https.onCall(
   }
 );
 
-/**
- * [CORRECTED] Handles direct Google Pay charges with promo code support.
- */
 export const gpayCharge = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError(
@@ -1382,14 +1419,12 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
     }
   }
 
-  // CORRECTED: Final total calculation
   const finalTotal = Math.max(
     0,
     subtotalCharged - discountAmount + processingFee
   );
-  const orderId = db.collection(" ").doc().id;
+  const orderId = db.collection("orders").doc().id;
 
-  // If discount makes the order free, bypass Stripe
   if (finalTotal === 0) {
     await db.runTransaction(async (tx) => {
       const now = admin.firestore.FieldValue.serverTimestamp();
@@ -1500,9 +1535,6 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
   }
 });
 
-/**
- * [REFACTORED] Handles Stripe webhooks for session completion.
- */
 export const stripeWebhook = functions.https.onRequest(async (req, res) => {
   const sig = req.headers["stripe-signature"];
   if (!sig) {
@@ -1542,7 +1574,6 @@ export const stripeWebhook = functions.https.onRequest(async (req, res) => {
     }
     const order = orderSnap.data() as any;
 
-    // Make sure we haven't already fulfilled this order
     if (order.status === "paid") {
       console.log("Webhook ignored: Order already fulfilled", orderId);
       res.status(200).send("Order already fulfilled.");
@@ -1562,7 +1593,6 @@ export const stripeWebhook = functions.https.onRequest(async (req, res) => {
       });
     });
 
-    // Movie-seat orders: also mark each seat as sold.
     if (
       order.orderType === "movie" &&
       Array.isArray(order.seatIds) &&
@@ -1598,7 +1628,6 @@ export const stripeWebhook = functions.https.onRequest(async (req, res) => {
         console.log(
           `Order ${orderId} marked as failed due to session expiration.`
         );
-        // Release seat holds for movie orders so seats become available again.
         if (
           o.orderType === "movie" &&
           Array.isArray(o.seatIds) &&
@@ -1629,13 +1658,8 @@ export const stripeWebhook = functions.https.onRequest(async (req, res) => {
   res.status(200).send("ok");
 });
 
-/**
- * [ADMIN] Manually marks an order as paid and fulfills it.
- * This should only be used for manual payments (e.g., cash, bank transfer).
- */
 export const manuallyFulfillOrder = functions.https.onCall(
   async (data, context) => {
-    // 1. Authentication: Only allow admins to run this function.
     if (!context.auth || !context.auth.token.admin) {
       throw new functions.https.HttpsError(
         "permission-denied",
@@ -1665,8 +1689,6 @@ export const manuallyFulfillOrder = functions.https.onCall(
         const order = orderSnap.data() as any;
 
         if (order.status === "paid") {
-          // If already paid, we don't need to do anything.
-          // Log a warning and return successfully.
           console.warn(
             `Order ${orderId} is already fulfilled. No action taken.`
           );
@@ -1683,7 +1705,6 @@ export const manuallyFulfillOrder = functions.https.onCall(
 
         const eventRef = db.doc(`events/${eventId}`);
 
-        // Fulfill the order using the existing helper
         await _fulfillOrder(tx, {
           eventId,
           eventRef,
@@ -1695,9 +1716,8 @@ export const manuallyFulfillOrder = functions.https.onCall(
           donor,
         });
 
-        // Also update the order with a note about manual fulfillment
         tx.update(orderRef, {
-          status: "paid", // This is also done in _fulfillOrder but good to be explicit
+          status: "paid",
           paidAt: now,
           manuallyFulfilledBy: context.auth?.uid,
           manuallyFulfilledAt: now,
@@ -1757,9 +1777,6 @@ export const cleanupExpiredOrders = functions.pubsub
     return null;
   });
 
-/**
- * Allows a user to cancel their own pending order.
- */
 export const cancelOrder = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError(
