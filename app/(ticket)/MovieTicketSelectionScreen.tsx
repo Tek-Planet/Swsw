@@ -87,8 +87,15 @@ const MovieTicketSelectionScreen = () => {
       const eventRef = doc(db, "events", eventId as string);
       const eventSnap = await getDoc(eventRef);
       if (eventSnap.exists()) {
-        const eventData = { id: eventSnap.id, ...eventSnap.data() } as Event;
-        setEvent(eventData);
+        // Convert Firestore Timestamp to Date, then to string for serialization
+        const eventData = eventSnap.data();
+        if (eventData.startTime) {
+          eventData.startTime = eventData.startTime.toDate().toISOString();
+        }
+        if (eventData.endTime) {
+          eventData.endTime = eventData.endTime.toDate().toISOString();
+        }
+        setEvent({ id: eventSnap.id, ...eventData } as Event);
       }
       setLoading(false);
     };
@@ -105,25 +112,40 @@ const MovieTicketSelectionScreen = () => {
   };
 
   const handleCheckout = () => {
-    if (!venue || !eventId) return;
+    if (!venue || !eventId || !event) return;
 
     const seatsToCheckout = selectedSeats.map((seatId) => {
-      const [rowLabel] = seatId.split("-");
+      const [rowLabel, seatNumber] = seatId.split("-");
       const row = venue.rows.find((r: any) => r.label === rowLabel);
       return {
         id: seatId,
         price: row?.price || 0,
         tier: row?.tier || "Standard",
+        label: `${rowLabel}${seatNumber}`,
       };
     });
 
     const selectedSeatsJSON = JSON.stringify(seatsToCheckout);
+
+    // Create a serializable version of the event to prevent a crash
+    const serializableEvent = {
+      id: event.id,
+      title: event.title,
+      bookingFeePercent: event.bookingFeePercent,
+      currency: event.currency,
+      coverImageUrl: event.coverImageUrl,
+      startTime: event.startTime,
+      endTime: event.endTime,
+      venueId: event.venueId,
+    };
+    const eventJSON = JSON.stringify(serializableEvent);
 
     router.push({
       pathname: "/(ticket)/CheckoutScreen",
       params: {
         eventId: eventId,
         selectedSeats: selectedSeatsJSON,
+        event: eventJSON,
       },
     });
   };

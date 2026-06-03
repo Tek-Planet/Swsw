@@ -4,7 +4,6 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   collection,
   doc,
-  getDoc,
   getDocs,
   orderBy,
   query,
@@ -32,6 +31,7 @@ import { useEvent } from "@/hooks/useEvent";
 import { Seat } from "@/types/movie";
 import OrderSummaryCard from "@/components/OrderSummaryCard";
 import { createOrder } from "@/lib/services/eventService";
+import { getCurrencySymbol } from "@/lib/utils";
 
 // Add PromoCodeData interface
 interface PromoCodeData {
@@ -45,17 +45,6 @@ interface PromoCodeData {
   eventId: string;
 }
 
-const getCurrencySymbol = (currency: string) => {
-  switch (currency) {
-    case "INR":
-      return "₹";
-    case "USD":
-      return "$";
-    default:
-      return "₹";
-  }
-};
-
 const razorpay_api_key = Constants?.expoConfig?.extra?.razorpay_api_key;
 
 const CheckoutScreen = () => {
@@ -63,6 +52,7 @@ const CheckoutScreen = () => {
     eventId,
     selectedTiers: selectedTiersJSON,
     selectedSeats: selectedSeatsJSON,
+    event: eventJSON, // <-- Receive the serialized event
   } = useLocalSearchParams();
   const router = useRouter();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
@@ -71,7 +61,7 @@ const CheckoutScreen = () => {
   const eventIdStr = Array.isArray(eventId) ? eventId[0] : eventId;
 
   // Unified State
-  const { event, loading: eventLoading } = useEvent(eventIdStr);
+  const [event, setEvent] = useState<Event | null>(null);
   const [orderType, setOrderType] = useState<"movie" | "regular" | null>(null);
 
   // Movie Order State
@@ -79,19 +69,14 @@ const CheckoutScreen = () => {
 
   // Regular Order State
   const [ticketTiers, setTicketTiers] = useState<TicketTier[]>([]);
-  const [selectedTiers, setSelectedTiers] = useState<{ [key: string]: number }>(
-    {}
-  );
-  const [attendees, setAttendees] = useState<
-    { name: string; email: string; phone: string }[]
-  >([]);
-  const [tableContactDetails, setTableContactDetails] =
-    useState<TableContactDetails>({
-      fullName: "",
-      email: "",
-      phone: "",
-      notes: "",
-    });
+  const [selectedTiers, setSelectedTiers] = useState<{ [key: string]: number }>({});
+  const [attendees, setAttendees] = useState<{ name: string; email: string; phone: string }[]>([]);
+  const [tableContactDetails, setTableContactDetails] = useState<TableContactDetails>({
+    fullName: "",
+    email: "",
+    phone: "",
+    notes: "",
+  });
 
   // Common State
   const [pricing, setPricing] = useState({
@@ -108,30 +93,63 @@ const CheckoutScreen = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Determine Order Type
+  // Use the hook conditionally for regular events ONLY
+  const { event: fetchedEvent, loading: eventLoading } = useEvent(
+    orderType === "regular" ? eventIdStr : undefined
+  );
+
+  // Determine Order Type and Parse Data
   useEffect(() => {
-    if (selectedSeatsJSON) {
+    if (selectedSeatsJSON && eventJSON) {
       setOrderType("movie");
       try {
         setSelectedSeats(JSON.parse(selectedSeatsJSON as string));
+        const parsedEvent = JSON.parse(eventJSON as string);
+        // Re-hydrate Date objects
+        if (parsedEvent.startTime) {
+          parsedEvent.startTime = new Date(parsedEvent.startTime);
+        }
+        if (parsedEvent.endTime) {
+          parsedEvent.endTime = new Date(parsedEvent.endTime);
+        }
+        setEvent(parsedEvent as Event);
+        setLoading(false); // All data is here for movies, stop loading.
       } catch (e) {
-        console.error("Invalid JSON for selected seats:", e);
+        console.error("Invalid JSON for movie checkout:", e);
+        Alert.alert("Error", "Could not load your cart. Please try again.");
+        router.back();
       }
     } else if (selectedTiersJSON) {
       setOrderType("regular");
       try {
         setSelectedTiers(JSON.parse(selectedTiersJSON as string));
+        // Let the useEvent hook and other effects handle loading
       } catch (e) {
         console.error("Invalid JSON for selected tiers:", e);
       }
+    } else {
+      setLoading(false);
+      Alert.alert("Error", "No items in cart.");
+      router.back();
     }
-  }, [selectedSeatsJSON, selectedTiersJSON]);
+  }, [selectedSeatsJSON, eventJSON, selectedTiersJSON]);
 
-  // Fetch Data for Regular Orders
+  // Effect for regular event data loading
+  useEffect(() => {
+    if (orderType === "regular") {
+      if (fetchedEvent) {
+        setEvent(fetchedEvent);
+      }
+      // The useEvent hook handles loading state
+      setLoading(eventLoading);
+    }
+  }, [orderType, fetchedEvent, eventLoading]);
+
+  // Fetch Tiers for Regular Orders
   useEffect(() => {
     if (orderType !== "regular" || !eventIdStr) return;
 
-    const fetchRegularOrderData = async () => {
+    const fetchTiers = async () => {
       setLoading(true);
       try {
         const tiersRef = collection(db, "events", eventIdStr, "ticketTiers");
@@ -145,14 +163,16 @@ const CheckoutScreen = () => {
           tiersSnap.docs.map((d) => ({ id: d.id, ...d.data() } as TicketTier))
         );
       } catch (error) {
-        console.error("Error fetching checkout data:", error);
-        Alert.alert("Error", (error as Error).message);
+        console.error("Error fetching ticket tiers:", error);
       } finally {
-        setLoading(false);
+        setLoading(false); // Loading is done after tiers are fetched
       }
     };
-    fetchRegularOrderData();
-  }, [orderType, eventIdStr]);
+
+    if (event) { // Only fetch tiers if the event is loaded
+        fetchTiers();
+    }
+  }, [orderType, eventIdStr, event]);
 
   // Set up Attendee Forms for Regular Orders
   useEffect(() => {
@@ -180,8 +200,7 @@ const CheckoutScreen = () => {
     let feeBase = 0;
 
     if (orderType === "movie") {
-      const seatPrice = event.ticketPrice || 0;
-      subtotalCharged = selectedSeats.length * seatPrice;
+      subtotalCharged = selectedSeats.reduce((acc, seat) => acc + seat.price, 0);
       feeBase = subtotalCharged; // For movies, fee is on the full amount
     } else if (orderType === "regular" && ticketTiers.length > 0) {
       const getChargeAmount = (tier: TicketTier): number => {
@@ -330,7 +349,7 @@ const CheckoutScreen = () => {
   );
   const hasSelection =
     (orderType === "movie" && selectedSeats.length > 0) ||
-    (orderType === "regular" && Object.keys(selectedTiers).length > 0);
+    (orderType === "regular" && Object.values(selectedTiers).some(qty => qty > 0));
   const canProceed =
     hasSelection &&
     agreedToTerms &&
@@ -522,19 +541,22 @@ const CheckoutScreen = () => {
     }
   };
   // --- Loading and Not Found States ---
-  const isLoading = eventLoading || loading;
-  if (isLoading)
+
+  if (loading) {
     return (
-      <ThemedView style={styles.centeredContainer}>
-        <ActivityIndicator size="large" color="#fff" />
-      </ThemedView>
+        <ThemedView style={styles.centeredContainer}>
+            <ActivityIndicator size="large" color="#fff" />
+        </ThemedView>
     );
-  if (!event)
+  }
+
+  if (!event) {
     return (
       <ThemedView style={styles.centeredContainer}>
         <Text style={styles.text}>Event not found.</Text>
       </ThemedView>
     );
+  }
 
   const currencySymbol = getCurrencySymbol(event.currency);
 
@@ -557,7 +579,7 @@ const CheckoutScreen = () => {
             <Text style={styles.eventTitle}>{event.title}</Text>
             {Object.keys(selectedTiers).map((tierId) => {
               const tier = ticketTiers.find((t) => t.id === tierId);
-              if (!tier) return null;
+              if (!tier || selectedTiers[tierId] === 0) return null;
               const displayAmount =
                 tier.type === "table" && tier.chargeAmount != null
                   ? tier.chargeAmount
@@ -904,4 +926,3 @@ const styles = StyleSheet.create({
 });
 
 export default CheckoutScreen;
-("");
