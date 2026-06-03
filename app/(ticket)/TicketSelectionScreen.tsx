@@ -21,17 +21,8 @@ import {
 import { ThemedView } from "../../components/themed-view";
 import { db } from "../../lib/firebase/firebaseConfig";
 import { Event, TicketTier } from "../../types/event";
-
-const getCurrencySymbol = (currency: string) => {
-  switch (currency) {
-    case "INR":
-      return "₹";
-    case "USD":
-      return "$";
-    default:
-      return "₹"; // Default to INR
-  }
-};
+import { getCurrencySymbol } from "../../lib/utils";
+import MovieTicketSelectionScreen from "./MovieTicketSelectionScreen";
 
 const TicketSelectionScreen = () => {
   const { eventId } = useLocalSearchParams();
@@ -212,6 +203,10 @@ const TicketSelectionScreen = () => {
         <ActivityIndicator size="large" color="#fff" />
       </ThemedView>
     );
+  }
+
+  if (event.eventType === "movie") {
+    return <MovieTicketSelectionScreen />;
   }
 
   return (
