@@ -11,6 +11,16 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -74,6 +84,7 @@ const Bookings = () => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
   const manuallyFulfillOrder = httpsCallable(getFunctions(), 'manuallyFulfillOrder');
@@ -334,19 +345,16 @@ const Bookings = () => {
     });
   };
 
-  const handleDeleteBooking = async (orderId: string) => {
-    if (!confirm('Are you sure you want to delete this booking? This action cannot be undone.')) {
-      return;
-    }
+  const executeDelete = async () => {
+    if (!deleteTargetId) return;
 
-    setDeletingOrderId(orderId);
+    setDeletingOrderId(deleteTargetId);
     try {
-      const orderRef = doc(db, 'orders', orderId);
+      const orderRef = doc(db, 'orders', deleteTargetId);
       await deleteDoc(orderRef);
-      
-      // Invalidate cache to refetch orders
+
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
-      
+
       toast({
         title: 'Booking deleted',
         description: 'The booking has been successfully deleted.',
@@ -360,6 +368,7 @@ const Bookings = () => {
       });
     } finally {
       setDeletingOrderId(null);
+      setDeleteTargetId(null);
     }
   };
 
@@ -543,7 +552,7 @@ const Bookings = () => {
                           variant="ghost" 
                           size="sm" 
                           className="h-8 gap-1.5 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => handleDeleteBooking(booking.orderId)}
+                          onClick={() => setDeleteTargetId(booking.orderId)}
                           disabled={deletingOrderId === booking.orderId}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -628,7 +637,7 @@ const Bookings = () => {
                             variant="ghost" 
                             size="sm" 
                             className="h-8 gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => handleDeleteBooking(booking.orderId)}
+                            onClick={() => setDeleteTargetId(booking.orderId)}
                             disabled={deletingOrderId === booking.orderId}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -882,7 +891,7 @@ const Bookings = () => {
                     {selectedBooking.tableContactDetails.notes && (
                       <div className="pt-2 border-t border-border">
                         <p className="text-xs text-muted-foreground mb-1">Notes</p>
-                        <p className="text-sm text-foreground">{selectedBooking.tableContactDetails.notes}</p
+                        <p className="text-sm text-foreground">{selectedBooking.tableContactDetails.notes}</p>
                       </div>
                     )}
                   </div>
@@ -896,6 +905,24 @@ const Bookings = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteTargetId} onOpenChange={(o) => !o && setDeleteTargetId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the booking and remove all associated data from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={executeDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
