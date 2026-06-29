@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Search, MoreVertical, Edit, Trash2, Eye, Calendar, MapPin, Users, ShieldCheck, ClipboardList } from 'lucide-react';
@@ -11,12 +12,58 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  PaginationEllipsis,
+} from '@/components/ui/pagination';
 import { useAdminEvents } from '@/hooks/useAdminData';
 import { useAllEventBookingsCounts } from '@/hooks/useEventBookings';
 import { useEventMutations } from '@/hooks/useEventMutations';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { useAdminContext } from '@/hooks/useAdminContext';
 import { formatEventDate } from '@/lib/dateUtils';
+
+const ITEMS_PER_PAGE = 15;
+
+// Helper to generate page numbers with ellipsis
+const getPageNumbers = (currentPage: number, totalPages: number) => {
+  const pageNumbers = [];
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) {
+      pageNumbers.push(i);
+    }
+  } else {
+    pageNumbers.push(1);
+    if (currentPage > 3) {
+      pageNumbers.push('...');
+    }
+    let start = Math.max(2, currentPage - 1);
+    let end = Math.min(totalPages - 1, currentPage + 1);
+
+    if (currentPage <= 3) {
+        start = 2;
+        end = 4;
+    }
+    if (currentPage >= totalPages - 2) {
+        start = totalPages - 3;
+        end = totalPages - 1;
+    }
+
+    for (let i = start; i <= end; i++) {
+      pageNumbers.push(i);
+    }
+    if (currentPage < totalPages - 2) {
+      pageNumbers.push('...');
+    }
+    pageNumbers.push(totalPages);
+  }
+  return pageNumbers;
+};
 
 const Events = () => {
   const navigate = useNavigate();
@@ -26,11 +73,25 @@ const Events = () => {
   const eventIds = events.map(e => e.id);
   const { counts: bookingCounts } = useAllEventBookingsCounts(eventIds);
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
   const filteredEvents = events.filter(event =>
     event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     event.location?.city?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredEvents.length / ITEMS_PER_PAGE);
+  const paginatedEvents = filteredEvents.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page > totalPages) return;
+    setCurrentPage(page);
+    window.scrollTo(0, 0); // Scroll to top on page change
+  };
 
   const getStatusBadge = (status: string) => {
     const styles = {
@@ -49,6 +110,8 @@ const Events = () => {
     await deleteEvent(eventId);
     // Events will refresh automatically via the hook
   };
+
+  const pageNumbers = getPageNumbers(currentPage, totalPages);
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -72,7 +135,10 @@ const Events = () => {
         <Input
           placeholder="Search events..."
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            setCurrentPage(1); // Reset to first page on search
+          }}
           className="pl-9 bg-muted border-border"
         />
       </div>
@@ -82,13 +148,23 @@ const Events = () => {
         <div className="flex justify-center py-12">
           <LoadingSpinner size="lg" text="Loading events..." />
         </div>
-      ) : filteredEvents.length === 0 ? (
+      ) : paginatedEvents.length === 0 && searchQuery ? (
         <Card className="bg-card border-border">
+          <CardContent className="py-12 text-center">
+            <Search className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold text-foreground mb-2">No events match your search</h3>
+            <p className="text-muted-foreground mb-4">
+              Try a different search term.
+            </p>
+          </CardContent>
+        </Card>
+      ) : paginatedEvents.length === 0 ? (
+         <Card className="bg-card border-border">
           <CardContent className="py-12 text-center">
             <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold text-foreground mb-2">No events found</h3>
             <p className="text-muted-foreground mb-4">
-              {searchQuery ? 'Try adjusting your search.' : (isFullAdmin ? 'Create your first event to get started.' : 'You have not been assigned to any events yet.')}
+              {isFullAdmin ? 'Create your first event to get started.' : 'You have not been assigned to any events yet.'}
             </p>
             {isFullAdmin && (
               <Button className="gap-2" onClick={() => navigate('/admin/events/create')}>
@@ -100,7 +176,7 @@ const Events = () => {
         </Card>
       ) : (
         <div className="grid gap-3 sm:gap-4">
-          {filteredEvents.map((event) => (
+          {paginatedEvents.map((event) => (
             <Card key={event.id} className="bg-card border-border hover:border-primary/30 transition-colors overflow-hidden">
               <CardContent className="p-0">
                 {/* Mobile Layout */}
@@ -313,6 +389,51 @@ const Events = () => {
               </CardContent>
             </Card>
           ))}
+
+          {totalPages > 1 && (
+            <Pagination className="mt-4">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handlePageChange(currentPage - 1);
+                    }}
+                    className={currentPage === 1 ? 'pointer-events-none text-muted-foreground' : ''}
+                  />
+                </PaginationItem>
+                {pageNumbers.map((page, index) => (
+                  <PaginationItem key={index}>
+                    {page === '...' ? (
+                      <PaginationEllipsis />
+                    ) : (
+                      <PaginationLink
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handlePageChange(page as number);
+                        }}
+                        isActive={currentPage === page}
+                      >
+                        {page}
+                      </PaginationLink>
+                    )}
+                  </PaginationItem>
+                ))}
+                <PaginationItem>
+                  <PaginationNext
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handlePageChange(currentPage + 1);
+                    }}
+                    className={currentPage === totalPages ? 'pointer-events-none text-muted-foreground' : ''}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
         </div>
       )}
     </div>

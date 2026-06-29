@@ -49,7 +49,7 @@ const eventFormSchema = z.object({
   title: z.string().min(1, 'Title is required').max(100, 'Title must be less than 100 characters'),
   subtitle: z.string().max(150, 'Subtitle must be less than 150 characters').optional(),
   description: z.string().min(10, 'Description must be at least 10 characters').max(5000, 'Description must be less than 5000 characters'),
-  coverImageUrl: z.string().url('Must be a valid URL').optional().or(z.literal(''))
+  coverImageUrl: z.string().url('Must be a valid URL').optional().or(z.literal('')),
   startDate: z.date({ required_error: 'Start date is required' }),
   startTime: z.string().min(1, 'Start time is required'),
   endDate: z.date().optional(),
