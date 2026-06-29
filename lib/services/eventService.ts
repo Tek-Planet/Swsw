@@ -34,7 +34,6 @@ const eventFromDoc = (doc: QueryDocumentSnapshot<DocumentData>): Event => {
     endTime: data.endTime ? data.endTime.toDate() : new Date(),
     createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
     updatedAt: data.updatedAt ? data.updatedAt.toDate() : new Date(),
-    // Handle potential showtime timestamp
     ...(data.showtime && { showtime: data.showtime.toDate() }),
   };
 };
@@ -43,7 +42,6 @@ export async function getEvent(eventId: string): Promise<Event | null> {
   try {
     const eventRef = getEventDocRef(eventId);
     const docSnap = await getDoc(eventRef);
-
     if (docSnap.exists()) {
       return eventFromDoc(docSnap as QueryDocumentSnapshot<DocumentData>);
     } else {
@@ -55,26 +53,29 @@ export async function getEvent(eventId: string): Promise<Event | null> {
   }
 }
 
-// --- NEW createOrder FUNCTION ---
-interface OrderPayload {
-  orderType: "movie" | "regular";
-  eventId: string;
-  items: any; // Could be seat IDs or tier selections
-  total: number;
-  currency: string;
-}
-
+// --- CORRECTED createOrder FUNCTION ---
 export const createOrder = async (
-  payload: OrderPayload
+  payload: any
 ): Promise<{ clientSecret: string; orderId: string; free: boolean }> => {
-  console.log(`Creating order with type: ${payload.orderType}`);
-
-  const functionName =
-    payload.orderType === "movie" ? "createMovieOrder" : "createTieredOrder"; // Assuming this is the name for regular orders
-
+  const functionName = "createPaymentIntent";
   try {
+    // This is the transformation layer that was missing.
+    // It creates the payload structure the backend expects.
+    const backendPayload: any = {
+      eventId: payload.eventId,
+      promoCode: payload.promoCode,
+      attendees: payload.attendees,
+      donor: payload.donor,
+    };
+
+    if (payload.orderType === "movie") {
+      backendPayload.selectedSeats = payload.items; 
+    } else {
+      backendPayload.selectedTiers = payload.items; 
+    }
+
     const createOrderFunction = httpsCallable(functions, functionName);
-    const result = await createOrderFunction(payload);
+    const result = await createOrderFunction(backendPayload);
     const data = result.data as {
       clientSecret: string;
       orderId: string;
@@ -157,7 +158,6 @@ export function listenToEvent(
   return unsubscribe;
 }
 
-// Keep all other listening functions as they are...
 export function listenToUserUpcomingEvents(
   userId: string,
   callback: (events: Event[]) => void
