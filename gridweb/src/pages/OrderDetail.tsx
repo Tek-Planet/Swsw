@@ -1,3 +1,4 @@
+
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Calendar, MapPin, CheckCircle, User, Mail, Phone, Share2, Film, Armchair } from 'lucide-react';
@@ -284,6 +285,12 @@ const OrderDetail = () => {
                     <span className="text-muted-foreground">Processing Fee</span>
                     <span className="text-foreground">{formatPrice(order.processingFee, order.currency)}</span>
                   </div>
+                )}
+                {order.gstAmount !== undefined && order.gstAmount > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">GST ({order.gstPercent || 0}%)</span>
+                      <span className="text-foreground">{formatPrice(order.gstAmount, order.currency)}</span>
+                    </div>
                 )}
                 {order.discount !== undefined && order.discount > 0 && (
                   <div className="flex justify-between items-center text-sm">

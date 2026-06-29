@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useMemo } from 'react';
 import { Timestamp, doc, getDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -780,6 +781,12 @@ const Bookings = () => {
                       <span className="text-foreground">{formatPrice(selectedBooking.processingFee, selectedBooking.currency)}</span>
                     </div>
                   )}
+                  {selectedBooking.gstAmount !== undefined && selectedBooking.gstAmount > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">GST ({selectedBooking.gstPercent || 0}%)</span>
+                      <span className="text-foreground">{formatPrice(selectedBooking.gstAmount, selectedBooking.currency)}</span>
+                    </div>
+                  )}
                   {selectedBooking.discount !== undefined && selectedBooking.discount > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Discount {selectedBooking.promoCode && `(${selectedBooking.promoCode})`}</span>
@@ -875,7 +882,7 @@ const Bookings = () => {
                     {selectedBooking.tableContactDetails.notes && (
                       <div className="pt-2 border-t border-border">
                         <p className="text-xs text-muted-foreground mb-1">Notes</p>
-                        <p className="text-sm text-foreground">{selectedBooking.tableContactDetails.notes}</p>
+                        <p className="text-sm text-foreground">{selectedBooking.tableContactDetails.notes}</p
                       </div>
                     )}
                   </div>
