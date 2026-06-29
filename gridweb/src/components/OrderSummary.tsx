@@ -23,6 +23,7 @@ interface OrderSummaryProps {
   promoApplied?: PromoCodeData | null;
   currency?: EventCurrency;
   bookingFeePercent?: number;
+  gstPercent?: number;
 }
 
 const DEFAULT_FEE_PERCENT = 0.10;
@@ -62,9 +63,11 @@ const OrderSummary = ({
   showItems = true, 
   promoApplied = null,
   currency = 'INR',
-  bookingFeePercent
+  bookingFeePercent,
+  gstPercent
 }: OrderSummaryProps) => {
   const feePercent = bookingFeePercent != null ? bookingFeePercent / 100 : DEFAULT_FEE_PERCENT;
+  const gstRate = gstPercent != null && gstPercent > 0 ? gstPercent / 100 : 0;
   
   const formatPrice = (price: number) => {
     const locale = currency === 'USD' ? 'en-US' : 'en-IN';
@@ -105,9 +108,12 @@ const OrderSummary = ({
   
   const discount = calculateDiscount(promoApplied, subtotalCharged, discountableSubtotal);
   
-  const total = Math.max(0, subtotalCharged - discount + processingFee);
+  const taxableBase = Math.max(0, subtotalCharged - discount + processingFee);
+  const gstAmount = gstRate > 0 ? Math.round(taxableBase * gstRate) : 0;
+  const total = taxableBase + gstAmount;
   
   const feePercentDisplay = Math.round(feePercent * 100);
+  const gstPercentDisplay = gstPercent ?? 0;
   
   const getPromoLabel = () => {
     if (!promoApplied) return '';
@@ -215,6 +221,14 @@ const OrderSummary = ({
           </div>
         )}
         
+        {/* GST / Tax */}
+        {gstAmount > 0 && (
+          <div className="flex justify-between items-center">
+            <p className="text-muted-foreground">GST ({gstPercentDisplay}%)</p>
+            <p className="font-medium text-foreground">{formatPrice(gstAmount)}</p>
+          </div>
+        )}
+
         {/* Total */}
         <div className="flex justify-between items-center pt-3 border-t border-border">
           <div>

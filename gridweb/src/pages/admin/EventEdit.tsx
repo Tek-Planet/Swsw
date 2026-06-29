@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
@@ -126,6 +127,7 @@ const EventEdit = () => {
     tags: event.tags,
     currency: event.currency,
     bookingFeePercent: event.bookingFeePercent,
+    gstPercent: event.gstPercent,
     isInviteOnly: event.isInviteOnly,
     customQuestions: event.customQuestions,
     // Movie event fields

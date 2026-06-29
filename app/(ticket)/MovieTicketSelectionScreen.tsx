@@ -131,8 +131,7 @@ const MovieTicketSelectionScreen = () => {
   }
 
   const currencySymbol = event ? getCurrencySymbol(event.currency) : "₹";
-  const isContinueDisabled =
-    selectedSeats.length === 0 || isNavigating;
+  const isContinueDisabled = selectedSeats.length === 0 || isNavigating;
 
   return (
     <ThemedView style={styles.container}>

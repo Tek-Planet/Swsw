@@ -69,9 +69,9 @@ export const createOrder = async (
     };
 
     if (payload.orderType === "movie") {
-      backendPayload.selectedSeats = payload.items; 
+      backendPayload.selectedSeats = payload.items;
     } else {
-      backendPayload.selectedTiers = payload.items; 
+      backendPayload.selectedTiers = payload.items;
     }
 
     const createOrderFunction = httpsCallable(functions, functionName);

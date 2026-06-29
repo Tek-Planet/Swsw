@@ -1,9 +1,10 @@
+
 import { useState, useRef, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
-import { CalendarIcon, Plus, Trash2, GripVertical, Upload, X, Loader2, Ticket, ShieldCheck, MessageSquarePlus } from 'lucide-react';
+import { CalendarIcon, Plus, Trash2, GripVertical, Upload, X, Loader2, Ticket, ShieldCheck, MessageSquarePlus, Tag } from 'lucide-react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
@@ -12,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Badge } from "@/components/ui/badge";
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -47,7 +49,7 @@ const eventFormSchema = z.object({
   title: z.string().min(1, 'Title is required').max(100, 'Title must be less than 100 characters'),
   subtitle: z.string().max(150, 'Subtitle must be less than 150 characters').optional(),
   description: z.string().min(10, 'Description must be at least 10 characters').max(5000, 'Description must be less than 5000 characters'),
-  coverImageUrl: z.string().url('Must be a valid URL').optional().or(z.literal('')),
+  coverImageUrl: z.string().url('Must be a valid URL').optional().or(z.literal(''))
   startDate: z.date({ required_error: 'Start date is required' }),
   startTime: z.string().min(1, 'Start time is required'),
   endDate: z.date().optional(),
@@ -58,9 +60,10 @@ const eventFormSchema = z.object({
   status: z.enum(['draft', 'published', 'cancelled', 'completed']),
   maxAttendees: z.number().min(0).optional().nullable(),
   hostName: z.string().optional(),
-  tags: z.string().optional(),
+  tags: z.array(z.string()).optional(),
   currency: z.enum(['INR', 'USD', 'HKD', 'SGD']),
   bookingFeePercent: z.number().min(0).max(100).optional().nullable(),
+  gstPercent: z.number().min(0).max(100).optional().nullable(),
   eventType: z.enum(['regular', 'movie']).optional(),
   venueId: z.string().optional(),
   showtimeDate: z.date().optional(),
@@ -137,6 +140,8 @@ export const EventForm = ({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [activeTab, setActiveTab] = useState('details');
+  const [tagInput, setTagInput] = useState("");
+
   
   // Promo codes state
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
@@ -202,9 +207,10 @@ export const EventForm = ({
         status: initialData.status,
         maxAttendees: initialData.maxAttendees || null,
         hostName: initialData.hostName || '',
-        tags: initialData.tags?.join(', ') || '',
+        tags: initialData.tags || [],
         currency: initialData.currency || 'INR',
         bookingFeePercent: initialData.bookingFeePercent ?? 10,
+        gstPercent: initialData.gstPercent ?? null,
         eventType: initialData.eventType || 'regular',
         venueId: initialData.venueId || 'house6',
         showtimeDate: initialData.showtime ? new Date(initialData.showtime) : undefined,
@@ -232,9 +238,10 @@ export const EventForm = ({
       status: 'draft',
       maxAttendees: null,
       hostName: '',
-      tags: '',
+      tags: [],
       currency: 'INR',
       bookingFeePercent: 10,
+      gstPercent: null,
       eventType: 'regular',
       venueId: 'house6',
       showtimeDate: undefined,
@@ -383,9 +390,10 @@ export const EventForm = ({
       status: values.status,
       maxAttendees: values.maxAttendees || undefined,
       hostName: values.hostName || undefined,
-      tags: values.tags ? values.tags.split(',').map(t => t.trim()).filter(Boolean) : undefined,
+      tags: values.tags || undefined,
       currency: values.currency,
       bookingFeePercent: values.bookingFeePercent ?? 10,
+      gstPercent: values.gstPercent ?? undefined,
       isInviteOnly,
       customQuestions: isInviteOnly && customQuestions.length > 0 ? customQuestions : undefined,
       eventType: values.eventType || 'regular',
@@ -820,21 +828,46 @@ export const EventForm = ({
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="tags"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Tags</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., music, nightlife, party" {...field} className="bg-muted" />
-                      </FormControl>
-                      <FormDescription>
-                        Comma-separated list of tags
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                <Controller
+                    control={form.control}
+                    name="tags"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Tags</FormLabel>
+                            <div className="flex items-center gap-2">
+                                <Input
+                                    placeholder="e.g., music, nightlife, party"
+                                    value={tagInput}
+                                    onChange={(e) => setTagInput(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ',') {
+                                            e.preventDefault();
+                                            const newTag = tagInput.trim();
+                                            if (newTag && !field.value?.includes(newTag)) {
+                                                field.onChange([...(field.value || []), newTag]);
+                                            }
+                                            setTagInput('');
+                                        }
+                                    }}
+                                    className="bg-muted"
+                                />
+                            </div>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                                {field.value?.map((tag) => (
+                                    <Badge key={tag} variant="secondary" className="flex items-center gap-1">
+                                        {tag}
+                                        <button type="button" onClick={() => field.onChange(field.value?.filter((t) => t !== tag))}>
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </Badge>
+                                ))}
+                            </div>
+                            <FormDescription>
+                                Type a tag and press Enter to add it.
+                            </FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                    )}
                 />
               </CardContent>
             </Card>
@@ -1462,6 +1495,32 @@ export const EventForm = ({
                         </FormControl>
                         <FormDescription>
                           Processing fee percentage (default: 10%)
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="gstPercent"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>GST / Tax (%)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="e.g. 18 for India"
+                            {...field}
+                            value={field.value ?? ''}
+                            onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
+                            className="bg-muted"
+                            min={0}
+                            max={100}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Leave blank to disable. Set to 18 for Indian events (GST).
                         </FormDescription>
                         <FormMessage />
                       </FormItem>

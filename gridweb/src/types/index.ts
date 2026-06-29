@@ -47,6 +47,7 @@ export interface Event {
   linkedAlbumId?: string;
   currency?: EventCurrency;
   bookingFeePercent?: number;
+  gstPercent?: number;
   isInviteOnly?: boolean;
   customQuestions?: CustomQuestion[];
   // Movie event extensions
