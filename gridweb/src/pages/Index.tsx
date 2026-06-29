@@ -1,18 +1,13 @@
 import { motion } from 'framer-motion';
-import { ArrowRight, Sparkles, Calendar, MapPin, ChevronLeft, ChevronRight, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Sparkles, Calendar, MapPin, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { useEvents } from '@/hooks/useEvents';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { formatEventDate } from '@/lib/dateUtils';
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselPrevious,
-  CarouselNext,
-} from '@/components/ui/carousel';
+import EventsGrid from '@/components/EventsGrid';
 
 const Index = () => {
   const { events, loading } = useEvents();
@@ -27,7 +22,7 @@ const Index = () => {
       <Navbar />
 
       {/* Hero Section - Full Height Split */}
-      <section className="min-h-[calc(100vh-48px)] pt-14 lg:pt-0 flex items-center relative z-10">
+      <section className="pt-20 lg:pt-24 pb-12 lg:pb-20 flex items-center relative z-10">
         <div className="container mx-auto px-4 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-6 lg:gap-16 items-center">
             {/* Left - Hero Content */}
@@ -131,7 +126,7 @@ const Index = () => {
               </motion.div>
             </motion.div>
 
-            {/* Right - Featured Events Carousel */}
+            {/* Right - Featured Event (static, first upcoming) */}
             <motion.div
               initial={{ opacity: 0, x: 30 }}
               animate={{ opacity: 1, x: 0 }}
@@ -143,83 +138,65 @@ const Index = () => {
                   <LoadingSpinner size="lg" text="Loading events..." />
                 </div>
               ) : events.length > 0 ? (
-                <Carousel className="w-full max-w-full overflow-hidden" opts={{ loop: true }}>
-                  <CarouselContent>
-                    {events.map((event) => (
-                      <CarouselItem key={event.id}>
-                        <Link to={`/events/${event.id}`} className="block group">
-                          <div className="relative rounded-3xl overflow-hidden border border-border/50 hover:border-primary/30 transition-all duration-500">
-                            {/* Event Image */}
-                            <div className="relative">
-                              <img
-                                src={event.coverImageUrl || '/placeholder.svg'}
-                                alt={event.title}
-                                className="w-full h-auto aspect-[4/3] object-cover transition-transform duration-700 group-hover:scale-[1.02] max-w-full"
-                              />
-                              
-                              <div className="absolute top-6 left-6 flex gap-2">
-                                <div className="glass rounded-full px-4 py-2 flex items-center gap-2">
-                                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                                  <span className="text-xs font-medium uppercase tracking-wider">Live Event</span>
-                                </div>
-                                {event.isInviteOnly && (
-                                  <div className="glass rounded-lg px-3 py-2 flex items-center gap-1">
-                                    <ShieldCheck className="w-3 h-3 text-primary" />
-                                    <span className="text-xs text-primary font-medium">Invite Only</span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Event Details - Below Image */}
-                            <div className="p-6 lg:p-8 space-y-4 bg-card">
-                              <h2 className="text-2xl lg:text-3xl font-display font-bold text-foreground group-hover:text-primary transition-colors">
-                                {event.title}
-                              </h2>
-                              
-                              <div className="flex flex-wrap items-center gap-4 text-muted-foreground">
-                                <div className="flex items-center gap-2">
-                                  <Calendar className="w-4 h-4 text-primary" />
-                                  <span className="text-sm">
-                                    {formatEventDate(event.startTime, event.endTime)}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <MapPin className="w-4 h-4 text-primary" />
-                                  <span className="text-sm">
-                                    {event.location?.city || 'TBA'}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-2 text-primary font-medium group-hover:gap-3 transition-all">
-                                <span>View Event</span>
-                                <ArrowRight className="w-4 h-4" />
-                              </div>
-                            </div>
-
-                            {/* Glow Effect */}
-                            <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-3xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 -z-10" />
+                <Link to={`/events/${events[0].id}`} className="block group">
+                  <div className="relative rounded-3xl overflow-hidden border border-border/50 hover:border-primary/30 transition-all duration-500">
+                    <div className="relative">
+                      <img
+                        src={events[0].coverImageUrl || '/placeholder.svg'}
+                        alt={events[0].title}
+                        className="w-full h-auto aspect-[4/3] object-cover transition-transform duration-700 group-hover:scale-[1.02] max-w-full"
+                      />
+                      <div className="absolute top-6 left-6 flex gap-2">
+                        <div className="glass rounded-full px-4 py-2 flex items-center gap-2">
+                          <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                          <span className="text-xs font-medium uppercase tracking-wider">Featured</span>
+                        </div>
+                        {events[0].isInviteOnly && (
+                          <div className="glass rounded-lg px-3 py-2 flex items-center gap-1">
+                            <ShieldCheck className="w-3 h-3 text-primary" />
+                            <span className="text-xs text-primary font-medium">Invite Only</span>
                           </div>
-                        </Link>
-                      </CarouselItem>
-                    ))}
-                  </CarouselContent>
-                  {events.length > 1 && (
-                    <>
-                      <CarouselPrevious className="left-4 bg-background/80 backdrop-blur-sm border-border hover:bg-background" />
-                      <CarouselNext className="right-4 bg-background/80 backdrop-blur-sm border-border hover:bg-background" />
-                    </>
-                  )}
-                </Carousel>
+                        )}
+                      </div>
+                      <div className="absolute bottom-4 right-4 flex flex-wrap justify-end gap-2">
+                        {events[0].tags?.map((tag) => (
+                          <Badge key={tag} variant="secondary" className="text-xs bg-black/50 text-white backdrop-blur-sm">{tag}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="p-6 lg:p-8 space-y-4 bg-card">
+                      <h2 className="text-2xl lg:text-3xl font-display font-bold text-foreground group-hover:text-primary transition-colors">
+                        {events[0].title}
+                      </h2>
+                      <div className="flex flex-wrap items-center gap-4 text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-primary" />
+                          <span className="text-sm">{formatEventDate(events[0].startTime, events[0].endTime)}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4 text-primary" />
+                          <span className="text-sm">{events[0].location?.city || 'TBA'}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 text-primary font-medium group-hover:gap-3 transition-all">
+                        <span>View Event</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </div>
+                    </div>
+                    <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-3xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 -z-10" />
+                  </div>
+                </Link>
               ) : null}
             </motion.div>
           </div>
         </div>
       </section>
 
+      {/* All Events Grid */}
+      <EventsGrid events={events} />
+
       {/* Footer - Minimal */}
-      <div className="absolute bottom-4 left-4 right-4 lg:left-8 lg:right-8 flex flex-col gap-2 text-xs text-muted-foreground/50">
+      <div className="relative z-10 px-4 lg:px-8 pb-6 pt-4 flex flex-col gap-2 text-xs text-muted-foreground/60 border-t border-border/30">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <span>© {new Date().getFullYear()} Grid. All rights reserved.</span>
           <div className="flex items-center gap-4">

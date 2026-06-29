@@ -74,6 +74,7 @@ const Checkout = () => {
 
   // Get fee percent from event or default to 10%
   const feePercent = event?.bookingFeePercent != null ? event.bookingFeePercent / 100 : 0.10;
+  const gstRate = event?.gstPercent != null && event.gstPercent > 0 ? event.gstPercent / 100 : 0;
   const currency = event?.currency || 'INR';
 
   useEffect(() => {
@@ -238,8 +239,10 @@ const Checkout = () => {
     }
 
     const discount = calculateDiscount(subtotal, processingFee, discountableSubtotal);
-    return Math.max(0, subtotal + processingFee - discount);
-  }, [selectedTiers, checkoutTiers, promoApplied, feePercent]);
+    const taxableBase = Math.max(0, subtotal + processingFee - discount);
+    const gstAmount = gstRate > 0 ? Math.round(taxableBase * gstRate) : 0;
+    return taxableBase + gstAmount;
+  }, [selectedTiers, checkoutTiers, promoApplied, feePercent, gstRate]);
 
   const { isAvailable: isGPayAvailable, environment, allowedPaymentMethods, merchantInfo } = useGooglePay(orderTotal);
 
@@ -850,6 +853,7 @@ const Checkout = () => {
                     promoApplied={promoApplied}
                     currency={currency}
                     bookingFeePercent={event?.bookingFeePercent}
+                    gstPercent={event?.gstPercent}
                   />
                 </div>
 
@@ -990,6 +994,7 @@ const Checkout = () => {
                     promoApplied={promoApplied}
                     currency={currency}
                     bookingFeePercent={event?.bookingFeePercent}
+                    gstPercent={event?.gstPercent}
                   />
                 </div>
 

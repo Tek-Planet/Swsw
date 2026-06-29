@@ -39,6 +39,7 @@ export interface EventFormData {
   hostAvatarUrl?: string;
   currency?: 'INR' | 'USD' | 'HKD' | 'SGD';
   bookingFeePercent?: number;
+  gstPercent?: number;
   isInviteOnly?: boolean;
   customQuestions?: CustomQuestion[];
   eventType?: 'regular' | 'movie';

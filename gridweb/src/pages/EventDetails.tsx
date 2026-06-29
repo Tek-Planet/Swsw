@@ -182,7 +182,7 @@ const EventDetails = () => {
           <div className="p-6 lg:p-10 space-y-8">
             {/* Event Header */}
             <div className="space-y-4">
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <div className="glass rounded-lg px-3 py-2">
                   <div className="text-xs text-muted-foreground uppercase tracking-wider">Live Event</div>
                 </div>
@@ -198,6 +198,9 @@ const EventDetails = () => {
                     <span className="text-xs text-primary font-medium">Movie / Cinema</span>
                   </div>
                 )}
+                 {event.tags?.map(tag => (
+                  <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
+                ))}
               </div>
               <h1 className="text-3xl md:text-4xl lg:text-5xl font-display font-bold text-foreground">{event.title}</h1>
 

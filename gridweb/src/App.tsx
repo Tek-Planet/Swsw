@@ -37,6 +37,7 @@ import EventEmailPage from "./pages/admin/EventEmailPage";
 import AdminUsers from "./pages/admin/Users";
 import AdminQueries from "./pages/admin/Queries";
 import EventApplications from "./pages/admin/EventApplications";
+import EventSurvey from "./pages/admin/EventSurvey";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -74,6 +75,7 @@ const App = () => (
             <Route path="/admin/events/:eventId/notifications" element={<AdminLayout><EventNotificationsPage /></AdminLayout>} />
             <Route path="/admin/events/:eventId/email" element={<AdminLayout><EventEmailPage /></AdminLayout>} />
             <Route path="/admin/events/:eventId/applications" element={<AdminLayout><EventApplications /></AdminLayout>} />
+            <Route path="/admin/events/:eventId/survey" element={<AdminLayout><EventSurvey /></AdminLayout>} />
             <Route path="/admin/bookings" element={<AdminLayout><AdminBookings /></AdminLayout>} />
             <Route path="/admin/scanner" element={<AdminLayout><AdminScanner /></AdminLayout>} />
             <Route path="/admin/queries" element={<AdminLayout><AdminQueries /></AdminLayout>} />

@@ -34,7 +34,7 @@ export const usePushNotifications = () => {
 
   const hasPermission = useCallback(async () => {
     if (!user) return false;
-    return await checkHasPermission(user.uid);
+    return await checkHasPermission();
   }, [user]);
 
   return { permission, requestPermission, hasPermission, error };

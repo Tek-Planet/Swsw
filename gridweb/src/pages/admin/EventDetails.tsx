@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Edit, Eye, Calendar, MapPin, Users, Clock, Tag, DollarSign, Ticket, ExternalLink, Camera, Send, ShieldCheck, ClipboardList, Mail, Film } from 'lucide-react';
+import { ArrowLeft, Edit, Eye, Calendar, MapPin, Users, Clock, Tag, DollarSign, Ticket, ExternalLink, Camera, Send, ShieldCheck, ClipboardList, Mail, Film, ListChecks } from 'lucide-react';
 import { doc, getDoc, collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
@@ -148,7 +148,7 @@ const EventDetails = () => {
             <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground">
               {event.title}
             </h1>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
               <Badge variant="outline" className={getStatusBadge(event.status)}>
                 {event.status}
               </Badge>
@@ -167,6 +167,9 @@ const EventDetails = () => {
                   Invite Only
                 </Badge>
               )}
+              {event.tags?.map(tag => (
+                <Badge key={tag} variant="secondary">{tag}</Badge>
+              ))}
             </div>
           </div>
         </div>
@@ -282,19 +285,6 @@ const EventDetails = () => {
                 <p className="text-sm text-muted-foreground">{event.location?.city}</p>
               </div>
             </div>
-            
-            {event.tags && event.tags.length > 0 && (
-              <div className="flex items-start gap-3">
-                <Tag className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div className="flex flex-wrap gap-2">
-                  {event.tags.map((tag, index) => (
-                    <Badge key={index} variant="secondary" className="bg-muted">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
             
             <Separator />
             
@@ -413,6 +403,12 @@ const EventDetails = () => {
                 </Link>
               </Button>
             )}
+            <Button variant="outline" asChild>
+              <Link to={`/admin/events/${event.id}/survey`}>
+                <ListChecks className="h-4 w-4 mr-2" />
+                Enhance my Grid — Questions
+              </Link>
+            </Button>
             <Button variant="outline" asChild>
               <Link to={`/admin/events/${event.id}/photos`}>
                 <Camera className="h-4 w-4 mr-2" />
