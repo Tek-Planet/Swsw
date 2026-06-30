@@ -18,11 +18,12 @@ import {
   createRazorpayOrder,
   razorpayWebhook,
   verifyRazorpayPayment,
+  verifyStripePayment,  // <-- Import the new function
   manuallyFulfillOrder,
   cleanupExpiredOrders,
   cancelOrder,
 } from "./payments";
-import { setAdminStatus, adminUploadEmailTemplates, seedVenueHouse6 } from "./admin"; // Import the new function
+import { setAdminStatus, adminUploadEmailTemplates, seedVenueHouse6 } from "./admin";
 import { sendEventPushNotification } from "./notifications";
 import { sendInvitationEmail, sendEmailToAttendees } from "./emails";
 import { sendTicketEmail } from "./tickets";
@@ -49,6 +50,7 @@ export {
   createRazorpayOrder,
   razorpayWebhook,
   verifyRazorpayPayment,
+  verifyStripePayment, // <-- Export the new function
   sendInvitationEmail,
   adminUploadEmailTemplates,
   manuallyFulfillOrder,

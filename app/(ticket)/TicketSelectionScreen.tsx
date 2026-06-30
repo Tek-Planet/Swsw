@@ -116,7 +116,7 @@ const TicketSelectionScreen = () => {
     
     const gstRate = event.gstPercent ? Number(event.gstPercent) / 100 : 0;
     const preTaxTotal = subtotalCharged + processingFee;
-    const gstAmount = preTaxTotal > 0 && gstRate > 0 ? Math.round(preTaxTotal * gstRate) : 0;
+    const gstAmount = event.currency === "INR" && preTaxTotal > 0 && gstRate > 0 ? Math.round(preTaxTotal * gstRate) : 0;
 
     const total = preTaxTotal + gstAmount;
 
