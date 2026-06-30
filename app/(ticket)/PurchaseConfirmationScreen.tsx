@@ -1,13 +1,12 @@
-
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { doc, getDoc, Timestamp } from 'firebase/firestore';
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { ThemedView } from '../../components/themed-view';
-import { auth, db } from '../../lib/firebase/firebaseConfig';
-import { Order } from '../../types/event';
-import TableContactForm from '../../components/TableContactForm'; // Import the new form
+import { ThemedView } from '@/components/themed-view';
+import { auth, db } from '@/lib/firebase/firebaseConfig';
+import { Order } from '@/types/event';
+import TableContactForm from '@/components/TableContactForm';
 
 const toOrder = (data: any, id: string): Order => {
     return {
@@ -17,6 +16,10 @@ const toOrder = (data: any, id: string): Order => {
         updatedAt: (data.updatedAt as Timestamp).toDate(),
     } as Order;
 }
+
+const formatCurrency = (amount: number, currency = 'INR') => {
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency }).format(amount);
+};
 
 const PurchaseConfirmationScreen = () => {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
@@ -132,17 +135,55 @@ const PurchaseConfirmationScreen = () => {
             <Text style={styles.subText}>
                 Your tickets for <Text style={{fontWeight: 'bold'}}>{order?.eventTitle || 'the event'}</Text> have been secured.
             </Text>
+            
+            {order && (
+            <View style={styles.summaryContainer}>
+                <Text style={styles.summaryTitle}>Order Summary</Text>
+                {order.items.map((item, index) => (
+                    <View key={index} style={styles.summaryRow}>
+                        <Text style={styles.summaryItemText}>{item.name} (x{item.quantity})</Text>
+                        <Text style={styles.summaryItemText}>{formatCurrency(item.chargeAmount * item.quantity, order.currency)}</Text>
+                    </View>
+                ))}
+                <View style={styles.divider} />
+                <View style={styles.summaryRow}>
+                    <Text style={styles.summaryLabel}>Subtotal</Text>
+                    <Text style={styles.summaryValue}>{formatCurrency(order.subtotal, order.currency)}</Text>
+                </View>
+                {order.processingFee > 0 && (
+                    <View style={styles.summaryRow}>
+                        <Text style={styles.summaryLabel}>Processing Fee</Text>
+                        <Text style={styles.summaryValue}>{formatCurrency(order.processingFee, order.currency)}</Text>
+                    </View>
+                )}
+                {order.gstAmount > 0 && (
+                    <View style={styles.summaryRow}>
+                        <Text style={styles.summaryLabel}>GST ({order.gstPercent}%)</Text>
+                        <Text style={styles.summaryValue}>{formatCurrency(order.gstAmount, order.currency)}</Text>
+                    </View>
+                )}
+                {order.discount > 0 && (
+                    <View style={styles.summaryRow}>
+                        <Text style={styles.summaryLabel}>Discount</Text>
+                        <Text style={[styles.summaryValue, styles.discountText]}>- {formatCurrency(order.discount, order.currency)}</Text>
+                    </View>
+                )}
+                <View style={styles.divider} />
+                <View style={styles.summaryRow}>
+                    <Text style={styles.totalLabel}>Total Paid</Text>
+                    <Text style={styles.totalValue}>{formatCurrency(order.total, order.currency)}</Text>
+                </View>
+            </View>
+            )}
 
             <View style={styles.orderInfo}>
                 <Text style={styles.orderInfoText}>Order ID: {orderId}</Text>
             </View>
 
-            {/* Conditionally render the table contact form */}
             {hasTableBooking && !detailsSubmitted && orderId && (
                 <TableContactForm orderId={orderId} onSubmitSuccess={handleDetailsSubmitted} />
             )}
             
-            {/* Show a message if details have been submitted */}
             {hasTableBooking && detailsSubmitted && (
                 <View style={styles.submittedContainer}>
                     <Feather name="info" size={20} color="#4a90e2" />
@@ -215,6 +256,55 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginBottom: 30,
         lineHeight: 24,
+    },
+    summaryContainer: {
+        width: '100%',
+        backgroundColor: '#2A2A2A',
+        borderRadius: 10,
+        padding: 20,
+        marginBottom: 30,
+    },
+    summaryTitle: {
+        color: '#FFFFFF',
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 15,
+    },
+    summaryRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    summaryItemText: {
+        color: '#E0E0E0',
+        fontSize: 14,
+    },
+    summaryLabel: {
+        color: '#B0B0B0',
+        fontSize: 14,
+    },
+    summaryValue: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    discountText: {
+        color: '#4CAF50',
+    },
+    totalLabel: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    totalValue: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    divider: {
+        height: 1,
+        backgroundColor: '#3A3A3A',
+        marginVertical: 10,
     },
     orderInfo: {
         backgroundColor: '#2A2A2A',

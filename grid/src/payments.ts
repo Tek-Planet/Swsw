@@ -424,7 +424,7 @@ export const createPaymentIntent = functions.https.onCall(
       userId,
       items: itemsForOrder,
       attendees,
-      donor,
+      donor: donor || null,
       subtotal: subtotalCharged,
       feeBase,
       processingFee: shouldBypassStripe ? 0 : processingFee,
@@ -571,7 +571,7 @@ export const createRazorpayOrder = functions.https.onCall(
       userId,
       items: itemsForOrder,
       attendees,
-      donor,
+      donor: donor || null,
       subtotal: subtotalCharged,
       feeBase,
       processingFee,
@@ -1129,12 +1129,8 @@ export const createCheckoutSession = functions.https.onCall(
         line_items: seatLineItems,
         mode: "payment",
         expires_at: Math.floor(now.toMillis() / 1000) + 30 * 60, // Stripe min 30 min
-        success_url: `${functions.config().app.url}/success?orderId=${
-          orderRef.id
-        }`,
-        cancel_url: `${functions.config().app.url}/cancel?orderId=${
-          orderRef.id
-        }`,
+        success_url: `${functions.config().app.url}/success?orderId=${orderRef.id}`,
+        cancel_url: `${functions.config().app.url}/cancel?orderId=${orderRef.id}`,
         metadata: {
           orderId: orderRef.id,
           userId: userId,
@@ -1242,7 +1238,7 @@ export const createCheckoutSession = functions.https.onCall(
       eventTitle,
       items,
       attendees,
-      donor,
+      donor: donor || null,
       subtotal,
       feeBase,
       processingFee,
@@ -1352,9 +1348,7 @@ export const createCheckoutSession = functions.https.onCall(
       payment_method_types: ["card"],
       line_items,
       mode: "payment",
-      success_url: `${functions.config().app.url}/success?orderId=${
-        orderRef.id
-      }`,
+      success_url: `${functions.config().app.url}/success?orderId=${orderRef.id}`,
       cancel_url: `${functions.config().app.url}/cancel?orderId=${orderRef.id}`,
       metadata: {
         orderId: orderRef.id,
@@ -1403,6 +1397,7 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
     feeBase,
     processingFee,
     currency,
+    gstPercent,
   } = await _calculateOrderDetails(eventId, selectedTiers);
 
   // --- Promo Code Logic ---
@@ -1436,12 +1431,14 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
     }
   }
 
-  // CORRECTED: Final total calculation
-  const finalTotal = Math.max(
-    0,
-    subtotalCharged - discountAmount + processingFee
-  );
-  const orderId = db.collection(" ").doc().id;
+    const preTaxTotal = Math.max(
+      0,
+      subtotalCharged - discountAmount + processingFee
+    );
+    const gstAmount =
+      gstPercent > 0 ? Math.round(preTaxTotal * (gstPercent / 100)) : 0;
+    const finalTotal = preTaxTotal + gstAmount;
+    const orderId = db.collection(" ").doc().id;
 
   // If discount makes the order free, bypass Stripe
   if (finalTotal === 0) {
@@ -1454,10 +1451,12 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
         userId: uid,
         items: itemsForOrder,
         attendees,
-        donor,
+        donor: donor || null,
         subtotal: subtotalCharged,
         feeBase,
         processingFee: 0,
+        gstPercent,
+        gstAmount: 0,
         total: 0,
         discount: discountAmount,
         currency,
@@ -1509,10 +1508,12 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
           userId: uid,
           items: itemsForOrder,
           attendees,
-          donor,
+          donor: donor || null,
           subtotal: subtotalCharged,
           feeBase,
           processingFee,
+          gstPercent,
+          gstAmount,
           total: finalTotal,
           discount: discountAmount,
           currency,
