@@ -36,6 +36,7 @@ const TicketSelectionScreen = () => {
     subtotal: 0,
     feeBase: 0,
     processingFee: 0,
+    gstAmount: 0,
     total: 0,
   });
   const [isNavigating, setIsNavigating] = useState(false);
@@ -112,9 +113,14 @@ const TicketSelectionScreen = () => {
       ? event.bookingFeePercent / 100
       : 0.1;
     const processingFee = feeBase > 0 ? Math.round(feeBase * feePercentage) : 0;
-    const total = subtotalCharged + processingFee;
+    
+    const gstRate = event.gstPercent ? event.gstPercent / 100 : 0;
+    const preTaxTotal = subtotalCharged + processingFee;
+    const gstAmount = preTaxTotal > 0 ? Math.round(preTaxTotal * gstRate) : 0;
 
-    setPricing({ subtotal: subtotalCharged, feeBase, processingFee, total });
+    const total = preTaxTotal + gstAmount;
+
+    setPricing({ subtotal: subtotalCharged, feeBase, processingFee, gstAmount, total });
   }, [selectedTiers, ticketTiers, event]);
 
   const currencySymbol = event ? getCurrencySymbol(event.currency) : "₹";
@@ -221,10 +227,17 @@ const TicketSelectionScreen = () => {
         contentContainerStyle={styles.listContainer}
       />
       <View style={styles.stickyFooter}>
-        <Text style={styles.totalPrice}>
-          Total: {currencySymbol}
-          {pricing.total.toLocaleString()}
-        </Text>
+        <View style={styles.priceDetails}>
+            <Text style={styles.totalPrice}>
+            Total: {currencySymbol}
+            {pricing.total.toLocaleString()}
+            </Text>
+            <Text style={styles.priceBreakdown}>
+                (Subtotal: {currencySymbol}{pricing.subtotal.toLocaleString()} + 
+                Fees: {currencySymbol}{pricing.processingFee.toLocaleString()} + 
+                GST: {currencySymbol}{pricing.gstAmount.toLocaleString()})
+            </Text>
+        </View>
         <TouchableOpacity
           style={[
             styles.ctaButton,
@@ -321,10 +334,18 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
+  priceDetails: {
+      flex: 1,
+  },
   totalPrice: {
     color: "#fff",
     fontSize: 18,
     fontWeight: "bold",
+  },
+  priceBreakdown: {
+    color: "#aaa",
+    fontSize: 12,
+    marginTop: 2,
   },
   ctaButton: {
     backgroundColor: "#4a90e2",
@@ -346,7 +367,7 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     paddingTop: 10,
-    paddingBottom: 100, // To avoid being hidden by the footer
+    paddingBottom: 120, // To avoid being hidden by the footer
   },
 });
 

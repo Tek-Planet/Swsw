@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -322,6 +323,7 @@ const EventDetails = () => {
                     selectedTiers={selectedTiers}
                     currency={event.currency}
                     bookingFeePercent={event.bookingFeePercent}
+                    gstPercent={event.gstPercent}
                   />
                   <Button variant="hero" className="w-full mt-6" disabled={totalSelected === 0} onClick={handleCheckout}>
                     {totalSelected === 0 ? "Select Tickets" : "Continue to Checkout"}
