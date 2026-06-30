@@ -63,14 +63,19 @@ const CheckoutScreen = () => {
   const [orderType, setOrderType] = useState<"movie" | "regular" | null>(null);
   const [selectedSeats, setSelectedSeats] = useState<Seat[]>([]);
   const [ticketTiers, setTicketTiers] = useState<TicketTier[]>([]);
-  const [selectedTiers, setSelectedTiers] = useState<{ [key: string]: number }>({});
-  const [attendees, setAttendees] = useState<{ name: string; email: string; phone: string }[]>([]);
-  const [tableContactDetails, setTableContactDetails] = useState<TableContactDetails>({
-    fullName: "",
-    email: "",
-    phone: "",
-    notes: "",
-  });
+  const [selectedTiers, setSelectedTiers] = useState<{ [key: string]: number }>(
+    {}
+  );
+  const [attendees, setAttendees] = useState<
+    { name: string; email: string; phone: string }[]
+  >([]);
+  const [tableContactDetails, setTableContactDetails] =
+    useState<TableContactDetails>({
+      fullName: "",
+      email: "",
+      phone: "",
+      notes: "",
+    });
 
   const [pricing, setPricing] = useState({
     subtotal: 0,
@@ -158,7 +163,7 @@ const CheckoutScreen = () => {
     };
 
     if (event) {
-        fetchTiers();
+      fetchTiers();
     }
   }, [orderType, eventIdStr, event]);
 
@@ -186,7 +191,10 @@ const CheckoutScreen = () => {
     let feeBase = 0;
 
     if (orderType === "movie") {
-      subtotalCharged = selectedSeats.reduce((acc, seat) => acc + seat.price, 0);
+      subtotalCharged = selectedSeats.reduce(
+        (acc, seat) => acc + seat.price,
+        0
+      );
       feeBase = subtotalCharged;
     } else if (orderType === "regular" && ticketTiers.length > 0) {
       const getChargeAmount = (tier: TicketTier): number => {
@@ -229,7 +237,10 @@ const CheckoutScreen = () => {
 
     const preTaxTotal = subtotalCharged - discount + processingFee;
     const gstRate = event.gstPercent ? Number(event.gstPercent) / 100 : 0;
-    const gstAmount = preTaxTotal > 0 && gstRate > 0 ? Math.round(preTaxTotal * gstRate) : 0;
+    const gstAmount =
+      event.currency === "INR" && preTaxTotal > 0 && gstRate > 0
+        ? Math.round(preTaxTotal * gstRate)
+        : 0;
     const finalTotal = Math.max(0, preTaxTotal + gstAmount);
 
     setPricing({
@@ -338,7 +349,8 @@ const CheckoutScreen = () => {
   );
   const hasSelection =
     (orderType === "movie" && selectedSeats.length > 0) ||
-    (orderType === "regular" && Object.values(selectedTiers).some(qty => qty > 0));
+    (orderType === "regular" &&
+      Object.values(selectedTiers).some((qty) => qty > 0));
   const canProceed =
     hasSelection &&
     agreedToTerms &&
@@ -353,24 +365,30 @@ const CheckoutScreen = () => {
       if (!hasSelection) {
         message = "Your cart is empty.";
       } else if (!agreedToTerms) {
-        message = "Please agree to the terms of service.";
+        message = "Please agree to the Terms of Service.";
       }
       Alert.alert("Incomplete Information", message);
       return;
     }
     setIsProcessing(true);
 
-    if (event?.currency === "INR" && orderType !== "movie") {
-      // The setIsProcessing(false) is removed from here and handled inside handleRazorpayPayment
-      await handleRazorpayPayment();
-    } else {
-      await handleStripePayment();
-      setIsProcessing(false); // Only set to false here for stripe
+    try {
+      if (event?.currency === "INR" && orderType !== "movie") {
+        await handleRazorpayPayment();
+      } else {
+        await handleStripePayment();
+      }
+    } catch (error) {
+      console.error("Payment processing failed:", error);
+      setIsProcessing(false);
     }
   };
 
   const handleStripePayment = async () => {
-    if (!event || !orderType) return;
+    if (!event || !orderType) {
+      setIsProcessing(false);
+      return;
+    }
 
     try {
       const payload =
@@ -411,11 +429,13 @@ const CheckoutScreen = () => {
           pathname: "/(ticket)/PurchaseConfirmationScreen",
           params: { orderId, eventId: eventIdStr },
         });
+        setIsProcessing(false);
         return;
       }
 
-      if (!clientSecret)
+      if (!clientSecret) {
         throw new Error("Payment intent not created successfully.");
+      }
 
       const { error: initError } = await initPaymentSheet({
         merchantDisplayName: "Grid",
@@ -423,21 +443,43 @@ const CheckoutScreen = () => {
         allowsDelayedPaymentMethods: true,
         returnURL: "https://grideventsapp.com",
       });
-      if (initError)
+
+      if (initError) {
         throw new Error(
           `Failed to initialize payment sheet: ${initError.message}`
         );
+      }
 
       const { error: presentError } = await presentPaymentSheet();
+
       if (presentError) {
         if (presentError.code !== "Canceled") {
-          throw new Error(`Payment failed: ${presentError.message}`);
+          Alert.alert("Payment Failed", presentError.message);
         }
-      } else {
+        setIsProcessing(false);
+        return;
+      }
+
+      try {
+        const verifyStripePayment = httpsCallable(
+          functions,
+          "verifyStripePayment"
+        );
+        await verifyStripePayment({ orderId });
+
         router.push({
           pathname: "/(ticket)/PurchaseConfirmationScreen",
           params: { orderId, eventId: eventIdStr },
         });
+      } catch (verifyError) {
+        console.error("Stripe verification error:", verifyError);
+        Alert.alert(
+          "Payment Verification Failed",
+          (verifyError as any).message ||
+            "Could not verify your payment. Please contact support."
+        );
+      } finally {
+        setIsProcessing(false);
       }
     } catch (error) {
       console.error("Stripe Payment error:", error);
@@ -445,6 +487,7 @@ const CheckoutScreen = () => {
         "Payment Failed",
         (error as any).message || "Unable to process your order."
       );
+      setIsProcessing(false);
     }
   };
 
@@ -484,8 +527,9 @@ const CheckoutScreen = () => {
         return;
       }
 
-      if (!razorpayOrderId)
+      if (!razorpayOrderId) {
         throw new Error("Razorpay order not created successfully.");
+      }
 
       const options = {
         description: `Payment for ${event?.title}`,
@@ -506,7 +550,10 @@ const CheckoutScreen = () => {
       RazorpayCheckout.open(options)
         .then(async (data) => {
           try {
-            const verifyRazorpayPayment = httpsCallable(functions, 'verifyRazorpayPayment');
+            const verifyRazorpayPayment = httpsCallable(
+              functions,
+              "verifyRazorpayPayment"
+            );
             await verifyRazorpayPayment({
               orderId: orderId,
               razorpayPaymentId: data.razorpay_payment_id,
@@ -519,17 +566,18 @@ const CheckoutScreen = () => {
               params: { orderId, eventId: eventIdStr },
             });
           } catch (verifyError) {
-              console.error("Razorpay verification error:", verifyError);
-              Alert.alert(
-                "Payment Verification Failed",
-                (verifyError as any).message || "Could not verify your payment. Please contact support."
-              );
+            console.error("Razorpay verification error:", verifyError);
+            Alert.alert(
+              "Payment Verification Failed",
+              (verifyError as any).message ||
+                "Could not verify your payment. Please contact support."
+            );
           } finally {
             setIsProcessing(false);
           }
         })
         .catch((error) => {
-          if (error.code !== 1) { // 1 = user cancelled payment
+          if (error.code !== 1) {
             Alert.alert("Payment Failed", `Error: ${error.description}`);
           }
           setIsProcessing(false);
@@ -546,9 +594,9 @@ const CheckoutScreen = () => {
 
   if (loading) {
     return (
-        <ThemedView style={styles.centeredContainer}>
-            <ActivityIndicator size="large" color="#fff" />
-        </ThemedView>
+      <ThemedView style={styles.centeredContainer}>
+        <ActivityIndicator size="large" color="#fff" />
+      </ThemedView>
     );
   }
 
@@ -784,7 +832,8 @@ const CheckoutScreen = () => {
             {agreedToTerms && <Feather name="check" size={18} color="#fff" />}
           </TouchableOpacity>
           <Text style={styles.termsText}>
-            I agree to the Terms of Service and understand all sales are final.
+            I agree to the Terms of Service and understand that all sales are
+            final and tickets are non-refundable.
           </Text>
         </View>
 

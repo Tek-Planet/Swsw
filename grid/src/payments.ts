@@ -267,7 +267,11 @@ async function _fulfillOrder(
   const orderRef = db.doc(`orders/${orderId}`);
 
   // 1. Mark order paid
-  tx.set(orderRef, { status: "paid", updatedAt: now }, { merge: true });
+  tx.set(
+    orderRef,
+    { status: "paid", paidAt: now, updatedAt: now },
+    { merge: true }
+  );
 
   // 2. Add purchaser to event attendeeIds array
   tx.update(eventRef, {
@@ -857,6 +861,108 @@ export const verifyRazorpayPayment = functions.https.onCall(
   }
 );
 
+export const verifyStripePayment = functions.https.onCall(
+  async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Must be logged in."
+      );
+    }
+
+    const { orderId } = data as { orderId?: string };
+    if (!orderId) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Missing orderId."
+      );
+    }
+
+    const orderRef = db.doc(`orders/${orderId}`);
+
+    try {
+      // Use a transaction to safely read and then write.
+      return await db.runTransaction(async (tx) => {
+        const orderSnap = await tx.get(orderRef);
+        if (!orderSnap.exists) {
+          throw new functions.https.HttpsError("not-found", "Order not found.");
+        }
+
+        const order = orderSnap.data() as any;
+
+        // Idempotency: If the webhook has already processed this, we don't need to do anything.
+        if (order.status === "paid") {
+          console.log(
+            `Stripe verification for mobile: Order ${orderId} already fulfilled.`
+          );
+          return { success: true, message: "Order already fulfilled." };
+        }
+
+        // Security check: Only the user who created the order can verify it.
+        if (order.userId !== context.auth?.uid) {
+          throw new functions.https.HttpsError(
+            "permission-denied",
+            "You do not have permission to verify this order."
+          );
+        }
+
+        if (!order.stripePaymentIntentId) {
+          throw new functions.https.HttpsError(
+            "failed-precondition",
+            "Order is not a Stripe payment intent order."
+          );
+        }
+
+        // Fetch the Payment Intent from Stripe to get the ground truth.
+        const paymentIntent = await stripe.paymentIntents.retrieve(
+          order.stripePaymentIntentId
+        );
+
+        if (paymentIntent.status === "succeeded") {
+          // If Stripe says it's paid, fulfill the order using the helper.
+          const { eventId, userId, items, promoCodeId, attendees, donor } =
+            order;
+          const eventRef = db.doc(`events/${eventId}`);
+
+          await _fulfillOrder(tx, {
+            eventId,
+            eventRef,
+            userId,
+            orderId,
+            items,
+            promoCodeId,
+            attendees,
+            donor,
+          });
+
+          console.log(
+            `Stripe verification for mobile: Order ${orderId} fulfilled.`
+          );
+          return {
+            success: true,
+            message: "Payment verified and order fulfilled.",
+          };
+        } else {
+          // If the payment is not successful for any reason, throw an error.
+          throw new functions.https.HttpsError(
+            "failed-precondition",
+            `Payment not successful. Status: ${paymentIntent.status}`
+          );
+        }
+      });
+    } catch (error) {
+      console.error(`Stripe verification for order ${orderId} failed:`, error);
+      if (error instanceof functions.https.HttpsError) {
+        throw error;
+      }
+      throw new functions.https.HttpsError(
+        "internal",
+        "Failed to process Stripe payment verification."
+      );
+    }
+  }
+);
+
 /**
  * Updates an order with table contact details. This is callable by EITHER web or mobile.
  */
@@ -1129,8 +1235,12 @@ export const createCheckoutSession = functions.https.onCall(
         line_items: seatLineItems,
         mode: "payment",
         expires_at: Math.floor(now.toMillis() / 1000) + 30 * 60, // Stripe min 30 min
-        success_url: `${functions.config().app.url}/success?orderId=${orderRef.id}`,
-        cancel_url: `${functions.config().app.url}/cancel?orderId=${orderRef.id}`,
+        success_url: `${functions.config().app.url}/success?orderId=${
+          orderRef.id
+        }`,
+        cancel_url: `${functions.config().app.url}/cancel?orderId=${
+          orderRef.id
+        }`,
         metadata: {
           orderId: orderRef.id,
           userId: userId,
@@ -1348,7 +1458,9 @@ export const createCheckoutSession = functions.https.onCall(
       payment_method_types: ["card"],
       line_items,
       mode: "payment",
-      success_url: `${functions.config().app.url}/success?orderId=${orderRef.id}`,
+      success_url: `${functions.config().app.url}/success?orderId=${
+        orderRef.id
+      }`,
       cancel_url: `${functions.config().app.url}/cancel?orderId=${orderRef.id}`,
       metadata: {
         orderId: orderRef.id,
@@ -1431,14 +1543,14 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
     }
   }
 
-    const preTaxTotal = Math.max(
-      0,
-      subtotalCharged - discountAmount + processingFee
-    );
-    const gstAmount =
-      gstPercent > 0 ? Math.round(preTaxTotal * (gstPercent / 100)) : 0;
-    const finalTotal = preTaxTotal + gstAmount;
-    const orderId = db.collection(" ").doc().id;
+  const preTaxTotal = Math.max(
+    0,
+    subtotalCharged - discountAmount + processingFee
+  );
+  const gstAmount =
+    gstPercent > 0 ? Math.round(preTaxTotal * (gstPercent / 100)) : 0;
+  const finalTotal = preTaxTotal + gstAmount;
+  const orderId = db.collection(" ").doc().id;
 
   // If discount makes the order free, bypass Stripe
   if (finalTotal === 0) {
@@ -1575,6 +1687,64 @@ export const stripeWebhook = functions.https.onRequest(async (req, res) => {
   } catch (err: any) {
     console.error("Webhook signature verification failed:", err.message);
     res.status(400).send(`Webhook Error: ${err.message}`);
+    return;
+  }
+
+  // --- Handle PaymentIntent events for mobile ---
+  if (evt.type === "payment_intent.succeeded") {
+    const paymentIntent = evt.data.object as Stripe.PaymentIntent;
+    const { orderId } = paymentIntent.metadata;
+
+    if (!orderId) {
+      console.warn(
+        "Webhook ignored: Missing orderId in PaymentIntent metadata",
+        paymentIntent.id
+      );
+      res.status(200).send("Ignoring event with missing orderId.");
+      return;
+    }
+
+    const orderRef = db.doc(`orders/${orderId}`);
+    const orderSnap = await orderRef.get();
+
+    if (!orderSnap.exists) {
+      console.error(
+        "Webhook failed: Order not found for PaymentIntent",
+        orderId,
+        paymentIntent.id
+      );
+      res.status(404).send("Order not found");
+      return;
+    }
+
+    const order = orderSnap.data() as any;
+
+    if (order.status === "paid") {
+      console.log(
+        "Webhook ignored: Order already fulfilled for PaymentIntent",
+        orderId
+      );
+      res.status(200).send("Order already fulfilled.");
+      return;
+    }
+
+    const { eventId, userId } = order;
+    const eventRef = db.doc(`events/${eventId}`);
+
+    await db.runTransaction(async (tx) => {
+      await _fulfillOrder(tx, {
+        eventId,
+        eventRef,
+        userId,
+        orderId,
+        items: order.items,
+        promoCodeId: order.promoCodeId,
+        attendees: order.attendees,
+        donor: order.donor,
+      });
+    });
+
+    res.status(200).send("ok");
     return;
   }
 
