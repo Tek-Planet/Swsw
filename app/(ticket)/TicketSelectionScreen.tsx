@@ -89,7 +89,7 @@ const TicketSelectionScreen = () => {
     if (!event) return;
     const getChargeAmount = (tier: TicketTier): number => {
       if (tier.type === "table" && tier.chargeAmount != null) {
-        return tier.chargeAmount; // Tables charge deposit, not full price
+        return tier.chargeAmount;
       }
       return tier.price;
     };
@@ -114,9 +114,9 @@ const TicketSelectionScreen = () => {
       : 0.1;
     const processingFee = feeBase > 0 ? Math.round(feeBase * feePercentage) : 0;
     
-    const gstRate = event.gstPercent ? event.gstPercent / 100 : 0;
+    const gstRate = event.gstPercent ? Number(event.gstPercent) / 100 : 0;
     const preTaxTotal = subtotalCharged + processingFee;
-    const gstAmount = preTaxTotal > 0 ? Math.round(preTaxTotal * gstRate) : 0;
+    const gstAmount = preTaxTotal > 0 && gstRate > 0 ? Math.round(preTaxTotal * gstRate) : 0;
 
     const total = preTaxTotal + gstAmount;
 
@@ -228,15 +228,17 @@ const TicketSelectionScreen = () => {
       />
       <View style={styles.stickyFooter}>
         <View style={styles.priceDetails}>
-            <Text style={styles.totalPrice}>
+          <Text style={styles.totalPrice}>
             Total: {currencySymbol}
             {pricing.total.toLocaleString()}
+          </Text>
+          {pricing.total > 0 && (
+            <Text style={styles.priceBreakdown} numberOfLines={2}>
+              Subtotal: {currencySymbol}{pricing.subtotal.toLocaleString()}
+              {' + '}Fee: {currencySymbol}{pricing.processingFee.toLocaleString()}
+              {pricing.gstAmount > 0 && ` + GST: ${currencySymbol}${pricing.gstAmount.toLocaleString()}`}
             </Text>
-            <Text style={styles.priceBreakdown}>
-                (Subtotal: {currencySymbol}{pricing.subtotal.toLocaleString()} + 
-                Fees: {currencySymbol}{pricing.processingFee.toLocaleString()} + 
-                GST: {currencySymbol}{pricing.gstAmount.toLocaleString()})
-            </Text>
+          )}
         </View>
         <TouchableOpacity
           style={[
@@ -327,7 +329,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: "#1a1a1a",
-    padding: 20,
+    paddingVertical: 20,
+    paddingHorizontal: 20,
     borderTopWidth: 1,
     borderTopColor: "#333",
     flexDirection: "row",
@@ -335,7 +338,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   priceDetails: {
-      flex: 1,
+    flex: 1,
+    marginRight: 10,
   },
   totalPrice: {
     color: "#fff",
@@ -352,7 +356,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 20,
-    minWidth: 120, // Ensure button has a decent width for the activity indicator
+    minWidth: 120,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -367,7 +371,7 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     paddingTop: 10,
-    paddingBottom: 120, // To avoid being hidden by the footer
+    paddingBottom: 120,
   },
 });
 
