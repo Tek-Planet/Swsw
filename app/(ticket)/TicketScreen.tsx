@@ -1,14 +1,13 @@
-
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { doc, getDoc, Timestamp } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { auth, db } from '../../lib/firebase/firebaseConfig';
 import { Attendee, Event, Order } from '../../types/event';
 
-const getCurrencySymbol = (currency: string) => {
+const getCurrencySymbol = (currency?: string) => {
     switch (currency) {
         case 'INR':
             return '₹';
@@ -124,94 +123,105 @@ const TicketScreen = () => {
   }
 
   return (
-    <ScrollView style={styles.container}>
-        <View style={styles.ticketCard}>
-            <View style={styles.ticketHeader}>
-                <Text style={styles.eventTitle}>{event.title}</Text>
-                <Text style={styles.eventHost}>by {event.hostName}</Text>
-            </View>
-
-            <View style={styles.ticketBody}>
-                <View style={styles.qrContainer}>
-                    <View style={styles.qrCodeBackground}>
-                        <QRCode
-                            value={order.orderId}
-                            size={180}
-                            backgroundColor='white'
-                            color='black'
-                        />
-                    </View>
-                    <Text style={styles.scanText}>Show this at the entrance</Text>
+    <View style={styles.rootContainer}>
+        <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
+            <Ionicons name="close" size={28} color="#fff" />
+        </TouchableOpacity>
+        <ScrollView>
+            <View style={styles.ticketCard}>
+                <View style={styles.ticketHeader}>
+                    <Text style={styles.eventTitle}>{event.title}</Text>
+                    <Text style={styles.eventHost}>by {event.hostName}</Text>
                 </View>
 
-                <View style={styles.attendeesContainer}>
-                    <Text style={styles.attendeesTitle}>Ticket Holders</Text>
-                    {allAttendees.map((attendee: Attendee, index: number) => (
-                        <View key={index} style={styles.attendeeRow}>
-                            <Ionicons name="person-outline" size={20} color="#A8A8A8" style={{marginRight: 10}}/>
-                            <View>
-                                <Text style={styles.attendeeName}>{attendee.name}</Text>
-                                <Text style={styles.attendeeEmail}>{attendee.email}</Text>
-                                {attendee.phone && (
-                                    <View style={styles.attendeePhoneRow}>
-                                        <Ionicons name="call-outline" size={16} color="#A8A8A8" style={{marginRight: 5}}/>
-                                        <Text style={styles.attendeePhone}>{attendee.phone}</Text>
-                                    </View>
-                                )}
+                <View style={styles.ticketBody}>
+                    <View style={styles.qrContainer}>
+                        <View style={styles.qrCodeBackground}>
+                            <QRCode
+                                value={order.orderId}
+                                size={180}
+                                backgroundColor='white'
+                                color='black'
+                            />
+                        </View>
+                        <Text style={styles.scanText}>Show this at the entrance</Text>
+                    </View>
+
+                    <View style={styles.attendeesContainer}>
+                        <Text style={styles.attendeesTitle}>Ticket Holders</Text>
+                        {allAttendees.map((attendee: Attendee, index: number) => (
+                            <View key={index} style={styles.attendeeRow}>
+                                <Ionicons name="person-outline" size={20} color="#A8A8A8" style={{marginRight: 10}}/>
+                                <View>
+                                    <Text style={styles.attendeeName}>{attendee.name}</Text>
+                                    <Text style={styles.attendeeEmail}>{attendee.email}</Text>
+                                    {attendee.phone && (
+                                        <View style={styles.attendeePhoneRow}>
+                                            <Ionicons name="call-outline" size={16} color="#A8A8A8" style={{marginRight: 5}}/>
+                                            <Text style={styles.attendeePhone}>{attendee.phone}</Text>
+                                        </View>
+                                    )}
+                                </View>
                             </View>
-                        </View>
-                    ))}
-                </View>
-
-                <View style={styles.itemsContainer}>
-                    <Text style={styles.itemsTitle}>Your Items</Text>
-                    {Object.values(aggregatedItems).map((item, index) => (
-                        <View key={index} style={styles.itemRow}>
-                            <Text style={styles.itemName}>{item.quantity}x {item.name}</Text>
-                            <Text style={styles.itemPrice}>{currencySymbol}{(item.unitPrice * item.quantity).toLocaleString()}</Text>
-                        </View>
-                    ))}
-                </View>
-
-                <View style={styles.summaryContainer}>
-                    <View style={styles.summaryRow}>
-                        <Text style={styles.summaryLabel}>Subtotal</Text>
-                        <Text style={styles.summaryValue}>{currencySymbol}{order.subtotal.toLocaleString()}</Text>
+                        ))}
                     </View>
 
-                    {order.processingFee !== undefined && (
+                    <View style={styles.itemsContainer}>
+                        <Text style={styles.itemsTitle}>Your Items</Text>
+                        {Object.values(aggregatedItems).map((item, index) => (
+                            <View key={index} style={styles.itemRow}>
+                                <Text style={styles.itemName}>{item.quantity}x {item.name}</Text>
+                                <Text style={styles.itemPrice}>{currencySymbol}{(item.unitPrice * item.quantity).toLocaleString()}</Text>
+                            </View>
+                        ))}
+                    </View>
+
+                    <View style={styles.summaryContainer}>
                         <View style={styles.summaryRow}>
-                            <Text style={styles.summaryLabel}>Processing Fee</Text>
-                            <Text style={styles.summaryValue}>{currencySymbol}{order.processingFee.toLocaleString()}</Text>
+                            <Text style={styles.summaryLabel}>Subtotal</Text>
+                            <Text style={styles.summaryValue}>{currencySymbol}{order.subtotal.toLocaleString()}</Text>
                         </View>
-                    )}
 
-                    {order.total !== undefined && (
-                        <>
-                            <View style={styles.divider} />
-                            <View style={[styles.summaryRow, styles.summaryTotalRow]}>
-                                <Text style={styles.summaryTotalLabel}>Total</Text>
-                                <Text style={styles.summaryTotalValue}>{currencySymbol}{order.total.toLocaleString()}</Text>
+                        {order.processingFee > 0 && (
+                            <View style={styles.summaryRow}>
+                                <Text style={styles.summaryLabel}>Processing Fee</Text>
+                                <Text style={styles.summaryValue}>{currencySymbol}{order.processingFee.toLocaleString()}</Text>
                             </View>
-                        </>
-                    )}
+                        )}
+
+                        {order.gstAmount > 0 && (
+                            <View style={styles.summaryRow}>
+                                 <Text style={styles.summaryLabel}>GST ({order.gstPercent}%)</Text>
+                                 <Text style={styles.summaryValue}>{currencySymbol}{order.gstAmount.toLocaleString()}</Text>
+                            </View>
+                        )}
+
+                        {order.discount > 0 && (
+                            <View style={styles.summaryRow}>
+                                <Text style={[styles.summaryLabel, styles.discountText]}>Discount</Text>
+                                <Text style={[styles.summaryValue, styles.discountText]}>-{currencySymbol}{order.discount.toLocaleString()}</Text>
+                            </View>
+                        )}
+
+                        <View style={styles.divider} />
+                        <View style={[styles.summaryRow, styles.summaryTotalRow]}>
+                            <Text style={styles.summaryTotalLabel}>Total Paid</Text>
+                            <Text style={styles.summaryTotalValue}>{currencySymbol}{order.total.toLocaleString()}</Text>
+                        </View>
+                    </View>
+                </View>
+
+                <View style={styles.ticketFooter}>
+                     <Text style={styles.orderId}>Order ID: {order.orderId.toUpperCase()}</Text>
                 </View>
             </View>
-
-            <View style={styles.ticketFooter}>
-                 <Text style={styles.orderId}>Order ID: {order.orderId.toUpperCase()}</Text>
-            </View>
-        </View>
-
-        <View style={styles.actionButtonsContainer}>
-            {/* Action buttons remain the same */}
-        </View>
-    </ScrollView>
+        </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-    container: {
+    rootContainer: {
         flex: 1,
         backgroundColor: '#121212',
     },
@@ -224,6 +234,18 @@ const styles = StyleSheet.create({
     errorText: {
         color: '#ff4444',
         fontSize: 16,
+    },
+    closeButton: {
+        position: 'absolute',
+        top: 50,
+        right: 20,
+        zIndex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     ticketCard: {
         marginHorizontal: 20,
@@ -350,6 +372,9 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
     },
+    discountText: {
+        color: '#4CAF50',
+    },
     summaryTotalRow: {
         marginTop: 5,
     },
@@ -372,28 +397,7 @@ const styles = StyleSheet.create({
         color: '#aaa',
         fontSize: 12,
         fontFamily: 'monospace', 
-    },
-    actionButtonsContainer: {
-        paddingHorizontal: 20,
-        paddingBottom: 20,
-    },
-    actionButton: {
-        backgroundColor: '#4a90e2',
-        borderRadius: 15,
-        padding: 15,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 10,
-    },
-    secondaryActionButton: {
-        backgroundColor: '#333',
-    },
-    actionButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
+    }
 });
 
 export default TicketScreen;
