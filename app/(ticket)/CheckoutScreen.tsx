@@ -361,12 +361,12 @@ const CheckoutScreen = () => {
     setIsProcessing(true);
 
     if (event?.currency === "INR" && orderType !== "movie") {
+      // The setIsProcessing(false) is removed from here and handled inside handleRazorpayPayment
       await handleRazorpayPayment();
     } else {
       await handleStripePayment();
+      setIsProcessing(false); // Only set to false here for stripe
     }
-
-    setIsProcessing(false);
   };
 
   const handleStripePayment = async () => {
@@ -409,7 +409,7 @@ const CheckoutScreen = () => {
       if (free) {
         router.push({
           pathname: "/(ticket)/PurchaseConfirmationScreen",
-          params: { orderId },
+          params: { orderId, eventId: eventIdStr },
         });
         return;
       }
@@ -436,7 +436,7 @@ const CheckoutScreen = () => {
       } else {
         router.push({
           pathname: "/(ticket)/PurchaseConfirmationScreen",
-          params: { orderId },
+          params: { orderId, eventId: eventIdStr },
         });
       }
     } catch (error) {
@@ -478,8 +478,9 @@ const CheckoutScreen = () => {
       if (free) {
         router.push({
           pathname: "/(ticket)/PurchaseConfirmationScreen",
-          params: { orderId },
+          params: { orderId, eventId: eventIdStr },
         });
+        setIsProcessing(false);
         return;
       }
 
@@ -503,16 +504,35 @@ const CheckoutScreen = () => {
       };
 
       RazorpayCheckout.open(options)
-        .then(() => {
-          router.push({
-            pathname: "/(ticket)/PurchaseConfirmationScreen",
-            params: { orderId },
-          });
+        .then(async (data) => {
+          try {
+            const verifyRazorpayPayment = httpsCallable(functions, 'verifyRazorpayPayment');
+            await verifyRazorpayPayment({
+              orderId: orderId,
+              razorpayPaymentId: data.razorpay_payment_id,
+              razorpayOrderId: data.razorpay_order_id,
+              razorpaySignature: data.razorpay_signature,
+            });
+
+            router.push({
+              pathname: "/(ticket)/PurchaseConfirmationScreen",
+              params: { orderId, eventId: eventIdStr },
+            });
+          } catch (verifyError) {
+              console.error("Razorpay verification error:", verifyError);
+              Alert.alert(
+                "Payment Verification Failed",
+                (verifyError as any).message || "Could not verify your payment. Please contact support."
+              );
+          } finally {
+            setIsProcessing(false);
+          }
         })
         .catch((error) => {
-          if (error.code !== 1) {
+          if (error.code !== 1) { // 1 = user cancelled payment
             Alert.alert("Payment Failed", `Error: ${error.description}`);
           }
+          setIsProcessing(false);
         });
     } catch (error) {
       console.error("Razorpay payment error:", error);
@@ -520,6 +540,7 @@ const CheckoutScreen = () => {
         "Payment Failed",
         (error as any).message || "Unable to process your order."
       );
+      setIsProcessing(false);
     }
   };
 
