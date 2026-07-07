@@ -102,7 +102,7 @@ async function _calculateOrderDetails(
   }
 
   const bookingFeePercent = event.bookingFeePercent ?? 10;
-  const gstPercent = Number(event.gstPercent ?? 0) || 0;
+  const gstPercent = event.gstPercent;
 
   const tierIds = Object.keys(selectedTiers);
   if (tierIds.length === 0) {
@@ -194,11 +194,15 @@ async function _calculateOrderDetails(
   const processingFee =
     feeBase > 0 ? Math.round(feeBase * (bookingFeePercent / 100)) : 0;
   
+  let effectiveGstPercent;
+  if (currency === "INR") {
+    effectiveGstPercent = gstPercent != null && Number(gstPercent) > 0 ? Number(gstPercent) : 18;
+  } else {
+    effectiveGstPercent = 0;
+  }
+
   const preTaxTotal = subtotalCharged + processingFee;
-  const gstAmount =
-    currency === "INR" && preTaxTotal > 0 && gstPercent > 0
-      ? Math.round(preTaxTotal * (gstPercent / 100))
-      : 0;
+  const gstAmount = preTaxTotal > 0 ? Math.round(preTaxTotal * (effectiveGstPercent / 100)) : 0;
 
   const finalTotal = preTaxTotal + gstAmount;
 
@@ -209,6 +213,7 @@ async function _calculateOrderDetails(
     subtotalCharged,
     feeBase,
     processingFee,
+    gstPercent: effectiveGstPercent,
     gstAmount,
     finalTotal,
   };
@@ -352,8 +357,14 @@ export const createPaymentIntent = functions.https.onCall(
     }
     const event = eventSnap.data()!;
     const currency = (event.currency || "INR").toUpperCase();
-    const gstPercent = Number(event.gstPercent ?? 0) || 0;
     const bookingFeePercent = event.bookingFeePercent ?? 10;
+    
+    let effectiveGstPercent;
+    if (currency === "INR") {
+      effectiveGstPercent = event.gstPercent != null && Number(event.gstPercent) > 0 ? Number(event.gstPercent) : 18;
+    } else {
+      effectiveGstPercent = 0;
+    }
 
     const orderId = db.collection("-").doc().id;
     let finalTotal = 0;
@@ -365,7 +376,6 @@ export const createPaymentIntent = functions.https.onCall(
         }
 
         const seatsCol = eventRef.collection("seats");
-        const now = admin.firestore.Timestamp.now();
 
         const seatItems: any[] = [];
         let seatSubtotal = 0;
@@ -391,7 +401,7 @@ export const createPaymentIntent = functions.https.onCall(
 
         const processingFee = Math.round(seatSubtotal * (bookingFeePercent / 100));
         const preTaxTotal = seatSubtotal + processingFee;
-        const gstAmount = currency === "INR" && preTaxTotal > 0 && gstPercent > 0 ? Math.round(preTaxTotal * (gstPercent / 100)) : 0;
+        const gstAmount = preTaxTotal > 0 ? Math.round(preTaxTotal * (effectiveGstPercent / 100)) : 0;
         finalTotal = preTaxTotal + gstAmount;
 
         orderDoc = {
@@ -404,7 +414,7 @@ export const createPaymentIntent = functions.https.onCall(
             subtotal: seatSubtotal,
             feeBase: seatSubtotal,
             processingFee,
-            gstPercent,
+            gstPercent: effectiveGstPercent,
             gstAmount,
             total: finalTotal,
             currency,
@@ -422,7 +432,6 @@ export const createPaymentIntent = functions.https.onCall(
             subtotalCharged,
             feeBase,
             processingFee,
-            gstAmount,
         } = await _calculateOrderDetails(eventId, selectedTiers, currency);
 
         const normalizedPromo = (promoCode || "").trim().toUpperCase();
@@ -445,7 +454,7 @@ export const createPaymentIntent = functions.https.onCall(
         }
 
         const preTaxTotal = Math.max(0, subtotalCharged - discountAmount + processingFee);
-        const finalGstAmount = currency === "INR" && preTaxTotal > 0 && gstPercent > 0 ? Math.round(preTaxTotal * (gstPercent / 100)) : 0;
+        const finalGstAmount = preTaxTotal > 0 ? Math.round(preTaxTotal * (effectiveGstPercent / 100)) : 0;
         finalTotal = preTaxTotal + finalGstAmount;
 
         orderDoc = {
@@ -459,7 +468,7 @@ export const createPaymentIntent = functions.https.onCall(
             subtotal: subtotalCharged,
             feeBase,
             processingFee: finalTotal === 0 ? 0 : processingFee,
-            gstPercent,
+            gstPercent: effectiveGstPercent,
             gstAmount: finalTotal === 0 ? 0 : finalGstAmount,
             total: finalTotal,
             discount: discountAmount,
@@ -561,8 +570,6 @@ export const createRazorpayOrder = functions.https.onCall(
       subtotalCharged,
       feeBase,
       processingFee,
-      gstAmount,
-      finalTotal,
     } = await _calculateOrderDetails(eventId, selectedTiers, currency);
 
     const normalizedPromo = (promoCode || "").trim().toUpperCase();
@@ -595,9 +602,16 @@ export const createRazorpayOrder = functions.https.onCall(
       }
     }
     
+    let effectiveGstPercent;
+    if (currency === "INR") {
+      effectiveGstPercent = event.gstPercent != null && Number(event.gstPercent) > 0 ? Number(event.gstPercent) : 18;
+    } else {
+      effectiveGstPercent = 0;
+    }
+
     const preTaxTotalAfterDiscount = Math.max(0, subtotalCharged - discountAmount + processingFee);
-    const finalGstAmount = currency === "INR" && preTaxTotalAfterDiscount > 0 && (event.gstPercent ?? 0) > 0 ? Math.round(preTaxTotalAfterDiscount * (event.gstPercent / 100)) : 0;
-    finalTotal = preTaxTotalAfterDiscount + finalGstAmount;
+    const finalGstAmount = preTaxTotalAfterDiscount > 0 ? Math.round(preTaxTotalAfterDiscount * (effectiveGstPercent / 100)) : 0;
+    const finalTotal = preTaxTotalAfterDiscount + finalGstAmount;
 
     const orderId = db.collection(" ").doc().id;
     const now = admin.firestore.FieldValue.serverTimestamp();
@@ -613,7 +627,7 @@ export const createRazorpayOrder = functions.https.onCall(
       subtotal: subtotalCharged,
       feeBase,
       processingFee,
-      gstPercent: event.gstPercent ?? 0,
+      gstPercent: effectiveGstPercent,
       gstAmount: finalGstAmount,
       total: finalTotal,
       discount: discountAmount,
@@ -1073,7 +1087,13 @@ export const createCheckoutSession = functions.https.onCall(
     const eventTitle = eventData.title || "Event";
     const currency = (eventData.currency || "INR").toUpperCase();
     const feePercent = eventData.bookingFeePercent ?? 10;
-    const gstPercent = Number(eventData.gstPercent ?? 0) || 0;
+    
+    let effectiveGstPercent;
+    if (currency === "INR") {
+      effectiveGstPercent = eventData.gstPercent != null && Number(eventData.gstPercent) > 0 ? Number(eventData.gstPercent) : 18;
+    } else {
+      effectiveGstPercent = 0;
+    }
 
     if (Array.isArray(selectedSeats) && selectedSeats.length > 0) {
       if (selectedSeats.length > 10) {
@@ -1145,8 +1165,7 @@ export const createCheckoutSession = functions.https.onCall(
 
       const seatProcessingFee = Math.round(seatSubtotal * (feePercent / 100));
       const seatPreTax = seatSubtotal + seatProcessingFee;
-      const seatGstAmount =
-        currency === "INR" && gstPercent > 0 ? Math.round(seatPreTax * (gstPercent / 100)) : 0;
+      const seatGstAmount = seatPreTax > 0 ? Math.round(seatPreTax * (effectiveGstPercent / 100)) : 0;
       const seatTotal = seatPreTax + seatGstAmount;
 
       const orderData: Record<string, any> = {
@@ -1160,7 +1179,7 @@ export const createCheckoutSession = functions.https.onCall(
         subtotal: seatSubtotal,
         feeBase: seatSubtotal,
         processingFee: seatProcessingFee,
-        gstPercent,
+        gstPercent: effectiveGstPercent,
         gstAmount: seatGstAmount,
         total: seatTotal,
         currency,
@@ -1202,7 +1221,7 @@ export const createCheckoutSession = functions.https.onCall(
             currency: currency.toLowerCase(),
             unit_amount: Math.round(seatGstAmount * 100),
             product_data: {
-              name: `GST (${gstPercent}%)`,
+              name: `GST (${effectiveGstPercent}%)`,
               description: "Goods and Services Tax",
             },
           },
@@ -1307,8 +1326,7 @@ export const createCheckoutSession = functions.https.onCall(
     }
 
     const preTaxTotal = Math.max(0, subtotal - discountAmount + processingFee);
-    const gstAmount =
-      currency === "INR" && gstPercent > 0 ? Math.round(preTaxTotal * (gstPercent / 100)) : 0;
+    const gstAmount = preTaxTotal > 0 ? Math.round(preTaxTotal * (effectiveGstPercent / 100)) : 0;
     const finalTotal = preTaxTotal + gstAmount;
 
     const orderRef = db.collection("orders").doc();
@@ -1322,7 +1340,7 @@ export const createCheckoutSession = functions.https.onCall(
       subtotal,
       feeBase,
       processingFee,
-      gstPercent,
+      gstPercent: effectiveGstPercent,
       gstAmount,
       total: finalTotal,
       currency,
@@ -1398,7 +1416,7 @@ export const createCheckoutSession = functions.https.onCall(
           currency: currency.toLowerCase(),
           unit_amount: Math.round(gstAmount * 100),
           product_data: {
-            name: `GST (${gstPercent}%)`,
+            name: `GST (${effectiveGstPercent}%)`,
             description: "Goods and Services Tax",
           },
         },
@@ -1472,8 +1490,6 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
     subtotalCharged,
     feeBase,
     processingFee,
-    gstAmount,
-    finalTotal,
   } = await _calculateOrderDetails(eventId, selectedTiers, currency);
 
   const normalizedPromo = (promoCode || "").trim().toUpperCase();
@@ -1506,9 +1522,16 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
     }
   }
 
+  let effectiveGstPercent;
+  if (currency === "INR") {
+    effectiveGstPercent = event.gstPercent != null && Number(event.gstPercent) > 0 ? Number(event.gstPercent) : 18;
+  } else {
+    effectiveGstPercent = 0;
+  }
+
   const preTaxTotalAfterDiscount = Math.max(0, subtotalCharged - discountAmount + processingFee);
-  const finalGstAmount = currency === "INR" && preTaxTotalAfterDiscount > 0 && (event.gstPercent ?? 0) > 0 ? Math.round(preTaxTotalAfterDiscount * (event.gstPercent / 100)) : 0;
-  finalTotal = preTaxTotalAfterDiscount + finalGstAmount;
+  const finalGstAmount = preTaxTotalAfterDiscount > 0 ? Math.round(preTaxTotalAfterDiscount * (effectiveGstPercent / 100)) : 0;
+  const finalTotal = preTaxTotalAfterDiscount + finalGstAmount;
 
   const orderId = db.collection(" ").doc().id;
 
@@ -1526,7 +1549,7 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
         subtotal: subtotalCharged,
         feeBase,
         processingFee: 0,
-        gstPercent: event.gstPercent ?? 0,
+        gstPercent: effectiveGstPercent,
         gstAmount: 0,
         total: 0,
         discount: discountAmount,
@@ -1583,7 +1606,7 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
           subtotal: subtotalCharged,
           feeBase,
           processingFee,
-          gstPercent: event.gstPercent ?? 0,
+          gstPercent: effectiveGstPercent,
           gstAmount: finalGstAmount,
           total: finalTotal,
           discount: discountAmount,

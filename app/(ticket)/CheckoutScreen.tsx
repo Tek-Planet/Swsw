@@ -45,6 +45,7 @@ interface PromoCodeData {
 }
 
 const razorpay_api_key = Constants?.expoConfig?.extra?.razorpay_api_key;
+const DEFAULT_GST_PERCENT = 18;
 
 const CheckoutScreen = () => {
   const {
@@ -228,11 +229,14 @@ const CheckoutScreen = () => {
     }
 
     const preTaxTotal = subtotalCharged - discount + processingFee;
-    const gstRate = event.gstPercent ? Number(event.gstPercent) / 100 : 0;
-    const gstAmount =
-      event.currency === "INR" && preTaxTotal > 0 && gstRate > 0
-        ? Math.round(preTaxTotal * gstRate)
-        : 0;
+    let effectiveGstPercent;
+    if (event.currency === "INR") {
+      effectiveGstPercent = event.gstPercent != null && event.gstPercent > 0 ? event.gstPercent : DEFAULT_GST_PERCENT;
+    } else {
+      effectiveGstPercent = 0;
+    }
+    const gstRate = effectiveGstPercent / 100;
+    const gstAmount = preTaxTotal > 0 ? Math.round(preTaxTotal * gstRate) : 0;
     const finalTotal = Math.max(0, preTaxTotal + gstAmount);
 
     setPricing({

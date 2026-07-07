@@ -43,6 +43,8 @@ interface PromoCodeData {
   eventId: string;
 }
 
+const DEFAULT_GST_PERCENT = 18;
+
 const Checkout = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -71,11 +73,16 @@ const Checkout = () => {
   const [isGPayProcessing, setIsGPayProcessing] = useState(false);
   const [isRazorpayProcessing, setIsRazorpayProcessing] = useState(false);
 
-
-  // Get fee percent from event or default to 10%
   const feePercent = event?.bookingFeePercent != null ? event.bookingFeePercent / 100 : 0.10;
-  const gstRate = event?.gstPercent != null && event.gstPercent > 0 ? event.gstPercent / 100 : 0;
   const currency = event?.currency || 'INR';
+
+  let effectiveGstPercent;
+  if (currency === "INR") {
+    effectiveGstPercent = event?.gstPercent != null && event.gstPercent > 0 ? event.gstPercent : DEFAULT_GST_PERCENT;
+  } else {
+    effectiveGstPercent = 0;
+  }
+  const gstRate = effectiveGstPercent / 100;
 
   useEffect(() => {
     if (currency === 'INR') {
@@ -86,17 +93,14 @@ const Checkout = () => {
     }
   }, [currency]);
 
-  // Validate promo code against Firestore
   const validatePromoCode = async (code: string) => {
     if (!code.trim() || !eventId) {
-      console.log("[Promo] Validation skipped - code or eventId missing", { code, eventId });
       return;
     }
     
     setPromoValidating(true);
     try {
       const upperCode = code.trim().toUpperCase();
-      console.log("[Promo] Validating code:", upperCode, "for eventId:", eventId);
       
       const promoQuery = query(
         collection(db, 'promoCodes'),
@@ -104,8 +108,6 @@ const Checkout = () => {
         where('code', '==', upperCode)
       );
       const snapshot = await getDocs(promoQuery);
-      
-      console.log("[Promo] Query result - found:", snapshot.size, "documents");
       
       if (snapshot.empty) {
         setPromoApplied(null);
@@ -120,7 +122,6 @@ const Checkout = () => {
       const promoDoc = snapshot.docs[0];
       const promoData = { id: promoDoc.id, ...promoDoc.data() } as PromoCodeData;
       
-      // Check if active
       if (!promoData.isActive) {
         setPromoApplied(null);
         toast({
@@ -131,7 +132,6 @@ const Checkout = () => {
         return;
       }
 
-      // Check redemption limit
       if (promoData.currentRedemptions >= promoData.maxRedemptions) {
         setPromoApplied(null);
         toast({
@@ -142,7 +142,6 @@ const Checkout = () => {
         return;
       }
       
-      // Check if the promo applies to any of the selected tiers
       const { applicableTierIds } = promoData;
       if (applicableTierIds && applicableTierIds.length > 0) {
         const selectedTierIds = Object.keys(selectedTiers).filter(id => selectedTiers[id] > 0);
@@ -155,7 +154,7 @@ const Checkout = () => {
             description: "This promo code cannot be used with the selected tickets.",
             variant: "destructive",
           });
-          return; // Stop further processing
+          return;
         }
       }
 
@@ -170,7 +169,6 @@ const Checkout = () => {
       });
     } catch (error: any) {
       console.error("[Promo] Error validating promo:", error);
-      // Check if it's a missing index error
       if (error?.message?.includes('index')) {
         toast({
           title: "Configuration Error",
@@ -190,7 +188,6 @@ const Checkout = () => {
     }
   };
 
-  // Calculate discount amount
   const calculateDiscount = (
     subtotal: number,
     processingFee: number,
@@ -212,7 +209,6 @@ const Checkout = () => {
     }
   };
 
-  // Calculate total for Google Pay
   const orderTotal = useMemo(() => {
     let subtotal = 0;
     let feeBase = 0;
@@ -246,11 +242,9 @@ const Checkout = () => {
 
   const { isAvailable: isGPayAvailable, environment, allowedPaymentMethods, merchantInfo } = useGooglePay(orderTotal);
 
-  // Load and validate selections from localStorage
    useEffect(() => {
     if (eventLoading || !event || !eventId) return;
 
-    // MOVIE EVENT: Load selected seats and generate tiers
     if (event.eventType === 'movie') {
       if (venueLoading || !venue) return;
 
@@ -296,7 +290,6 @@ const Checkout = () => {
       return;
     }
 
-    // REGULAR EVENT: Load selected tiers
     if (event.eventType === 'regular') {
       if (tiersLoading || !regularTiers) return;
 
@@ -342,7 +335,6 @@ const Checkout = () => {
     }
   }, [event, eventLoading, eventId, regularTiers, tiersLoading, venue, venueLoading, toast]);
 
-  // Calculate total ticket count (excluding donations for attendee info)
   const ticketCount = useMemo(() => {
     return Object.entries(selectedTiers).reduce((count, [tierId, qty]) => {
       const tier = checkoutTiers.find((t) => t.id === tierId);
@@ -360,7 +352,6 @@ const Checkout = () => {
     });
   }, [selectedTiers, checkoutTiers]);
 
-  // Initialize attendees array when ticket count changes
   useEffect(() => {
     setAttendees((prev) => {
       const newAttendees: AttendeeInfo[] = [];
@@ -371,7 +362,6 @@ const Checkout = () => {
     });
   }, [ticketCount]);
 
-  // Handle attendee info change
   const handleAttendeeChange = (index: number, field: keyof AttendeeInfo, value: string) => {
     setAttendees((prev) => {
       const updated = [...prev];
@@ -380,12 +370,10 @@ const Checkout = () => {
     });
   };
 
-  // Handle donor info change
   const handleDonorChange = (field: keyof AttendeeInfo, value: string) => {
     setDonor((prev) => ({ ...prev, [field]: value }));
   };
 
-  // Handle "Use Attendee Details" checkbox
   const handleUseAttendeeDetailsChange = (checked: boolean) => {
     setUseAttendeeDetails(checked);
     if (checked && attendees[0]) {
@@ -395,15 +383,12 @@ const Checkout = () => {
     }
   };
 
-  // Sync donor details if attendee 1 details change
   useEffect(() => {
     if (useAttendeeDetails && attendees[0]) {
         setDonor(attendees[0]);
     }
   }, [attendees, useAttendeeDetails]);
 
-
-  // Redirect if not logged in
   useEffect(() => {
     if (!user && !eventLoading) {
       localStorage.setItem("grid_return_url", `/checkout?eventId=${eventId}`);
@@ -411,7 +396,6 @@ const Checkout = () => {
     }
   }, [user, eventLoading, navigate, eventId]);
 
-  // Validate invite-only approval
   const { getUserApplication } = useEventApplications(eventId);
   const [inviteApproved, setInviteApproved] = useState<boolean | null>(null);
 
@@ -428,7 +412,6 @@ const Checkout = () => {
     checkInviteApproval();
   }, [user, event]);
 
-  // Validate all attendee fields are filled
   const validateAttendees = (): boolean => {
     if (ticketCount === 0) return true;
     const allFieldsFilled = attendees.every(a => 
@@ -490,7 +473,6 @@ const Checkout = () => {
     setIsProcessing(true);
 
     try {
-      // Call Firebase Cloud Function to create Stripe checkout session
       const createCheckoutSession = httpsCallable(functions, "createCheckoutSession");
 
       const tiersToSend: Record<string, number> = {};
@@ -515,27 +497,22 @@ const Checkout = () => {
         payload.selectedTiers = tiersToSend;
       }
 
-      console.log("Sending to checkout:", payload);
-
       const result = await createCheckoutSession(payload);
 
       const data = result.data as { url?: string; orderId: string; free?: boolean; vip?: boolean };
 
-      // Clear selections
       localStorage.removeItem(`grid_selections_${eventId}`);
       if (event?.eventType === 'movie') {
         localStorage.removeItem(`grid_seats_${eventId}`);
       }
 
       if (data.free || data.vip) {
-        // Free tier or VIP promo - order is already paid, skip Stripe
         toast({
           title: data.vip ? "VIP Access Granted!" : "Order Confirmed!",
           description: "Your tickets have been reserved.",
         });
         navigate(`/success?orderId=${data.orderId}`);
       } else if (data.url) {
-        // Redirect to Stripe Checkout
         window.location.href = data.url;
       } else {
         throw new Error("No checkout URL returned");
@@ -615,8 +592,6 @@ const Checkout = () => {
         payload.selectedTiers = tiersToSend;
       }
 
-      console.log("Sending to createRazorpayOrder:", payload);
-
       const result = await createRazorpayOrder(payload);
       const data = result.data as {
         orderId: string;
@@ -648,7 +623,6 @@ const Checkout = () => {
         description: `Order #${data.orderId}`,
         order_id: data.razorpayOrderId,
         handler: async function (response: any) {
-            console.log("Razerpay response", response)
             try {
                 const verifyPayment = httpsCallable(functions, "verifyRazorpayPayment");
                 await verifyPayment({
@@ -698,7 +672,6 @@ const Checkout = () => {
   };
 
 
-  // Handle Google Pay payment
   const handleGooglePayPayment = async (paymentData: google.payments.api.PaymentData) => {
     if (!validateAttendees()) {
       toast({
@@ -744,9 +717,8 @@ const Checkout = () => {
         }
       });
 
-      // Extract the Stripe PaymentMethod ID from Google Pay response
       const tokenData = JSON.parse(paymentData.paymentMethodData.tokenizationData.token);
-      const paymentMethodId = tokenData.id; // This is the Stripe PaymentMethod ID (pm_xxx)
+      const paymentMethodId = tokenData.id;
 
       const filledAttendees = attendees.filter(a => a.name.trim());
 
@@ -764,12 +736,9 @@ const Checkout = () => {
         payload.selectedTiers = tiersToSend;
       }
 
-      console.log("Sending to gpayCharge:", payload);
-
       const result = await gpayCharge(payload);
       const data = result.data as { orderId: string; success: boolean };
 
-      // Clear selections
       localStorage.removeItem(`grid_selections_${eventId}`);
       if (event?.eventType === 'movie') {
         localStorage.removeItem(`grid_seats_${eventId}`);
@@ -838,13 +807,11 @@ const Checkout = () => {
             animate={{ opacity: 1, y: 0 }}
             className="grid lg:grid-cols-5 gap-8"
           >
-            {/* Left Column - Order Details */}
             <div className="lg:col-span-3 space-y-6">
               <div className="p-6 rounded-2xl bg-card border border-border">
                 <h1 className="text-2xl font-display font-bold text-foreground mb-2">Checkout</h1>
                 <p className="text-muted-foreground mb-6">{event.title}</p>
 
-                {/* Order Items */}
                 <div className="mb-6">
                   <h2 className="text-lg font-semibold text-foreground mb-4">Order Details</h2>
                   <OrderSummary 
@@ -857,7 +824,6 @@ const Checkout = () => {
                   />
                 </div>
 
-                {/* Attendee Information */}
                 {ticketCount > 0 && (
                   <div className="pt-6 border-t border-border">
                     <div className="flex items-center gap-2 mb-4">
@@ -883,7 +849,6 @@ const Checkout = () => {
                   </div>
                 )}
 
-                {/* Donor Information */}
                 {hasDonation && (
                     <div className="pt-6 border-t border-border">
                         <div className="flex items-center gap-2 mb-4">
@@ -902,7 +867,6 @@ const Checkout = () => {
                     </div>
                 )}
 
-                {/* Promo Code */}
                 <div className="pt-6 border-t border-border">
                   <h2 className="text-lg font-semibold text-foreground mb-4">Promo Code</h2>
                   <div className="flex gap-3">
@@ -960,7 +924,6 @@ const Checkout = () => {
                 </div>
               </div>
 
-              {/* Terms */}
               <div className="p-6 rounded-2xl bg-card border border-border">
                 <div className="flex items-start gap-3">
                   <Checkbox
@@ -977,7 +940,6 @@ const Checkout = () => {
               </div>
             </div>
 
-            {/* Right Column - Payment */}
             <div className="lg:col-span-2">
               <motion.div
                 initial={{ opacity: 0, x: 20 }}

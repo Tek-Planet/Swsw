@@ -23,9 +23,14 @@ import { db } from "../../lib/firebase/firebaseConfig";
 import { Event, TicketTier } from "../../types/event";
 import { getCurrencySymbol } from "../../lib/utils";
 import MovieTicketSelectionScreen from "./MovieTicketSelectionScreen";
+import { useAuth } from "@/contexts/AuthContext";
+import EventApplicationForm from "@/components/EventApplicationForm";
+
+const DEFAULT_GST_PERCENT = 18;
 
 const TicketSelectionScreen = () => {
   const { eventId } = useLocalSearchParams();
+  const { user } = useAuth();
   const router = useRouter();
   const [event, setEvent] = useState<Event | null>(null);
   const [ticketTiers, setTicketTiers] = useState<TicketTier[]>([]);
@@ -39,43 +44,78 @@ const TicketSelectionScreen = () => {
     gstAmount: 0,
     total: 0,
   });
+  const [applicationStatus, setApplicationStatus] = useState<string | null>(null);
   const [isNavigating, setIsNavigating] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (!eventId) return;
 
-    const fetchEventDetails = async () => {
-      const eventRef = doc(db, "events", eventId as string);
-      const eventSnap = await getDoc(eventRef);
-      if (eventSnap.exists()) {
-        const eventData = { id: eventSnap.id, ...eventSnap.data() } as Event;
-        eventData.currency = eventData.currency || "INR";
-        setEvent(eventData);
+    const fetchEventAndApplication = async () => {
+      setIsLoading(true);
+      try {
+        const eventRef = doc(db, "events", eventId as string);
+        const eventSnap = await getDoc(eventRef);
+        if (eventSnap.exists()) {
+          const eventData = { id: eventSnap.id, ...eventSnap.data() } as Event;
+          eventData.currency = eventData.currency || "INR";
+          setEvent(eventData);
+
+          if (eventData.isInviteOnly) {
+            if (user) {
+              const appRef = doc(eventRef, "applications", user.uid);
+              const appSnap = await getDoc(appRef);
+              if (appSnap.exists()) {
+                setApplicationStatus(appSnap.data().status);
+              } else {
+                setApplicationStatus("not_applied");
+              }
+            } else {
+              setApplicationStatus("not_applied");
+            }
+          } else {
+            setApplicationStatus("not_applicable");
+            fetchTicketTiers();
+          }
+        } else {
+          setIsLoading(false);
+        }
+      } catch (error) {
+        console.error("Error fetching event details:", error);
+        setIsLoading(false);
       }
     };
 
-    const fetchTicketTiers = async () => {
-      const tiersRef = collection(
-        db,
-        "events",
-        eventId as string,
-        "ticketTiers"
-      );
-      const q = query(
-        tiersRef,
-        where("isActive", "==", true),
-        orderBy("sortOrder")
-      );
-      const tiersSnap = await getDocs(q);
-      const tiers = tiersSnap.docs.map(
-        (doc) => ({ id: doc.id, ...doc.data() } as TicketTier)
-      );
-      setTicketTiers(tiers);
-    };
+    fetchEventAndApplication();
+  }, [eventId, user]);
 
-    fetchEventDetails();
-    fetchTicketTiers();
-  }, [eventId]);
+  const fetchTicketTiers = async () => {
+    const tiersRef = collection(
+      db,
+      "events",
+      eventId as string,
+      "ticketTiers"
+    );
+    const q = query(
+      tiersRef,
+      where("isActive", "==", true),
+      orderBy("sortOrder")
+    );
+    const tiersSnap = await getDocs(q);
+    const tiers = tiersSnap.docs.map(
+      (doc) => ({ id: doc.id, ...doc.data() } as TicketTier)
+    );
+    setTicketTiers(tiers);
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    if (applicationStatus === "approved") {
+      fetchTicketTiers();
+    } else if (applicationStatus && applicationStatus !== "not_applicable") {
+      setIsLoading(false);
+    }
+  }, [applicationStatus]);
 
   const handleQuantityChange = (tierId: string, quantity: number) => {
     const newSelectedTiers = { ...selectedTiers, [tierId]: quantity };
@@ -113,10 +153,20 @@ const TicketSelectionScreen = () => {
       ? event.bookingFeePercent / 100
       : 0.1;
     const processingFee = feeBase > 0 ? Math.round(feeBase * feePercentage) : 0;
-    
-    const gstRate = event.gstPercent ? Number(event.gstPercent) / 100 : 0;
+
+    let effectiveGstPercent;
+    if (event.currency === "INR") {
+      effectiveGstPercent =
+        event.gstPercent != null && event.gstPercent > 0
+          ? event.gstPercent
+          : DEFAULT_GST_PERCENT;
+    } else {
+      effectiveGstPercent = 0;
+    }
+    const gstRate = effectiveGstPercent / 100;
+
     const preTaxTotal = subtotalCharged + processingFee;
-    const gstAmount = event.currency === "INR" && preTaxTotal > 0 && gstRate > 0 ? Math.round(preTaxTotal * gstRate) : 0;
+    const gstAmount = preTaxTotal > 0 ? Math.round(preTaxTotal * gstRate) : 0;
 
     const total = preTaxTotal + gstAmount;
 
@@ -203,7 +253,11 @@ const TicketSelectionScreen = () => {
   const isContinueDisabled =
     Object.keys(selectedTiers).length === 0 || isNavigating;
 
-  if (!event) {
+  const handleApplicationSubmitted = () => {
+    setApplicationStatus("pending");
+  };
+
+  if (isLoading || !event) {
     return (
       <ThemedView style={styles.centeredContainer}>
         <ActivityIndicator size="large" color="#fff" />
@@ -213,6 +267,73 @@ const TicketSelectionScreen = () => {
 
   if (event.eventType === "movie") {
     return <MovieTicketSelectionScreen />;
+  }
+
+  if (event.isInviteOnly) {
+    return (
+      <ThemedView style={styles.container}>
+        <View style={{ paddingHorizontal: 20 }}>
+          <TopNavBar title={event.title} onBackPress={() => router.back()} />
+        </View>
+        {applicationStatus === "not_applied" && (
+          <EventApplicationForm
+            event={event}
+            onApplicationSubmitted={handleApplicationSubmitted}
+          />
+        )}
+        {applicationStatus === "pending" && (
+          <View style={styles.centeredMessage}>
+            <Text style={styles.statusText}>Your application is pending.</Text>
+            <Text style={styles.statusSubText}>
+              You will be notified once it has been reviewed.
+            </Text>
+          </View>
+        )}
+        {applicationStatus === "rejected" && (
+          <View style={styles.centeredMessage}>
+            <Text style={styles.statusText}>Application Not Approved</Text>
+            <Text style={styles.statusSubText}>
+              We regret to inform you that your application to attend this event
+              was not approved at this time.
+            </Text>
+          </View>
+        )}
+        {applicationStatus === "approved" && (
+          <>
+            <FlatList
+              data={ticketTiers}
+              renderItem={renderTier}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.listContainer}
+              ListHeaderComponent={() => (
+                <View style={styles.approvedHeader}>
+                  <Text style={styles.approvedTitle}>You're Approved!</Text>
+                  <Text style={styles.approvedSubtitle}>You can now select your tickets for {event.title}.</Text>
+                </View>
+              )}
+            />
+            <View style={styles.stickyFooter}>
+              <View style={styles.priceDetails}>
+                <Text style={styles.totalPrice}>
+                  Total: {currencySymbol}
+                  {pricing.total.toLocaleString()}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[
+                  styles.ctaButton,
+                  isContinueDisabled && styles.ctaButtonDisabled,
+                ]}
+                onPress={handleReviewOrder}
+                disabled={isContinueDisabled}
+              >
+                <Text style={styles.ctaButtonText}>Review Order</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+      </ThemedView>
+    );
   }
 
   return (
@@ -235,8 +356,10 @@ const TicketSelectionScreen = () => {
           {pricing.total > 0 && (
             <Text style={styles.priceBreakdown} numberOfLines={2}>
               Subtotal: {currencySymbol}{pricing.subtotal.toLocaleString()}
-              {' + '}Fee: {currencySymbol}{pricing.processingFee.toLocaleString()}
-              {pricing.gstAmount > 0 && ` + GST: ${currencySymbol}${pricing.gstAmount.toLocaleString()}`}
+              {' + '}Fee: {currencySymbol}
+              {pricing.processingFee.toLocaleString()}
+              {pricing.gstAmount > 0 &&
+                ` + GST: ${currencySymbol}${pricing.gstAmount.toLocaleString()}`}
             </Text>
           )}
         </View>
@@ -371,7 +494,44 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     paddingTop: 10,
-    paddingBottom: 120,
+    paddingBottom: 120, // To make space for sticky footer
+  },
+  centeredMessage: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  statusText: {
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  statusSubText: {
+    color: "#aaa",
+    fontSize: 16,
+    textAlign: "center",
+    marginTop: 10,
+  },
+  approvedHeader: {
+    padding: 20,
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: "#2c2c2e",
+    marginHorizontal: 15,
+  },
+  approvedTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#4CAF50",
+    textAlign: "center",
+  },
+  approvedSubtitle: {
+    fontSize: 16,
+    color: "#ccc",
+    textAlign: "center",
+    marginTop: 5,
   },
 });
 
