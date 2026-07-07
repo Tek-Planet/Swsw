@@ -24,6 +24,8 @@ import { Event, TicketTier } from "../../types/event";
 import { getCurrencySymbol } from "../../lib/utils";
 import MovieTicketSelectionScreen from "./MovieTicketSelectionScreen";
 
+const DEFAULT_GST_PERCENT = 18;
+
 const TicketSelectionScreen = () => {
   const { eventId } = useLocalSearchParams();
   const router = useRouter();
@@ -113,14 +115,30 @@ const TicketSelectionScreen = () => {
       ? event.bookingFeePercent / 100
       : 0.1;
     const processingFee = feeBase > 0 ? Math.round(feeBase * feePercentage) : 0;
-    
-    const gstRate = event.gstPercent ? Number(event.gstPercent) / 100 : 0;
+
+    let effectiveGstPercent;
+    if (event.currency === "INR") {
+      effectiveGstPercent =
+        event.gstPercent != null && event.gstPercent > 0
+          ? event.gstPercent
+          : DEFAULT_GST_PERCENT;
+    } else {
+      effectiveGstPercent = 0;
+    }
+    const gstRate = effectiveGstPercent / 100;
+
     const preTaxTotal = subtotalCharged + processingFee;
-    const gstAmount = event.currency === "INR" && preTaxTotal > 0 && gstRate > 0 ? Math.round(preTaxTotal * gstRate) : 0;
+    const gstAmount = preTaxTotal > 0 ? Math.round(preTaxTotal * gstRate) : 0;
 
     const total = preTaxTotal + gstAmount;
 
-    setPricing({ subtotal: subtotalCharged, feeBase, processingFee, gstAmount, total });
+    setPricing({
+      subtotal: subtotalCharged,
+      feeBase,
+      processingFee,
+      gstAmount,
+      total,
+    });
   }, [selectedTiers, ticketTiers, event]);
 
   const currencySymbol = event ? getCurrencySymbol(event.currency) : "₹";
@@ -234,9 +252,12 @@ const TicketSelectionScreen = () => {
           </Text>
           {pricing.total > 0 && (
             <Text style={styles.priceBreakdown} numberOfLines={2}>
-              Subtotal: {currencySymbol}{pricing.subtotal.toLocaleString()}
-              {' + '}Fee: {currencySymbol}{pricing.processingFee.toLocaleString()}
-              {pricing.gstAmount > 0 && ` + GST: ${currencySymbol}${pricing.gstAmount.toLocaleString()}`}
+              Subtotal: {currencySymbol}
+              {pricing.subtotal.toLocaleString()}
+              {" + "}Fee: {currencySymbol}
+              {pricing.processingFee.toLocaleString()}
+              {pricing.gstAmount > 0 &&
+                ` + GST: ${currencySymbol}${pricing.gstAmount.toLocaleString()}`}
             </Text>
           )}
         </View>
