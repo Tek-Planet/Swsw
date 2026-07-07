@@ -27,6 +27,7 @@ interface OrderSummaryProps {
 }
 
 const DEFAULT_FEE_PERCENT = 0.10;
+const DEFAULT_GST_PERCENT = 18;
 
 // Helper to get the amount charged for a tier
 const getChargeAmount = (tier: TicketTier): number => {
@@ -67,8 +68,15 @@ const OrderSummary = ({
   gstPercent
 }: OrderSummaryProps) => {
   const feePercent = bookingFeePercent != null ? bookingFeePercent / 100 : DEFAULT_FEE_PERCENT;
-  const gstRate = gstPercent != null && gstPercent > 0 ? gstPercent / 100 : 0;
   
+  let effectiveGstPercent;
+  if (currency === "INR") {
+    effectiveGstPercent = gstPercent != null && gstPercent > 0 ? gstPercent : DEFAULT_GST_PERCENT;
+  } else {
+    effectiveGstPercent = 0;
+  }
+  const gstRate = effectiveGstPercent / 100;
+
   const formatPrice = (price: number) => {
     const locale = currency === 'USD' ? 'en-US' : 'en-IN';
     return new Intl.NumberFormat(locale, {
@@ -113,7 +121,6 @@ const OrderSummary = ({
   const total = taxableBase + gstAmount;
   
   const feePercentDisplay = Math.round(feePercent * 100);
-  const gstPercentDisplay = gstPercent ?? 0;
   
   const getPromoLabel = () => {
     if (!promoApplied) return '';
@@ -224,7 +231,7 @@ const OrderSummary = ({
         {/* GST / Tax */}
         {gstAmount > 0 && (
           <div className="flex justify-between items-center">
-            <p className="text-muted-foreground">GST ({gstPercentDisplay}%)</p>
+            <p className="text-muted-foreground">GST ({effectiveGstPercent}%)</p>
             <p className="font-medium text-foreground">{formatPrice(gstAmount)}</p>
           </div>
         )}
