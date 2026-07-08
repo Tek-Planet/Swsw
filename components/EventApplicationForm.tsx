@@ -4,14 +4,8 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityInd
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebaseConfig';
 import { useAuth } from '@/lib/context/AuthContext';
-import { Event } from '@/types/event';
-
-interface CustomQuestion {
-    id: string;
-    label: string;
-    placeholder?: string;
-    required?: boolean;
-}
+import { Event, CustomQuestion } from '@/types/event';
+import ChipSelector from '@/components/ChipSelector';
 
 interface EventApplicationFormProps {
     event: Event;
@@ -25,6 +19,7 @@ const EventApplicationForm = ({ event, onApplicationSubmitted }: EventApplicatio
         email: user?.email || '',
         phone: user?.phoneNumber || '',
     });
+    const [reason, setReason] = useState('');
     const [customAnswers, setCustomAnswers] = useState<Record<string, string>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -47,6 +42,7 @@ const EventApplicationForm = ({ event, onApplicationSubmitted }: EventApplicatio
         if (!formData.email.trim()) newErrors.email = "Email is required.";
         if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "Email is invalid.";
         if (!formData.phone.trim()) newErrors.phone = "Phone number is required.";
+        if (!reason.trim()) newErrors.reason = "This field is required.";
         
         customQuestions.forEach(q => {
             if (q.required && !customAnswers[q.id]?.trim()) {
@@ -77,6 +73,7 @@ const EventApplicationForm = ({ event, onApplicationSubmitted }: EventApplicatio
                 name: formData.name,
                 email: formData.email,
                 phone: formData.phone,
+                reason: reason,
                 answers: customAnswers,
                 status: 'pending',
                 createdAt: serverTimestamp(),
@@ -132,16 +129,35 @@ const EventApplicationForm = ({ event, onApplicationSubmitted }: EventApplicatio
             />
             {errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
 
+            <Text style={styles.questionLabel}>Why do you want to join this event? *</Text>
+            <TextInput
+                style={[styles.input, styles.textArea, errors.reason ? styles.inputError : null]}
+                placeholder="Let the host know why you'd be a great fit for the event..."
+                value={reason}
+                onChangeText={setReason}
+                multiline
+                placeholderTextColor="#888"
+            />
+            {errors.reason && <Text style={styles.errorText}>{errors.reason}</Text>}
+
             {customQuestions.map(q => (
                 <View key={q.id}>
                     <Text style={styles.questionLabel}>{q.label} {q.required ? '*' : ''}</Text>
-                    <TextInput
-                        style={[styles.input, errors[q.id] ? styles.inputError : null]}
-                        placeholder={q.placeholder || 'Your answer'}
-                        value={customAnswers[q.id] || ''}
-                        onChangeText={text => setCustomAnswers(p => ({ ...p, [q.id]: text }))}
-                        placeholderTextColor="#888"
-                    />
+                    {q.type === 'select' ? (
+                        <ChipSelector 
+                            options={q.options || []}
+                            selected={customAnswers[q.id]}
+                            onSelect={selection => setCustomAnswers(p => ({ ...p, [q.id]: selection }))}
+                        />
+                    ) : (
+                        <TextInput
+                            style={[styles.input, errors[q.id] ? styles.inputError : null]}
+                            placeholder={'Your answer'}
+                            value={customAnswers[q.id] || ''}
+                            onChangeText={text => setCustomAnswers(p => ({ ...p, [q.id]: text }))}
+                            placeholderTextColor="#888"
+                        />
+                    )}
                     {errors[q.id] && <Text style={styles.errorText}>{errors[q.id]}</Text>}
                 </View>
             ))}
@@ -156,11 +172,12 @@ const EventApplicationForm = ({ event, onApplicationSubmitted }: EventApplicatio
     );
 };
 
-const styles = StyleSheet..create({
+const styles = StyleSheet.create({
     container: { padding: 20, backgroundColor: '#1a1a1a', borderRadius: 10, marginHorizontal: 15, marginVertical: 20 },
     title: { fontSize: 22, fontWeight: 'bold', color: '#fff', marginBottom: 5 },
     subtitle: { fontSize: 14, color: '#aaa', marginBottom: 20, lineHeight: 20 },
     input: { backgroundColor: '#2c2c2e', color: '#fff', borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 12 },
+    textArea: { height: 100, textAlignVertical: 'top' },
     inputError: { borderColor: '#e53e3e', borderWidth: 1 },
     errorText: { color: '#e53e3e', fontSize: 12, marginBottom: 10, marginTop: -8 },
     questionLabel: { color: '#fff', fontSize: 16, marginBottom: 10, fontWeight: '500' },
