@@ -19,18 +19,17 @@ import {
   View,
 } from "react-native";
 import { ThemedView } from "../../components/themed-view";
-import { db } from "../../lib/firebase/firebaseConfig";
+import { auth, db } from "../../lib/firebase/firebaseConfig";
 import { Event, TicketTier } from "../../types/event";
 import { getCurrencySymbol } from "../../lib/utils";
 import MovieTicketSelectionScreen from "./MovieTicketSelectionScreen";
-import { useAuth } from "@/contexts/AuthContext";
 import EventApplicationForm from "@/components/EventApplicationForm";
 
 const DEFAULT_GST_PERCENT = 18;
 
 const TicketSelectionScreen = () => {
   const { eventId } = useLocalSearchParams();
-  const { user } = useAuth();
+  const user = auth.currentUser;
   const router = useRouter();
   const [event, setEvent] = useState<Event | null>(null);
   const [ticketTiers, setTicketTiers] = useState<TicketTier[]>([]);

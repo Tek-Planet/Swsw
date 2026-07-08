@@ -3,7 +3,6 @@ import { useStripe } from "@stripe/stripe-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   collection,
-  doc,
   getDocs,
   orderBy,
   query,
