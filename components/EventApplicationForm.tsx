@@ -9,10 +9,9 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "../lib/firebase/firebaseConfig";
-
-import { Event } from "../types/event";
-import { useAuth } from "../lib/context/AuthContext";
+import { db } from "@/lib/firebase/firebaseConfig";
+import { useAuth } from "@/lib/context/AuthContext";
+import { Event } from "@/types/event";
 
 interface CustomQuestion {
   id: string;
