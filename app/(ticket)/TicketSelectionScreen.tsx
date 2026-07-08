@@ -18,10 +18,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { ThemedView } from "../../components/themed-view";
-import { auth, db } from "../../lib/firebase/firebaseConfig";
-import { Event, TicketTier } from "../../types/event";
-import { getCurrencySymbol } from "../../lib/utils";
+import { ThemedView } from "@/components/themed-view";
+import { auth, db } from "@/lib/firebase/firebaseConfig";
+import { Event, TicketTier } from "@/types/event";
+import { getCurrencySymbol } from "@/lib/utils";
 import MovieTicketSelectionScreen from "./MovieTicketSelectionScreen";
 import EventApplicationForm from "@/components/EventApplicationForm";
 

@@ -2,9 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../lib/firebase/firebaseConfig';
-import { useAuth } from '../contexts/AuthContext';
-import { Event } from '../types/event';
+import { db } from '@/lib/firebase/firebaseConfig';
+import { useAuth } from '@/lib/context/AuthContext';
+import { Event } from '@/types/event';
 
 interface CustomQuestion {
     id: string;
@@ -156,7 +156,7 @@ const EventApplicationForm = ({ event, onApplicationSubmitted }: EventApplicatio
     );
 };
 
-const styles = StyleSheet.create({
+const styles = StyleSheet..create({
     container: { padding: 20, backgroundColor: '#1a1a1a', borderRadius: 10, marginHorizontal: 15, marginVertical: 20 },
     title: { fontSize: 22, fontWeight: 'bold', color: '#fff', marginBottom: 5 },
     subtitle: { fontSize: 14, color: '#aaa', marginBottom: 20, lineHeight: 20 },

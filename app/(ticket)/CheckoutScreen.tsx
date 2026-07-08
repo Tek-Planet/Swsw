@@ -21,10 +21,10 @@ import {
   View,
 } from "react-native";
 import RazorpayCheckout from "react-native-razorpay";
-import TopNavBar from "../../components/TopNavBar";
-import { ThemedView } from "../../components/themed-view";
-import { db } from "../../lib/firebase/firebaseConfig";
-import { Event, TableContactDetails, TicketTier } from "../../types/event";
+import TopNavBar from "@/components/TopNavBar";
+import { ThemedView } from "@/components/themed-view";
+import { db } from "@/lib/firebase/firebaseConfig";
+import { Event, TableContactDetails, TicketTier } from "@/types/event";
 import Constants from "expo-constants";
 import { useEvent } from "@/hooks/useEvent";
 import { Seat } from "@/types/movie";
