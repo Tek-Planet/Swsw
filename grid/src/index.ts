@@ -18,12 +18,16 @@ import {
   createRazorpayOrder,
   razorpayWebhook,
   verifyRazorpayPayment,
-  verifyStripePayment,  // <-- Import the new function
+  verifyStripePayment, // <-- Import the new function
   manuallyFulfillOrder,
   cleanupExpiredOrders,
   cancelOrder,
 } from "./payments";
-import { setAdminStatus, adminUploadEmailTemplates, seedVenueHouse6 } from "./admin";
+import {
+  setAdminStatus,
+  adminUploadEmailTemplates,
+  seedVenueHouse6,
+} from "./admin";
 import { sendEventPushNotification } from "./notifications";
 import { sendInvitationEmail, sendEmailToAttendees } from "./emails";
 import { sendTicketEmail } from "./tickets";
@@ -62,7 +66,7 @@ export {
   holdMovieSeats,
   releaseMovieSeats,
   cleanupExpiredSeatHolds,
-  seedVenueHouse6
+  seedVenueHouse6,
 };
 
 export const helloWorld = functions.https.onRequest((_req, res) => {

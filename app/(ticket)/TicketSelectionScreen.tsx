@@ -43,7 +43,9 @@ const TicketSelectionScreen = () => {
     gstAmount: 0,
     total: 0,
   });
-  const [applicationStatus, setApplicationStatus] = useState<string | null>(null);
+  const [applicationStatus, setApplicationStatus] = useState<string | null>(
+    null
+  );
   const [isNavigating, setIsNavigating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -89,12 +91,7 @@ const TicketSelectionScreen = () => {
   }, [eventId, user]);
 
   const fetchTicketTiers = async () => {
-    const tiersRef = collection(
-      db,
-      "events",
-      eventId as string,
-      "ticketTiers"
-    );
+    const tiersRef = collection(db, "events", eventId as string, "ticketTiers");
     const q = query(
       tiersRef,
       where("isActive", "==", true),
@@ -169,7 +166,13 @@ const TicketSelectionScreen = () => {
 
     const total = preTaxTotal + gstAmount;
 
-    setPricing({ subtotal: subtotalCharged, feeBase, processingFee, gstAmount, total });
+    setPricing({
+      subtotal: subtotalCharged,
+      feeBase,
+      processingFee,
+      gstAmount,
+      total,
+    });
   }, [selectedTiers, ticketTiers, event]);
 
   const currencySymbol = event ? getCurrencySymbol(event.currency) : "₹";
@@ -307,7 +310,9 @@ const TicketSelectionScreen = () => {
               ListHeaderComponent={() => (
                 <View style={styles.approvedHeader}>
                   <Text style={styles.approvedTitle}>You're Approved!</Text>
-                  <Text style={styles.approvedSubtitle}>You can now select your tickets for {event.title}.</Text>
+                  <Text style={styles.approvedSubtitle}>
+                    You can now select your tickets for {event.title}.
+                  </Text>
                 </View>
               )}
             />
@@ -354,8 +359,9 @@ const TicketSelectionScreen = () => {
           </Text>
           {pricing.total > 0 && (
             <Text style={styles.priceBreakdown} numberOfLines={2}>
-              Subtotal: {currencySymbol}{pricing.subtotal.toLocaleString()}
-              {' + '}Fee: {currencySymbol}
+              Subtotal: {currencySymbol}
+              {pricing.subtotal.toLocaleString()}
+              {" + "}Fee: {currencySymbol}
               {pricing.processingFee.toLocaleString()}
               {pricing.gstAmount > 0 &&
                 ` + GST: ${currencySymbol}${pricing.gstAmount.toLocaleString()}`}

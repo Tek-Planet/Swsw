@@ -193,16 +193,29 @@ async function _calculateOrderDetails(
 
   const processingFee =
     feeBase > 0 ? Math.round(feeBase * (bookingFeePercent / 100)) : 0;
+<<<<<<< HEAD
+
+  let effectiveGstPercent;
+  if (currency === "INR") {
+    effectiveGstPercent =
+      gstPercent != null && Number(gstPercent) > 0 ? Number(gstPercent) : 18;
+=======
   
   let effectiveGstPercent;
   if (currency === "INR") {
     effectiveGstPercent = gstPercent != null && Number(gstPercent) > 0 ? Number(gstPercent) : 18;
+>>>>>>> bc85fc6661a2635a5f5bc3a74ab1c56290843368
   } else {
     effectiveGstPercent = 0;
   }
 
   const preTaxTotal = subtotalCharged + processingFee;
+<<<<<<< HEAD
+  const gstAmount =
+    preTaxTotal > 0 ? Math.round(preTaxTotal * (effectiveGstPercent / 100)) : 0;
+=======
   const gstAmount = preTaxTotal > 0 ? Math.round(preTaxTotal * (effectiveGstPercent / 100)) : 0;
+>>>>>>> bc85fc6661a2635a5f5bc3a74ab1c56290843368
 
   const finalTotal = preTaxTotal + gstAmount;
 
@@ -263,7 +276,11 @@ async function _fulfillOrder(
   const now = admin.firestore.FieldValue.serverTimestamp();
   const orderRef = db.doc(`orders/${orderId}`);
 
-  tx.set(orderRef, { status: "paid", paidAt: now, updatedAt: now }, { merge: true });
+  tx.set(
+    orderRef,
+    { status: "paid", paidAt: now, updatedAt: now },
+    { merge: true }
+  );
 
   tx.update(eventRef, {
     attendeeIds: admin.firestore.FieldValue.arrayUnion(userId),
@@ -323,7 +340,6 @@ async function _fulfillOrder(
   }
 }
 
-
 export const createPaymentIntent = functions.https.onCall(
   async (data, context) => {
     if (!context.auth) {
@@ -334,7 +350,14 @@ export const createPaymentIntent = functions.https.onCall(
     }
     const userId = context.auth.uid;
 
-    const { eventId, selectedTiers, selectedSeats, promoCode, attendees, donor } = data as {
+    const {
+      eventId,
+      selectedTiers,
+      selectedSeats,
+      promoCode,
+      attendees,
+      donor,
+    } = data as {
       eventId?: string;
       selectedTiers?: SelectedTiers;
       selectedSeats?: string[];
@@ -349,7 +372,7 @@ export const createPaymentIntent = functions.https.onCall(
         "Missing eventId or item selection (selectedTiers/selectedSeats)."
       );
     }
-    
+
     const eventRef = db.doc(`events/${eventId}`);
     const eventSnap = await eventRef.get();
     if (!eventSnap.exists) {
@@ -366,39 +389,110 @@ export const createPaymentIntent = functions.https.onCall(
       effectiveGstPercent = 0;
     }
 
+    let effectiveGstPercent;
+    if (currency === "INR") {
+      effectiveGstPercent =
+        event.gstPercent != null && Number(event.gstPercent) > 0
+          ? Number(event.gstPercent)
+          : 18;
+    } else {
+      effectiveGstPercent = 0;
+    }
+
     const orderId = db.collection("-").doc().id;
     let finalTotal = 0;
     let orderDoc: any;
 
     if (selectedSeats && selectedSeats.length > 0) {
-        if (selectedSeats.length > 10) {
-            throw new functions.https.HttpsError("failed-precondition", "Maximum 10 seats per order.");
+      if (selectedSeats.length > 10) {
+        throw new functions.https.HttpsError(
+          "failed-precondition",
+          "Maximum 10 seats per order."
+        );
+      }
+
+      const seatsCol = eventRef.collection("seats");
+
+      const seatItems: any[] = [];
+      let seatSubtotal = 0;
+
+      await db.runTransaction(async (tx) => {
+        const seatSnaps = await Promise.all(
+          selectedSeats.map((id) => tx.get(seatsCol.doc(id)))
+        );
+        for (const seatSnap of seatSnaps) {
+          if (!seatSnap.exists)
+            throw new functions.https.HttpsError(
+              "not-found",
+              `Seat ${seatSnap.id} not found.`
+            );
+          const seat = seatSnap.data() as any;
+          const price = Number(seat.price ?? 0);
+          seatSubtotal += price;
+          seatItems.push({
+            tierId: `seat_${seatSnap.id}`,
+            tierName: `Row ${seat.rowLabel}, Seat ${seat.seatLabel}`,
+            tierType: "ticket",
+            seatId: seatSnap.id,
+            price: price,
+            chargeAmount: price,
+            quantity: 1,
+          });
         }
+      });
 
+<<<<<<< HEAD
+      const processingFee = Math.round(
+        seatSubtotal * (bookingFeePercent / 100)
+      );
+      const preTaxTotal = seatSubtotal + processingFee;
+      const gstAmount =
+        preTaxTotal > 0
+          ? Math.round(preTaxTotal * (effectiveGstPercent / 100))
+          : 0;
+      finalTotal = preTaxTotal + gstAmount;
+=======
         const seatsCol = eventRef.collection("seats");
+>>>>>>> bc85fc6661a2635a5f5bc3a74ab1c56290843368
 
-        const seatItems: any[] = [];
-        let seatSubtotal = 0;
+      orderDoc = {
+        orderId,
+        eventId,
+        eventTitle: event.title || "Event",
+        userId,
+        items: seatItems,
+        seatIds: selectedSeats,
+        subtotal: seatSubtotal,
+        feeBase: seatSubtotal,
+        processingFee,
+        gstPercent: effectiveGstPercent,
+        gstAmount,
+        total: finalTotal,
+        currency,
+        status: "pending",
+        paymentMethod: "stripe_payment_sheet",
+        orderType: "movie",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      };
+    } else if (selectedTiers) {
+      let { itemsForOrder, subtotalCharged, feeBase, processingFee } =
+        await _calculateOrderDetails(eventId, selectedTiers, currency);
 
-        await db.runTransaction(async (tx) => {
-            const seatSnaps = await Promise.all(selectedSeats.map(id => tx.get(seatsCol.doc(id))));
-            for (const seatSnap of seatSnaps) {
-                if (!seatSnap.exists) throw new functions.https.HttpsError("not-found", `Seat ${seatSnap.id} not found.`);
-                const seat = seatSnap.data() as any;
-                const price = Number(seat.price ?? 0);
-                seatSubtotal += price;
-                seatItems.push({
-                    tierId: `seat_${seatSnap.id}`,
-                    tierName: `Row ${seat.rowLabel}, Seat ${seat.seatLabel}`,
-                    tierType: "ticket",
-                    seatId: seatSnap.id,
-                    price: price,
-                    chargeAmount: price,
-                    quantity: 1,
-                });
-            }
-        });
+      const normalizedPromo = (promoCode || "").trim().toUpperCase();
+      let appliedPromo: string | null = null;
+      let promoCodeId: string | null = null;
+      let discountAmount = 0;
 
+<<<<<<< HEAD
+      if (normalizedPromo) {
+        const promo = await validatePromoCode(eventId, normalizedPromo);
+        if (!promo.ok) {
+          throw new functions.https.HttpsError(
+            "failed-precondition",
+            "Invalid or expired promo code."
+          );
+=======
         const processingFee = Math.round(seatSubtotal * (bookingFeePercent / 100));
         const preTaxTotal = seatSubtotal + processingFee;
         const gstAmount = preTaxTotal > 0 ? Math.round(preTaxTotal * (effectiveGstPercent / 100)) : 0;
@@ -451,8 +545,60 @@ export const createPaymentIntent = functions.https.onCall(
             if (promo.waiveProcessingFee) {
                 processingFee = 0;
             }
+>>>>>>> bc85fc6661a2635a5f5bc3a74ab1c56290843368
         }
+        appliedPromo = normalizedPromo;
+        promoCodeId = promo.promoId;
+        const discountableSubtotal = _calculateDiscountableSubtotal(
+          itemsForOrder,
+          promo.applicableTierIds
+        );
+        discountAmount = calculateDiscount(
+          promo.discountType,
+          promo.discountValue,
+          discountableSubtotal
+        );
+        if (promo.waiveProcessingFee) {
+          processingFee = 0;
+        }
+      }
 
+<<<<<<< HEAD
+      const preTaxTotal = Math.max(
+        0,
+        subtotalCharged - discountAmount + processingFee
+      );
+      const finalGstAmount =
+        preTaxTotal > 0
+          ? Math.round(preTaxTotal * (effectiveGstPercent / 100))
+          : 0;
+      finalTotal = preTaxTotal + finalGstAmount;
+
+      orderDoc = {
+        orderId,
+        eventId,
+        eventTitle: event.title || "Event",
+        userId,
+        items: itemsForOrder,
+        attendees,
+        donor: donor || null,
+        subtotal: subtotalCharged,
+        feeBase,
+        processingFee: finalTotal === 0 ? 0 : processingFee,
+        gstPercent: effectiveGstPercent,
+        gstAmount: finalTotal === 0 ? 0 : finalGstAmount,
+        total: finalTotal,
+        discount: discountAmount,
+        currency,
+        promoCode: appliedPromo,
+        promoCodeId,
+        status: finalTotal === 0 ? "paid" : "pending",
+        paymentMethod: "stripe_payment_sheet",
+        orderType: "regular",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      };
+=======
         const preTaxTotal = Math.max(0, subtotalCharged - discountAmount + processingFee);
         const finalGstAmount = preTaxTotal > 0 ? Math.round(preTaxTotal * (effectiveGstPercent / 100)) : 0;
         finalTotal = preTaxTotal + finalGstAmount;
@@ -481,8 +627,12 @@ export const createPaymentIntent = functions.https.onCall(
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         };
+>>>>>>> bc85fc6661a2635a5f5bc3a74ab1c56290843368
     } else {
-      throw new functions.https.HttpsError("invalid-argument", "No items were selected.");
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "No items were selected."
+      );
     }
 
     if (finalTotal === 0) {
@@ -499,7 +649,12 @@ export const createPaymentIntent = functions.https.onCall(
           donor: orderDoc.donor,
         });
         if (orderDoc.orderType === "movie") {
-          await fulfilMovieSeatsForOrder({ eventId, userId, orderId, seatIds: orderDoc.seatIds });
+          await fulfilMovieSeatsForOrder({
+            eventId,
+            userId,
+            orderId,
+            seatIds: orderDoc.seatIds,
+          });
         }
       });
       return {
@@ -565,12 +720,17 @@ export const createRazorpayOrder = functions.https.onCall(
     const event = eventSnap.data()!;
     const currency = (event.currency || "INR").toUpperCase();
 
+<<<<<<< HEAD
+    let { itemsForOrder, subtotalCharged, feeBase, processingFee } =
+      await _calculateOrderDetails(eventId, selectedTiers, currency);
+=======
     let {
       itemsForOrder,
       subtotalCharged,
       feeBase,
       processingFee,
     } = await _calculateOrderDetails(eventId, selectedTiers, currency);
+>>>>>>> bc85fc6661a2635a5f5bc3a74ab1c56290843368
 
     const normalizedPromo = (promoCode || "").trim().toUpperCase();
     let appliedPromo: string | null = null;
@@ -601,16 +761,37 @@ export const createRazorpayOrder = functions.https.onCall(
         processingFee = 0;
       }
     }
+<<<<<<< HEAD
+
+    let effectiveGstPercent;
+    if (currency === "INR") {
+      effectiveGstPercent =
+        event.gstPercent != null && Number(event.gstPercent) > 0
+          ? Number(event.gstPercent)
+          : 18;
+=======
     
     let effectiveGstPercent;
     if (currency === "INR") {
       effectiveGstPercent = event.gstPercent != null && Number(event.gstPercent) > 0 ? Number(event.gstPercent) : 18;
+>>>>>>> bc85fc6661a2635a5f5bc3a74ab1c56290843368
     } else {
       effectiveGstPercent = 0;
     }
 
+<<<<<<< HEAD
+    const preTaxTotalAfterDiscount = Math.max(
+      0,
+      subtotalCharged - discountAmount + processingFee
+    );
+    const finalGstAmount =
+      preTaxTotalAfterDiscount > 0
+        ? Math.round(preTaxTotalAfterDiscount * (effectiveGstPercent / 100))
+        : 0;
+=======
     const preTaxTotalAfterDiscount = Math.max(0, subtotalCharged - discountAmount + processingFee);
     const finalGstAmount = preTaxTotalAfterDiscount > 0 ? Math.round(preTaxTotalAfterDiscount * (effectiveGstPercent / 100)) : 0;
+>>>>>>> bc85fc6661a2635a5f5bc3a74ab1c56290843368
     const finalTotal = preTaxTotalAfterDiscount + finalGstAmount;
 
     const orderId = db.collection(" ").doc().id;
@@ -635,7 +816,7 @@ export const createRazorpayOrder = functions.https.onCall(
       promoCode: appliedPromo,
       promoCodeId,
       status: finalTotal === 0 ? "paid" : "pending",
-      paymentMethod: "razorpay", 
+      paymentMethod: "razorpay",
       createdAt: now,
       updatedAt: now,
     };
@@ -660,7 +841,7 @@ export const createRazorpayOrder = functions.https.onCall(
     await db.doc(`orders/${orderId}`).set(orderDoc);
 
     const razorpayOptions = {
-      amount: Math.round(finalTotal * 100), 
+      amount: Math.round(finalTotal * 100),
       currency: currency,
       receipt: orderId,
       notes: {
@@ -677,8 +858,8 @@ export const createRazorpayOrder = functions.https.onCall(
         .update({ razorpayOrderId: razorpayOrder.id });
 
       return {
-        orderId, 
-        razorpayOrderId: razorpayOrder.id, 
+        orderId,
+        razorpayOrderId: razorpayOrder.id,
         amount: razorpayOrder.amount,
         currency: razorpayOrder.currency,
       };
@@ -716,7 +897,7 @@ export const razorpayWebhook = functions.https.onRequest(async (req, res) => {
     if (event === "payment.captured") {
       const payment = req.body.payload.payment.entity;
       const { order_id: razorpayOrderId } = payment;
-      const ourOrderId = payment.receipt; 
+      const ourOrderId = payment.receipt;
       if (!ourOrderId) {
         console.warn(
           "Webhook ignored: Missing our orderId in receipt",
@@ -796,17 +977,13 @@ export const verifyRazorpayPayment = functions.https.onCall(
       );
     }
 
-    const {
-      orderId, 
-      razorpayPaymentId,
-      razorpayOrderId,
-      razorpaySignature,
-    } = data as {
-      orderId?: string;
-      razorpayPaymentId?: string;
-      razorpayOrderId?: string;
-      razorpaySignature?: string;
-    };
+    const { orderId, razorpayPaymentId, razorpayOrderId, razorpaySignature } =
+      data as {
+        orderId?: string;
+        razorpayPaymentId?: string;
+        razorpayOrderId?: string;
+        razorpaySignature?: string;
+      };
 
     if (
       !orderId ||
@@ -847,7 +1024,7 @@ export const verifyRazorpayPayment = functions.https.onCall(
 
         if (order.status === "paid") {
           console.log("Verification skipped: Order already fulfilled", orderId);
-          return; 
+          return;
         }
 
         if (order.razorpayOrderId !== razorpayOrderId) {
@@ -872,7 +1049,7 @@ export const verifyRazorpayPayment = functions.https.onCall(
         });
 
         tx.update(orderRef, {
-          status: "paid", 
+          status: "paid",
           razorpayPaymentId,
           razorpaySignature,
           paidAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -898,76 +1075,109 @@ export const verifyRazorpayPayment = functions.https.onCall(
   }
 );
 
-
-export const verifyStripePayment = functions.https.onCall(async (data, context) => {
+export const verifyStripePayment = functions.https.onCall(
+  async (data, context) => {
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Must be logged in.");
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Must be logged in."
+      );
     }
 
     const { orderId } = data as { orderId?: string };
     if (!orderId) {
-        throw new functions.https.HttpsError("invalid-argument", "Missing orderId.");
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Missing orderId."
+      );
     }
 
     const orderRef = db.doc(`orders/${orderId}`);
 
     try {
-        return await db.runTransaction(async (tx) => {
-            const orderSnap = await tx.get(orderRef);
-            if (!orderSnap.exists) {
-                throw new functions.https.HttpsError("not-found", "Order not found.");
-            }
-
-            const order = orderSnap.data() as any;
-
-            if (order.status === "paid") {
-                console.log(`Stripe verification for mobile: Order ${orderId} already fulfilled.`);
-                return { success: true, message: "Order already fulfilled." };
-            }
-
-            if (order.userId !== context.auth?.uid) {
-                throw new functions.https.HttpsError("permission-denied", "You do not have permission to verify this order.");
-            }
-
-            if (!order.stripePaymentIntentId) {
-                throw new functions.https.HttpsError("failed-precondition", "Order is not a Stripe payment intent order.");
-            }
-
-            const paymentIntent = await stripe.paymentIntents.retrieve(order.stripePaymentIntentId);
-
-            if (paymentIntent.status === "succeeded") {
-                const { eventId, userId, items, promoCodeId, attendees, donor } = order;
-                const eventRef = db.doc(`events/${eventId}`);
-
-                await _fulfillOrder(tx, {
-                    eventId,
-                    eventRef,
-                    userId,
-                    orderId,
-                    items,
-                    promoCodeId,
-                    attendees,
-                    donor,
-                });
-                if (order.orderType === "movie") {
-                    await fulfilMovieSeatsForOrder({ eventId, userId, orderId, seatIds: order.seatIds });
-                }
-
-                console.log(`Stripe verification for mobile: Order ${orderId} fulfilled.`);
-                return { success: true, message: "Payment verified and order fulfilled." };
-
-            } else {
-                throw new functions.https.HttpsError("failed-precondition", `Payment not successful. Status: ${paymentIntent.status}`);
-            }
-        });
-    } catch (error) {
-        console.error(`Stripe verification for order ${orderId} failed:`, error);
-        if (error instanceof functions.https.HttpsError) {
-            throw error;
+      return await db.runTransaction(async (tx) => {
+        const orderSnap = await tx.get(orderRef);
+        if (!orderSnap.exists) {
+          throw new functions.https.HttpsError("not-found", "Order not found.");
         }
-        throw new functions.https.HttpsError("internal", "Failed to process Stripe payment verification.");
+
+        const order = orderSnap.data() as any;
+
+        if (order.status === "paid") {
+          console.log(
+            `Stripe verification for mobile: Order ${orderId} already fulfilled.`
+          );
+          return { success: true, message: "Order already fulfilled." };
+        }
+
+        if (order.userId !== context.auth?.uid) {
+          throw new functions.https.HttpsError(
+            "permission-denied",
+            "You do not have permission to verify this order."
+          );
+        }
+
+        if (!order.stripePaymentIntentId) {
+          throw new functions.https.HttpsError(
+            "failed-precondition",
+            "Order is not a Stripe payment intent order."
+          );
+        }
+
+        const paymentIntent = await stripe.paymentIntents.retrieve(
+          order.stripePaymentIntentId
+        );
+
+        if (paymentIntent.status === "succeeded") {
+          const { eventId, userId, items, promoCodeId, attendees, donor } =
+            order;
+          const eventRef = db.doc(`events/${eventId}`);
+
+          await _fulfillOrder(tx, {
+            eventId,
+            eventRef,
+            userId,
+            orderId,
+            items,
+            promoCodeId,
+            attendees,
+            donor,
+          });
+          if (order.orderType === "movie") {
+            await fulfilMovieSeatsForOrder({
+              eventId,
+              userId,
+              orderId,
+              seatIds: order.seatIds,
+            });
+          }
+
+          console.log(
+            `Stripe verification for mobile: Order ${orderId} fulfilled.`
+          );
+          return {
+            success: true,
+            message: "Payment verified and order fulfilled.",
+          };
+        } else {
+          throw new functions.https.HttpsError(
+            "failed-precondition",
+            `Payment not successful. Status: ${paymentIntent.status}`
+          );
+        }
+      });
+    } catch (error) {
+      console.error(`Stripe verification for order ${orderId} failed:`, error);
+      if (error instanceof functions.https.HttpsError) {
+        throw error;
+      }
+      throw new functions.https.HttpsError(
+        "internal",
+        "Failed to process Stripe payment verification."
+      );
     }
-});
+  }
+);
 
 export const updateOrderContactDetails = functions.https.onCall(
   async (data, context) => {
@@ -1087,10 +1297,20 @@ export const createCheckoutSession = functions.https.onCall(
     const eventTitle = eventData.title || "Event";
     const currency = (eventData.currency || "INR").toUpperCase();
     const feePercent = eventData.bookingFeePercent ?? 10;
+<<<<<<< HEAD
+
+    let effectiveGstPercent;
+    if (currency === "INR") {
+      effectiveGstPercent =
+        eventData.gstPercent != null && Number(eventData.gstPercent) > 0
+          ? Number(eventData.gstPercent)
+          : 18;
+=======
     
     let effectiveGstPercent;
     if (currency === "INR") {
       effectiveGstPercent = eventData.gstPercent != null && Number(eventData.gstPercent) > 0 ? Number(eventData.gstPercent) : 18;
+>>>>>>> bc85fc6661a2635a5f5bc3a74ab1c56290843368
     } else {
       effectiveGstPercent = 0;
     }
@@ -1165,7 +1385,14 @@ export const createCheckoutSession = functions.https.onCall(
 
       const seatProcessingFee = Math.round(seatSubtotal * (feePercent / 100));
       const seatPreTax = seatSubtotal + seatProcessingFee;
+<<<<<<< HEAD
+      const seatGstAmount =
+        seatPreTax > 0
+          ? Math.round(seatPreTax * (effectiveGstPercent / 100))
+          : 0;
+=======
       const seatGstAmount = seatPreTax > 0 ? Math.round(seatPreTax * (effectiveGstPercent / 100)) : 0;
+>>>>>>> bc85fc6661a2635a5f5bc3a74ab1c56290843368
       const seatTotal = seatPreTax + seatGstAmount;
 
       const orderData: Record<string, any> = {
@@ -1233,9 +1460,13 @@ export const createCheckoutSession = functions.https.onCall(
         payment_method_types: ["card"],
         line_items: seatLineItems,
         mode: "payment",
-        expires_at: Math.floor(now.toMillis() / 1000) + 30 * 60, 
-        success_url: `${functions.config().app.url}/success?orderId=${orderRef.id}`,
-        cancel_url: `${functions.config().app.url}/cancel?orderId=${orderRef.id}`,
+        expires_at: Math.floor(now.toMillis() / 1000) + 30 * 60,
+        success_url: `${functions.config().app.url}/success?orderId=${
+          orderRef.id
+        }`,
+        cancel_url: `${functions.config().app.url}/cancel?orderId=${
+          orderRef.id
+        }`,
         metadata: {
           orderId: orderRef.id,
           userId: userId,
@@ -1326,7 +1557,14 @@ export const createCheckoutSession = functions.https.onCall(
     }
 
     const preTaxTotal = Math.max(0, subtotal - discountAmount + processingFee);
+<<<<<<< HEAD
+    const gstAmount =
+      preTaxTotal > 0
+        ? Math.round(preTaxTotal * (effectiveGstPercent / 100))
+        : 0;
+=======
     const gstAmount = preTaxTotal > 0 ? Math.round(preTaxTotal * (effectiveGstPercent / 100)) : 0;
+>>>>>>> bc85fc6661a2635a5f5bc3a74ab1c56290843368
     const finalTotal = preTaxTotal + gstAmount;
 
     const orderRef = db.collection("orders").doc();
@@ -1439,7 +1677,9 @@ export const createCheckoutSession = functions.https.onCall(
       payment_method_types: ["card"],
       line_items,
       mode: "payment",
-      success_url: `${functions.config().app.url}/success?orderId=${orderRef.id}`,
+      success_url: `${functions.config().app.url}/success?orderId=${
+        orderRef.id
+      }`,
       cancel_url: `${functions.config().app.url}/cancel?orderId=${orderRef.id}`,
       metadata: {
         orderId: orderRef.id,
@@ -1485,12 +1725,17 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
   const event = eventSnap.data()!;
   const currency = (event.currency || "INR").toUpperCase();
 
+<<<<<<< HEAD
+  let { itemsForOrder, subtotalCharged, feeBase, processingFee } =
+    await _calculateOrderDetails(eventId, selectedTiers, currency);
+=======
   let {
     itemsForOrder,
     subtotalCharged,
     feeBase,
     processingFee,
   } = await _calculateOrderDetails(eventId, selectedTiers, currency);
+>>>>>>> bc85fc6661a2635a5f5bc3a74ab1c56290843368
 
   const normalizedPromo = (promoCode || "").trim().toUpperCase();
   let appliedPromo: string | null = null;
@@ -1524,13 +1769,31 @@ export const gpayCharge = functions.https.onCall(async (data, context) => {
 
   let effectiveGstPercent;
   if (currency === "INR") {
+<<<<<<< HEAD
+    effectiveGstPercent =
+      event.gstPercent != null && Number(event.gstPercent) > 0
+        ? Number(event.gstPercent)
+        : 18;
+=======
     effectiveGstPercent = event.gstPercent != null && Number(event.gstPercent) > 0 ? Number(event.gstPercent) : 18;
+>>>>>>> bc85fc6661a2635a5f5bc3a74ab1c56290843368
   } else {
     effectiveGstPercent = 0;
   }
 
+<<<<<<< HEAD
+  const preTaxTotalAfterDiscount = Math.max(
+    0,
+    subtotalCharged - discountAmount + processingFee
+  );
+  const finalGstAmount =
+    preTaxTotalAfterDiscount > 0
+      ? Math.round(preTaxTotalAfterDiscount * (effectiveGstPercent / 100))
+      : 0;
+=======
   const preTaxTotalAfterDiscount = Math.max(0, subtotalCharged - discountAmount + processingFee);
   const finalGstAmount = preTaxTotalAfterDiscount > 0 ? Math.round(preTaxTotalAfterDiscount * (effectiveGstPercent / 100)) : 0;
+>>>>>>> bc85fc6661a2635a5f5bc3a74ab1c56290843368
   const finalTotal = preTaxTotalAfterDiscount + finalGstAmount;
 
   const orderId = db.collection(" ").doc().id;
@@ -1669,36 +1932,46 @@ export const stripeWebhook = functions.https.onRequest(async (req, res) => {
     return;
   }
 
-  if (evt.type === 'payment_intent.succeeded') {
+  if (evt.type === "payment_intent.succeeded") {
     const paymentIntent = evt.data.object as Stripe.PaymentIntent;
     const { orderId } = paymentIntent.metadata;
-    
+
     if (!orderId) {
-        console.warn("Webhook ignored: Missing orderId in PaymentIntent metadata", paymentIntent.id);
-        res.status(200).send("Ignoring event with missing orderId.");
-        return;
+      console.warn(
+        "Webhook ignored: Missing orderId in PaymentIntent metadata",
+        paymentIntent.id
+      );
+      res.status(200).send("Ignoring event with missing orderId.");
+      return;
     }
-    
+
     const orderRef = db.doc(`orders/${orderId}`);
     const orderSnap = await orderRef.get();
-    
+
     if (!orderSnap.exists) {
-        console.error("Webhook failed: Order not found for PaymentIntent", orderId, paymentIntent.id);
-        res.status(404).send("Order not found");
-        return;
+      console.error(
+        "Webhook failed: Order not found for PaymentIntent",
+        orderId,
+        paymentIntent.id
+      );
+      res.status(404).send("Order not found");
+      return;
     }
 
     const order = orderSnap.data() as any;
 
     if (order.status === "paid") {
-        console.log("Webhook ignored: Order already fulfilled for PaymentIntent", orderId);
-        res.status(200).send("Order already fulfilled.");
-        return;
+      console.log(
+        "Webhook ignored: Order already fulfilled for PaymentIntent",
+        orderId
+      );
+      res.status(200).send("Order already fulfilled.");
+      return;
     }
-    
+
     const { eventId, userId } = order;
     const eventRef = db.doc(`events/${eventId}`);
-    
+
     await db.runTransaction(async (tx) => {
       await _fulfillOrder(tx, {
         eventId,
@@ -1710,15 +1983,19 @@ export const stripeWebhook = functions.https.onRequest(async (req, res) => {
         attendees: order.attendees,
         donor: order.donor,
       });
-       if (order.orderType === "movie") {
-          await fulfilMovieSeatsForOrder({ eventId, userId, orderId, seatIds: order.seatIds });
-       }
+      if (order.orderType === "movie") {
+        await fulfilMovieSeatsForOrder({
+          eventId,
+          userId,
+          orderId,
+          seatIds: order.seatIds,
+        });
+      }
     });
 
     res.status(200).send("ok");
     return;
   }
-
 
   if (evt.type === "checkout.session.completed") {
     const session = evt.data.object as Stripe.Checkout.Session;
@@ -1882,7 +2159,7 @@ export const manuallyFulfillOrder = functions.https.onCall(
         });
 
         tx.update(orderRef, {
-          status: "paid", 
+          status: "paid",
           paidAt: now,
           manuallyFulfilledBy: context.auth?.uid,
           manuallyFulfilledAt: now,
