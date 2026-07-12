@@ -1,6 +1,5 @@
 import * as functions from "firebase-functions/v1";
 import { db } from "./lib/firebase";
-import { templates } from "./lib/email-templates";
 import sgMail from "@sendgrid/mail";
 
 const SENDGRID_API_KEY = functions.config().sendgrid?.apikey;
@@ -19,6 +18,13 @@ export const sendInvitationEmail = functions.firestore
 
     // Check if the status was changed from something else to 'approved'.
     if (beforeData.status !== "approved" && afterData.status === "approved") {
+      if (!SENDGRID_API_KEY) {
+        functions.logger.error(
+          "SendGrid API key not configured, skipping invitation email."
+        );
+        return;
+      }
+
       functions.logger.log(
         `Application ${context.params.appId} approved. Sending email.`
       );
@@ -27,39 +33,74 @@ export const sendInvitationEmail = functions.firestore
       const eventId = context.params.eventId;
 
       if (!userEmail) {
-        functions.logger.error("Application data is missing the user's email.");
+        functions.logger.error("Application data is missing user's email.");
         return;
       }
 
-      // Get the event details to include in the email.
-      const eventDoc = await db.collection("events").doc(eventId).get();
-      const eventName = eventDoc.data()?.title || "the event";
+      try {
+        const eventDoc = await db.collection("events").doc(eventId).get();
+        const eventName = eventDoc.data()?.title || "the event";
 
-      const appUrl = functions.config().app.url;
-      if (!appUrl) {
-        functions.logger.error("App URL is not configured.");
-        return;
-      }
-      const eventLink = `${appUrl}/events/${eventId}`;
+        const appUrl = functions.config().app.url;
+        if (!appUrl) {
+          functions.logger.error("App URL is not configured.");
+          return;
+        }
+        const eventLink = `${appUrl}/events/${eventId}`;
 
-      const template = templates.invitation;
-      const subject = template.subject.replace("{{eventName}}", eventName);
-      let html = template.html.replace("{{eventName}}", eventName);
-      html = html.replace("{{link}}", eventLink);
+        const subject = `You're invited to ${eventName}!`;
+        let html = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <style>
+              body { margin: 0; padding: 0; background-color: #1a1a1a; }
+              .container { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; padding: 40px; color: #ffffff; width: 100%; max-width: 600px; margin: auto; background-color: #2a2a2a; border-radius: 10px; }
+              .header { font-size: 28px; font-weight: bold; color: #ffffff; }
+              .body { margin-top: 20px; font-size: 16px; line-height: 1.6; }
+              .button { background-color: #007bff; color: white !important; padding: 15px 25px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold; }
+              .footer { margin-top: 40px; font-size: 12px; color: #888888; text-align: center; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">You're Approved!</div>
+              <div class="body">
+                <p>Hello,</p>
+                <p>Congratulations! Your application to attend <strong>${eventName}</strong> has been approved.</p>
+                <p>You can view the event details and see who you'll be connecting with by clicking the button below:</p>
+                <p style="margin: 30px 0;">
+                  <a href="${eventLink}" class="button">View Event</a>
+                </p>
+                <p>We look forward to seeing you there!</p>
+                <p>- The Grid Events Team</p>
+              </div>
+              <div class="footer">
+                <p>If you did not apply for this event, please disregard this email.</p>
+              </div>
+            </div>
+          </body>
+          </html>
+      `;
 
-      // Create an email document in the 'mail' collection.
-      // The 'Trigger Email' extension will pick this up and send the email.
-      const mailData = {
-        to: userEmail,
-        message: {
+        const msg = {
+          to: userEmail,
+          from: {
+            email: "info@grideventsapp.com",
+            name: `The ${eventName} Team`,
+          },
           subject: subject,
           html: html,
-        },
-      };
+        };
 
-      await db.collection("mail").add(mailData);
-
-      functions.logger.log(`Email document created for ${userEmail}.`);
+        await sgMail.send(msg);
+        functions.logger.log(`Invitation email sent to ${userEmail}.`);
+      } catch (error) {
+        functions.logger.error(
+          `Error sending invitation email for application ${context.params.appId}:`,
+          error
+        );
+      }
     }
   });
 

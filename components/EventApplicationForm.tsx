@@ -54,6 +54,13 @@ const EventApplicationForm = ({ event, onApplicationSubmitted }: EventApplicatio
         return Object.keys(newErrors).length === 0;
     };
 
+    const handleSingleSelect = (questionId: string, selection: string) => {
+        setCustomAnswers(prev => ({
+            ...prev,
+            [questionId]: selection,
+        }));
+    };
+
     const handleSubmit = async () => {
         if (!user) {
             Alert.alert("Authentication Error", "You must be logged in to apply.");
@@ -146,8 +153,8 @@ const EventApplicationForm = ({ event, onApplicationSubmitted }: EventApplicatio
                     {q.type === 'select' ? (
                         <ChipSelector 
                             options={q.options || []}
-                            selected={customAnswers[q.id]}
-                            onSelect={selection => setCustomAnswers(p => ({ ...p, [q.id]: selection }))}
+                            selectedOptions={customAnswers[q.id] ? [customAnswers[q.id]] : []}
+                            onSelectionChange={(selection) => handleSingleSelect(q.id, selection[0])}
                         />
                     ) : (
                         <TextInput
