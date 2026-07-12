@@ -54,6 +54,8 @@ const eventFormSchema = z.object({
   startTime: z.string().min(1, 'Start time is required'),
   endDate: z.date().optional(),
   endTime: z.string().optional(),
+  ticketsAvailableOnDate: z.date().optional(),
+  ticketsAvailableOnTime: z.string().optional(),
   address: z.string().min(1, 'Address is required'),
   city: z.string().min(1, 'City is required'),
   visibility: z.enum(['public', 'private', 'unlisted']),
@@ -191,6 +193,7 @@ export const EventForm = ({
     if (initialData) {
       const startDate = new Date(initialData.startTime);
       const endDate = initialData.endTime ? new Date(initialData.endTime) : undefined;
+      const ticketsAvailableOn = initialData.ticketsAvailableOn ? new Date(initialData.ticketsAvailableOn) : undefined;
       
       return {
         title: initialData.title,
@@ -201,6 +204,8 @@ export const EventForm = ({
         startTime: format(startDate, 'HH:mm'),
         endDate,
         endTime: endDate ? format(endDate, 'HH:mm') : '',
+        ticketsAvailableOnDate: ticketsAvailableOn,
+        ticketsAvailableOnTime: ticketsAvailableOn ? format(ticketsAvailableOn, 'HH:mm') : '',
         address: initialData.location.address,
         city: initialData.location.city,
         visibility: initialData.visibility || 'public',
@@ -232,6 +237,8 @@ export const EventForm = ({
       startTime: '21:00',
       endDate: undefined,
       endTime: '',
+      ticketsAvailableOnDate: undefined,
+      ticketsAvailableOnTime: '',
       address: '',
       city: '',
       visibility: 'public',
@@ -367,6 +374,13 @@ export const EventForm = ({
       const [endHours, endMinutes] = values.endTime.split(':').map(Number);
       endDateTime.setHours(endHours, endMinutes, 0, 0);
     }
+    
+    let ticketsAvailableOn: Date | undefined;
+    if (values.ticketsAvailableOnDate && values.ticketsAvailableOnTime) {
+      ticketsAvailableOn = new Date(values.ticketsAvailableOnDate);
+      const [hours, minutes] = values.ticketsAvailableOnTime.split(':').map(Number);
+      ticketsAvailableOn.setHours(hours, minutes, 0, 0);
+    }
 
     let showtime: Date | undefined;
     if (values.eventType === 'movie' && values.showtimeDate && values.showtimeTime) {
@@ -382,6 +396,7 @@ export const EventForm = ({
       coverImageUrl,
       startTime: startDateTime,
       endTime: endDateTime,
+      ticketsAvailableOn,
       location: {
         address: values.address,
         city: values.city,
@@ -978,6 +993,74 @@ export const EventForm = ({
                         <FormLabel>End Time</FormLabel>
                         <FormControl>
                           <Input type="time" {...field} className="bg-muted" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <CardTitle className="text-lg">Ticket Sales Start Time</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="ticketsAvailableOnDate"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Start Selling On</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant={"outline"}
+                                className={cn(
+                                  "w-full pl-3 text-left font-normal bg-muted",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                              >
+                                {field.value ? (
+                                  format(field.value, "PPP")
+                                ) : (
+                                  <span>Pick a date</span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={field.value}
+                              onSelect={field.onChange}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormDescription>
+                          Optional: Leave blank to start selling tickets immediately.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="ticketsAvailableOnTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>At Time</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="time"
+                            {...field}
+                            className="bg-muted"
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

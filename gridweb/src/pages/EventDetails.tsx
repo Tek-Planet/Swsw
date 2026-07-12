@@ -25,7 +25,7 @@ const EventDetails = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { event, loading: eventLoading } = useEvent(eventId || "");
-  const { tiers, loading: tiersLoading, isFallback } = useTicketTiers(eventId || "");
+  const { tiers, loading: tiersLoading } = useTicketTiers(eventId || "");
   const { getUserApplication } = useEventApplications(eventId || "");
   const [selectedTiers, setSelectedTiers] = useState<SelectedTiers>({});
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
@@ -120,6 +120,7 @@ const EventDetails = () => {
   };
 
   const totalSelected = Object.values(selectedTiers).reduce((a, b) => a + b, 0);
+  const areTicketsOnSale = !event?.ticketsAvailableOn || new Date() >= event.ticketsAvailableOn.toDate();
 
   if (eventLoading || tiersLoading) {
     return (
@@ -293,47 +294,56 @@ const EventDetails = () => {
                 {/* Tickets Section */}
                 <div className="space-y-4">
                   <h2 className="text-2xl font-display font-bold text-foreground">Select Tickets</h2>
-                  {isFallback && (
+                  {!areTicketsOnSale ? (
                     <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
                       <p className="text-sm text-yellow-500">
-                        ⚠️ Demo mode: These are sample tickets. Checkout is disabled for demo events.
+                        Tickets for this event will go on sale on {formatEventDate(event.ticketsAvailableOn, undefined)}.
                       </p>
                     </div>
+                  ) : tiers.length === 0 ? (
+                    <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                      <p className="text-sm text-blue-500">
+                        Ticket information is not yet available for this event.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {tiers.map((tier, index) => (
+                        <TicketTierCard
+                          key={tier.id}
+                          tier={tier}
+                          quantity={selectedTiers[tier.id] || 0}
+                          onQuantityChange={(qty) => handleQuantityChange(tier.id, qty)}
+                          index={index}
+                          currency={event.currency}
+                          userGender={event.isInviteOnly ? userGender : undefined}
+                        />
+                      ))}
+                    </div>
                   )}
-                  <div className="space-y-4">
-                    {tiers.map((tier, index) => (
-                      <TicketTierCard
-                        key={tier.id}
-                        tier={tier}
-                        quantity={selectedTiers[tier.id] || 0}
-                        onQuantityChange={(qty) => handleQuantityChange(tier.id, qty)}
-                        index={index}
-                        currency={event.currency}
-                        userGender={event.isInviteOnly ? userGender : undefined}
-                      />
-                    ))}
-                  </div>
                 </div>
 
                 {/* Order Summary */}
-                <div className="p-6 rounded-2xl bg-card border border-border">
-                  <h3 className="text-lg font-display font-bold text-foreground mb-4">Order Summary</h3>
-                  <OrderSummary
-                    tiers={tiers}
-                    selectedTiers={selectedTiers}
-                    currency={event.currency}
-                    bookingFeePercent={event.bookingFeePercent}
-                    gstPercent={event.gstPercent}
-                  />
-                  <Button variant="hero" className="w-full mt-6" disabled={totalSelected === 0} onClick={handleCheckout}>
-                    {totalSelected === 0 ? "Select Tickets" : "Continue to Checkout"}
-                  </Button>
-                  {!user && totalSelected > 0 && (
-                    <p className="text-xs text-muted-foreground text-center mt-3">
-                      You'll need to sign in to complete your purchase
-                    </p>
-                  )}
-                </div>
+                {areTicketsOnSale && tiers.length > 0 && (
+                  <div className="p-6 rounded-2xl bg-card border border-border">
+                    <h3 className="text-lg font-display font-bold text-foreground mb-4">Order Summary</h3>
+                    <OrderSummary
+                      tiers={tiers}
+                      selectedTiers={selectedTiers}
+                      currency={event.currency}
+                      bookingFeePercent={event.bookingFeePercent}
+                      gstPercent={event.gstPercent}
+                    />
+                    <Button variant="hero" className="w-full mt-6" disabled={totalSelected === 0} onClick={handleCheckout}>
+                      {totalSelected === 0 ? "Select Tickets" : "Continue to Checkout"}
+                    </Button>
+                    {!user && totalSelected > 0 && (
+                      <p className="text-xs text-muted-foreground text-center mt-3">
+                        You'll need to sign in to complete your purchase
+                      </p>
+                    )}
+                  </div>
+                )}
               </>
             )}
 

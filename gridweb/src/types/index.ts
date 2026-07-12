@@ -50,13 +50,13 @@ export interface Event {
   gstPercent?: number;
   isInviteOnly?: boolean;
   customQuestions?: CustomQuestion[];
-  // Movie event extensions
   eventType?: 'regular' | 'movie';
   venueId?: string;
   showtime?: Date;
   movie?: MovieDetails;
   createdAt?: Date;
   updatedAt?: Date;
+  ticketsAvailableOn?: Timestamp;
 }
 
 export interface MovieDetails {
