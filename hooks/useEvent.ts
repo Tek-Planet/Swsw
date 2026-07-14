@@ -1,7 +1,6 @@
-
-import { useState, useEffect } from 'react';
-import { listenToEvent } from '@/lib/services/eventService';
-import { Event } from '@/types/event';
+import { useState, useEffect } from "react";
+import { listenToEvent } from "@/lib/services/eventService";
+import { Event } from "@/types/event";
 
 /**
  * A real-time hook to fetch a single event document from Firestore.
