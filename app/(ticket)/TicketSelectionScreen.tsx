@@ -21,7 +21,7 @@ import {
 import { ThemedView } from "@/components/themed-view";
 import { auth, db } from "@/lib/firebase/firebaseConfig";
 import { Event, TicketTier } from "@/types/event";
-import { getCurrencySymbol } from "@/lib/utils";
+import { getCurrencySymbol, formatEventDateTime } from "@/lib/utils";
 import MovieTicketSelectionScreen from "./MovieTicketSelectionScreen";
 import EventApplicationForm from "@/components/EventApplicationForm";
 
@@ -48,6 +48,7 @@ const TicketSelectionScreen = () => {
   );
   const [isNavigating, setIsNavigating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const areTicketsOnSale = !event?.ticketsAvailableOn || new Date() >= event.ticketsAvailableOn;
 
   useEffect(() => {
     if (!eventId) return;
@@ -72,7 +73,8 @@ const TicketSelectionScreen = () => {
                 setApplicationStatus("not_applied");
               }
             } else {
-              setApplicationStatus("not_applied");
+              setApplicationStatus("not_applied
+              ");
             }
           } else {
             setApplicationStatus("not_applicable");
@@ -345,44 +347,55 @@ const TicketSelectionScreen = () => {
       <View style={{ paddingHorizontal: 20 }}>
         <TopNavBar title={"Select Tickets"} onBackPress={() => router.back()} />
       </View>
-      <FlatList
-        data={ticketTiers}
-        renderItem={renderTier}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContainer}
-      />
-      <View style={styles.stickyFooter}>
-        <View style={styles.priceDetails}>
-          <Text style={styles.totalPrice}>
-            Total: {currencySymbol}
-            {pricing.total.toLocaleString()}
+      {areTicketsOnSale ? (
+        <>
+          <FlatList
+            data={ticketTiers}
+            renderItem={renderTier}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContainer}
+          />
+          <View style={styles.stickyFooter}>
+            <View style={styles.priceDetails}>
+              <Text style={styles.totalPrice}>
+                Total: {currencySymbol}
+                {pricing.total.toLocaleString()}
+              </Text>
+              {pricing.total > 0 && (
+                <Text style={styles.priceBreakdown} numberOfLines={2}>
+                  Subtotal: {currencySymbol}
+                  {pricing.subtotal.toLocaleString()}
+                  {" + "}Fee: {currencySymbol}
+                  {pricing.processingFee.toLocaleString()}
+                  {pricing.gstAmount > 0 &&
+                    ` + GST: ${currencySymbol}${pricing.gstAmount.toLocaleString()}`}
+                </Text>
+              )}
+            </View>
+            <TouchableOpacity
+              style={[
+                styles.ctaButton,
+                isContinueDisabled && styles.ctaButtonDisabled,
+              ]}
+              onPress={handleReviewOrder}
+              disabled={isContinueDisabled}
+            >
+              {isNavigating ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text style={styles.ctaButtonText}>Review Order</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </>
+      ) : (
+        <View style={styles.centeredMessage}>
+          <Text style={styles.statusText}>Tickets are not yet available</Text>
+          <Text style={styles.statusSubText}>
+            Tickets for this event will go on sale on {formatEventDateTime(event.ticketsAvailableOn)}.
           </Text>
-          {pricing.total > 0 && (
-            <Text style={styles.priceBreakdown} numberOfLines={2}>
-              Subtotal: {currencySymbol}
-              {pricing.subtotal.toLocaleString()}
-              {" + "}Fee: {currencySymbol}
-              {pricing.processingFee.toLocaleString()}
-              {pricing.gstAmount > 0 &&
-                ` + GST: ${currencySymbol}${pricing.gstAmount.toLocaleString()}`}
-            </Text>
-          )}
         </View>
-        <TouchableOpacity
-          style={[
-            styles.ctaButton,
-            isContinueDisabled && styles.ctaButtonDisabled,
-          ]}
-          onPress={handleReviewOrder}
-          disabled={isContinueDisabled}
-        >
-          {isNavigating ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <Text style={styles.ctaButtonText}>Review Order</Text>
-          )}
-        </TouchableOpacity>
-      </View>
+      )}
     </ThemedView>
   );
 };

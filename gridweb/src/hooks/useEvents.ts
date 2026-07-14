@@ -29,6 +29,7 @@ export const useEvents = () => {
             eventType: data.eventType || 'regular',
             startTime: data.startTime?.toDate?.() || new Date(data.startTime),
             endTime: data.endTime?.toDate?.() || (data.endTime ? new Date(data.endTime) : undefined),
+            ticketsAvailableOn: data.ticketsAvailableOn?.toDate?.() || (data.ticketsAvailableOn ? new Date(data.ticketsAvailableOn) : undefined),
             createdAt: data.createdAt?.toDate?.() || (data.createdAt ? new Date(data.createdAt) : undefined),
             updatedAt: data.updatedAt?.toDate?.() || (data.updatedAt ? new Date(data.updatedAt) : undefined),
           };
@@ -68,6 +69,7 @@ export const useEvent = (eventId: string) => {
             startTime: data.startTime?.toDate?.() || new Date(data.startTime),
             endTime: data.endTime?.toDate?.() || (data.endTime ? new Date(data.endTime) : undefined),
             showtime: data.showtime?.toDate?.() || (data.showtime ? new Date(data.showtime) : undefined),
+            ticketsAvailableOn: data.ticketsAvailableOn?.toDate?.() || (data.ticketsAvailableOn ? new Date(data.ticketsAvailableOn) : undefined),
             createdAt: data.createdAt?.toDate?.() || (data.createdAt ? new Date(data.createdAt) : undefined),
             updatedAt: data.updatedAt?.toDate?.() || (data.updatedAt ? new Date(data.updatedAt) : undefined),
           } as Event);
