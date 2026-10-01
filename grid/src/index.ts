@@ -30,6 +30,7 @@ import {
 } from "./admin";
 import { sendEventPushNotification } from "./notifications";
 import { sendInvitationEmail, sendEmailToAttendees } from "./emails";
+import { sendWhatsAppBroadcastToAttendees } from "./whatsapp";
 import { sendTicketEmail } from "./tickets";
 import {
   onMovieEventCreated,
@@ -62,6 +63,7 @@ export {
   cancelOrder,
   sendTicketEmail,
   sendEmailToAttendees,
+  sendWhatsAppBroadcastToAttendees,
   onMovieEventCreated,
   holdMovieSeats,
   releaseMovieSeats,

@@ -1,13 +1,12 @@
-
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp } from "firebase/firestore";
 
 // New types added from web
-export type EventCurrency = 'INR' | 'USD' | 'HKD';
+export type EventCurrency = "INR" | "USD" | "HKD";
 
 export interface CustomQuestion {
   id: string;
   label: string;
-  type: 'text' | 'select';
+  type: "text" | "select";
   options?: string[];
   required?: boolean;
 }
@@ -22,11 +21,11 @@ export interface MovieDetails {
 }
 
 // Existing types
-export type EventVisibility = 'public' | 'private' | 'buds';
-export type EventStatus = 'draft' | 'published' | 'cancelled';
+export type EventVisibility = "public" | "private" | "buds";
+export type EventStatus = "draft" | "published" | "cancelled";
 
 export type EventLocation = {
-  type: 'physical' | 'online';
+  type: "physical" | "online";
   address?: string;
   city?: string;
   lat?: number;
@@ -36,6 +35,8 @@ export type EventLocation = {
 
 // Updated Event interface
 export interface Event {
+  ticketsAvailableOn: Date;
+  gstPercent: null;
   id: string;
   title: string;
   subtitle?: string;
@@ -69,13 +70,12 @@ export interface Event {
   soldSeatIds?: string[];
   isInviteOnly?: boolean;
   customQuestions?: CustomQuestion[];
-  eventType?: 'regular' | 'movie';
+  eventType?: "regular" | "movie";
   venueId?: string;
   showtime?: Date;
   movie?: MovieDetails;
   // --- End of added fields ---
 }
-
 
 export interface Attendee {
   name: string;
@@ -83,7 +83,7 @@ export interface Attendee {
   phone?: string;
 }
 
-export type EventAttendeeStatus = 'going' | 'maybe' | 'notGoing';
+export type EventAttendeeStatus = "going" | "maybe" | "notGoing";
 
 export interface EventAttendee {
   userId: string;
@@ -93,7 +93,7 @@ export interface EventAttendee {
   createdAt: Date;
 }
 
-export type TicketTierType = 'ticket' | 'table' | 'addon';
+export type TicketTierType = "ticket" | "table" | "addon";
 
 export interface TicketTier {
   id: string;
@@ -111,13 +111,19 @@ export interface TicketTier {
   updatedAt: Date;
 }
 
-export type FirestoreTicketTier = Omit<TicketTier, 'id' | 'createdAt' | 'updatedAt'> & {
-    chargeAmount?: number;
-    createdAt: Timestamp;
-    updatedAt: Timestamp;
+export type FirestoreTicketTier = Omit<
+  TicketTier,
+  "id" | "createdAt" | "updatedAt"
+> & {
+  chargeAmount?: number;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
 };
 
-export type FirestoreEvent = Omit<Event, 'id' | 'startTime' | 'endTime' | 'createdAt' | 'updatedAt' | 'showtime'> & {
+export type FirestoreEvent = Omit<
+  Event,
+  "id" | "startTime" | "endTime" | "createdAt" | "updatedAt" | "showtime"
+> & {
   startTime: Timestamp;
   endTime: Timestamp;
   createdAt: Timestamp;
@@ -133,13 +139,13 @@ export interface OrderItem {
   quantity: number;
 }
 
-export type OrderStatus = 'pending' | 'paid' | 'canceled' | 'failed';
+export type OrderStatus = "pending" | "paid" | "canceled" | "failed";
 
 export interface TableContactDetails {
-    fullName: string;
-    email: string;
-    phone: string;
-    notes?: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  notes?: string;
 }
 
 export interface Order {
@@ -168,7 +174,7 @@ export interface Order {
 export interface SurveyQuestion {
   id: string;
   order: number;
-  type: 'multiple-choice' | 'single-choice' | 'free-text';
+  type: "multiple-choice" | "single-choice" | "free-text";
   question: string;
   options?: string[];
 }

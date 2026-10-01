@@ -1,4 +1,3 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { collection, query, orderBy, getDocs, Timestamp, where, documentId } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -71,7 +70,6 @@ const fetchAllEventsForAdmin = async (): Promise<Event[]> => {
       endTime: data.endTime?.toDate?.() || (data.endTime ? new Date(data.endTime) : undefined),
       createdAt: data.createdAt?.toDate?.() || (data.createdAt ? new Date(data.createdAt) : undefined),
       updatedAt: data.updatedAt?.toDate?.() || (data.updatedAt ? new Date(data.updatedAt) : undefined),
-      gstPercent: data.gstPercent ?? 0, // Ensure gstPercent is always included
     };
   }) as Event[];
 };
@@ -101,7 +99,6 @@ const fetchEventsForAdmin = async (eventIds: string[]): Promise<Event[]> => {
         endTime: data.endTime?.toDate?.() || (data.endTime ? new Date(data.endTime) : undefined),
         createdAt: data.createdAt?.toDate?.() || (data.createdAt ? new Date(data.createdAt) : undefined),
         updatedAt: data.updatedAt?.toDate?.() || (data.updatedAt ? new Date(data.updatedAt) : undefined),
-        gstPercent: data.gstPercent ?? 0, // Ensure gstPercent is always included
       };
     }) as Event[];
     
@@ -115,7 +112,6 @@ const fetchEventsForAdmin = async (eventIds: string[]): Promise<Event[]> => {
     return dateB - dateA;
   });
 };
-
 
 // Calculate dashboard stats from orders
 const calculateStats = (orders: Order[]): DashboardStats => {

@@ -23,6 +23,7 @@ export interface EventFormData {
   coverImageUrl?: string;
   startTime: Date;
   endTime?: Date;
+  ticketsAvailableOn:Date,
   timeZone?: string;
   location: {
     address: string;

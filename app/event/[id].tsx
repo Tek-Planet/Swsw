@@ -29,6 +29,7 @@ import {
 import { useEventSeats } from "@/hooks/useEventSeats";
 import { useVenue } from "@/hooks/useVenue";
 import { Event } from "@/types/event";
+import { formatEventDateTime } from "@/lib/utils";
 
 const theme = { colors: Colors.dark, fonts: Fonts.default };
 
@@ -99,7 +100,7 @@ const EventDetailScreen = () => {
   const [loading, setLoading] = useState(true);
 
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
-  const eventId = typeof id === 'string' ? id : undefined;
+  const eventId = typeof id === "string" ? id : undefined;
   const { venue, loading: venueLoading } = useVenue(
     event?.eventType === "movie" ? event.venueId : undefined
   );
@@ -182,6 +183,8 @@ const EventDetailScreen = () => {
   const isMovieEvent = event?.eventType === "movie";
   const fullLoading =
     loading || (isMovieEvent && (venueLoading || seatsLoading));
+  const areTicketsOnSale =
+    !event?.ticketsAvailableOn || new Date() >= event.ticketsAvailableOn;
 
   if (fullLoading) {
     return (
@@ -266,8 +269,15 @@ const EventDetailScreen = () => {
             venue={venue}
             onCheckout={handleCheckout}
           />
-        ) : (
+        ) : areTicketsOnSale ? (
           <FloatingRSVPBar eventId={eventId} hasTicket={hasTicket} />
+        ) : (
+          <View style={styles.comingSoonContainer}>
+            <Text style={styles.comingSoonText}>
+              Tickets available on{" "}
+              {formatEventDateTime(event.ticketsAvailableOn)}
+            </Text>
+          </View>
         ))}
     </View>
   );
@@ -333,6 +343,23 @@ const styles = StyleSheet.create({
   floatingBarPrice: {
     color: theme.colors.text,
     fontSize: 12,
+  },
+  comingSoonContainer: {
+    position: "absolute",
+    bottom: 20,
+    left: 20,
+    right: 20,
+    height: 60,
+    borderRadius: 15,
+    backgroundColor: "#333",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  comingSoonText: {
+    color: theme.colors.text,
+    fontSize: 16,
+    fontWeight: "bold",
   },
 });
 

@@ -25,17 +25,19 @@ const MyTickets = () => {
 
   const formatDate = (timestamp: any) => {
     const date = timestamp?.toDate?.() || new Date(timestamp);
-    return date.toLocaleDateString('en-IN', {
+    return date.toLocaleDateString('en-US', {
       day: 'numeric',
       month: 'short',
       year: 'numeric',
     });
   };
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-IN', {
+  const formatPrice = (price: number, currency: string) => {
+    // Fallback to USD if currency is not provided
+    const validCurrency = currency || 'USD';
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'INR',
+      currency: validCurrency,
       maximumFractionDigits: 0,
     }).format(price);
   };
@@ -120,7 +122,7 @@ const MyTickets = () => {
                         </div>
                         <div className="text-right">
                           <p className="text-lg font-display font-bold text-gradient">
-                            {formatPrice(order.subtotal)}
+                            {formatPrice(order.subtotal, order.currency)}
                           </p>
                           <ChevronRight className="w-5 h-5 text-muted-foreground ml-auto mt-2 group-hover:translate-x-1 transition-transform" />
                         </div>

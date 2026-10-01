@@ -32,6 +32,7 @@ const eventFromDoc = (doc: QueryDocumentSnapshot<DocumentData>): Event => {
     id: doc.id,
     startTime: data.startTime ? data.startTime.toDate() : new Date(),
     endTime: data.endTime ? data.endTime.toDate() : new Date(),
+    ticketsAvailableOn: data.ticketsAvailableOn ? data.ticketsAvailableOn.toDate() : undefined,
     createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
     updatedAt: data.updatedAt ? data.updatedAt.toDate() : new Date(),
     ...(data.showtime && { showtime: data.showtime.toDate() }),

@@ -1,20 +1,30 @@
-
-import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
-import { doc, getDoc, collection, getDocs, orderBy, query } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { Button } from '@/components/ui/button';
-import { EventForm } from '@/components/admin/EventForm';
-import { useEventMutations, EventFormData, TicketTierFormData } from '@/hooks/useEventMutations';
-import LoadingSpinner from '@/components/LoadingSpinner';
-import { Event, TicketTier } from '@/types';
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
+import {
+  doc,
+  getDoc,
+  collection,
+  getDocs,
+  orderBy,
+  query,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { Button } from "@/components/ui/button";
+import { EventForm } from "@/components/admin/EventForm";
+import {
+  useEventMutations,
+  EventFormData,
+  TicketTierFormData,
+} from "@/hooks/useEventMutations";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import { Event, TicketTier } from "@/types";
 
 const EventEdit = () => {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
   const { updateEvent, loading: mutationLoading } = useEventMutations();
-  
+
   const [event, setEvent] = useState<Event | null>(null);
   const [ticketTiers, setTicketTiers] = useState<TicketTierFormData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,18 +33,18 @@ const EventEdit = () => {
   useEffect(() => {
     const fetchEventData = async () => {
       if (!eventId) {
-        setError('Event ID is required');
+        setError("Event ID is required");
         setLoading(false);
         return;
       }
 
       try {
         // Fetch event
-        const eventRef = doc(db, 'events', eventId);
+        const eventRef = doc(db, "events", eventId);
         const eventSnap = await getDoc(eventRef);
 
         if (!eventSnap.exists()) {
-          setError('Event not found');
+          setError("Event not found");
           setLoading(false);
           return;
         }
@@ -43,15 +53,25 @@ const EventEdit = () => {
         setEvent({
           id: eventSnap.id,
           ...eventData,
-          eventType: eventData.eventType || 'regular',
-          startTime: eventData.startTime?.toDate?.() || new Date(eventData.startTime),
-          endTime: eventData.endTime?.toDate?.() || (eventData.endTime ? new Date(eventData.endTime) : undefined),
-          showtime: eventData.showtime?.toDate?.() || (eventData.showtime ? new Date(eventData.showtime) : undefined),
+          eventType: eventData.eventType || "regular",
+          startTime:
+            eventData.startTime?.toDate?.() || new Date(eventData.startTime),
+          endTime:
+            eventData.endTime?.toDate?.() ||
+            (eventData.endTime ? new Date(eventData.endTime) : undefined),
+          showtime:
+            eventData.showtime?.toDate?.() ||
+            (eventData.showtime ? new Date(eventData.showtime) : undefined),
+          ticketsAvailableOn:
+            eventData.ticketsAvailableOn?.toDate?.() ||
+            (eventData.ticketsAvailableOn
+              ? new Date(eventData.ticketsAvailableOn)
+              : undefined),
         } as Event);
 
         // Fetch ticket tiers
-        const tiersRef = collection(db, 'events', eventId, 'ticketTiers');
-        const tiersQuery = query(tiersRef, orderBy('sortOrder', 'asc'));
+        const tiersRef = collection(db, "events", eventId, "ticketTiers");
+        const tiersQuery = query(tiersRef, orderBy("sortOrder", "asc"));
         const tiersSnap = await getDocs(tiersQuery);
 
         const tiersData = tiersSnap.docs.map((doc, index) => ({
@@ -62,8 +82,8 @@ const EventEdit = () => {
 
         setTicketTiers(tiersData);
       } catch (err) {
-        console.error('Error fetching event:', err);
-        setError('Failed to load event');
+        console.error("Error fetching event:", err);
+        setError("Failed to load event");
       } finally {
         setLoading(false);
       }
@@ -72,12 +92,15 @@ const EventEdit = () => {
     fetchEventData();
   }, [eventId]);
 
-  const handleSubmit = async (eventData: EventFormData, tiers: TicketTierFormData[]) => {
+  const handleSubmit = async (
+    eventData: EventFormData,
+    tiers: TicketTierFormData[]
+  ) => {
     if (!eventId) return;
-    
+
     const success = await updateEvent(eventId, eventData, tiers);
     if (success) {
-      navigate('/admin/events');
+      navigate("/admin/events");
     }
   };
 
@@ -96,13 +119,17 @@ const EventEdit = () => {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate('/admin/events')}
+            onClick={() => navigate("/admin/events")}
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-2xl font-display font-bold text-foreground">Error</h1>
-            <p className="text-muted-foreground">{error || 'Event not found'}</p>
+            <h1 className="text-2xl font-display font-bold text-foreground">
+              Error
+            </h1>
+            <p className="text-muted-foreground">
+              {error || "Event not found"}
+            </p>
           </div>
         </div>
       </div>
@@ -117,6 +144,7 @@ const EventEdit = () => {
     coverImageUrl: event.coverImageUrl,
     startTime: event.startTime,
     endTime: event.endTime,
+    ticketsAvailableOn: event.ticketsAvailableOn,
     location: event.location,
     visibility: event.visibility,
     status: event.status,
@@ -131,7 +159,7 @@ const EventEdit = () => {
     isInviteOnly: event.isInviteOnly,
     customQuestions: event.customQuestions,
     // Movie event fields
-    eventType: event.eventType || 'regular',
+    eventType: event.eventType || "regular",
     venueId: event.venueId,
     showtime: event.showtime,
     movie: event.movie,
@@ -144,7 +172,7 @@ const EventEdit = () => {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate('/admin/events')}
+          onClick={() => navigate("/admin/events")}
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>

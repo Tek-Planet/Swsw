@@ -28,7 +28,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import { useAdminContext } from '@/hooks/useAdminContext';
 import { formatEventDate } from '@/lib/dateUtils';
 
-const ITEMS_PER_PAGE = 15;
+const ITEMS_PER_PAGE = 10;
 
 // Helper to generate page numbers with ellipsis
 const getPageNumbers = (currentPage: number, totalPages: number) => {

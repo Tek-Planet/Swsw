@@ -52,8 +52,10 @@ const eventFormSchema = z.object({
   coverImageUrl: z.string().url('Must be a valid URL').optional().or(z.literal('')),
   startDate: z.date({ required_error: 'Start date is required' }),
   startTime: z.string().min(1, 'Start time is required'),
-  endDate: z.date().optional(),
+  endDate: z.date().optional().nullable(),
   endTime: z.string().optional(),
+  ticketsAvailableOnDate: z.date().optional().nullable(),
+  ticketsAvailableOnTime: z.string().optional(),
   address: z.string().min(1, 'Address is required'),
   city: z.string().min(1, 'City is required'),
   visibility: z.enum(['public', 'private', 'unlisted']),
@@ -66,7 +68,7 @@ const eventFormSchema = z.object({
   gstPercent: z.number().min(0).max(100).optional().nullable(),
   eventType: z.enum(['regular', 'movie']).optional(),
   venueId: z.string().optional(),
-  showtimeDate: z.date().optional(),
+  showtimeDate: z.date().optional().nullable(),
   showtimeTime: z.string().optional(),
   movieTitle: z.string().optional(),
   movieDurationMins: z.number().optional().nullable(),
@@ -186,21 +188,44 @@ export const EventForm = ({
     fetchPromoCodes();
   }, [mode, eventId]);
 
-  // Parse initial dates
+  // Correctly parse initial dates from Firestore Timestamps
   const getInitialValues = (): EventFormValues => {
     if (initialData) {
-      const startDate = new Date(initialData.startTime);
-      const endDate = initialData.endTime ? new Date(initialData.endTime) : undefined;
-      
+      // Helper to safely convert a value to a JS Date object
+      const toDate = (value: any): Date | undefined => {
+        if (!value) return undefined;
+        // Firestore Timestamps have a toDate() method
+        if (typeof value.toDate === 'function') {
+          return value.toDate();
+        }
+        // Handle existing Date objects, strings, or numbers
+        const d = new Date(value);
+        if (!isNaN(d.getTime())) {
+          return d;
+        }
+        return undefined;
+      };
+
+      const startDate = toDate(initialData.startTime);
+      const endDate = toDate(initialData.endTime);
+      const ticketsAvailableOn = toDate(initialData.ticketsAvailableOn);
+      const showtime = toDate(initialData.showtime);
+
       return {
         title: initialData.title,
         subtitle: initialData.subtitle || '',
         description: initialData.description,
         coverImageUrl: initialData.coverImageUrl || '',
-        startDate,
-        startTime: format(startDate, 'HH:mm'),
-        endDate,
+        
+        startDate: startDate || new Date(),
+        startTime: startDate ? format(startDate, 'HH:mm') : '21:00',
+        
+        endDate: endDate || null,
         endTime: endDate ? format(endDate, 'HH:mm') : '',
+        
+        ticketsAvailableOnDate: ticketsAvailableOn || null,
+        ticketsAvailableOnTime: ticketsAvailableOn ? format(ticketsAvailableOn, 'HH:mm') : '',
+        
         address: initialData.location.address,
         city: initialData.location.city,
         visibility: initialData.visibility || 'public',
@@ -213,8 +238,10 @@ export const EventForm = ({
         gstPercent: initialData.gstPercent ?? null,
         eventType: initialData.eventType || 'regular',
         venueId: initialData.venueId || 'house6',
-        showtimeDate: initialData.showtime ? new Date(initialData.showtime) : undefined,
-        showtimeTime: initialData.showtime ? format(new Date(initialData.showtime), 'HH:mm') : '',
+
+        showtimeDate: showtime || null,
+        showtimeTime: showtime ? format(showtime, 'HH:mm') : '',
+        
         movieTitle: initialData.movie?.title || '',
         movieDurationMins: initialData.movie?.durationMins ?? null,
         movieLanguage: initialData.movie?.language || '',
@@ -223,6 +250,7 @@ export const EventForm = ({
       };
     }
 
+    // Default values for creating a new event
     return {
       title: '',
       subtitle: '',
@@ -230,8 +258,10 @@ export const EventForm = ({
       coverImageUrl: '',
       startDate: new Date(),
       startTime: '21:00',
-      endDate: undefined,
+      endDate: null,
       endTime: '',
+      ticketsAvailableOnDate: null,
+      ticketsAvailableOnTime: '',
       address: '',
       city: '',
       visibility: 'public',
@@ -244,7 +274,7 @@ export const EventForm = ({
       gstPercent: null,
       eventType: 'regular',
       venueId: 'house6',
-      showtimeDate: undefined,
+      showtimeDate: null,
       showtimeTime: '',
       movieTitle: '',
       movieDurationMins: null,
@@ -279,12 +309,12 @@ export const EventForm = ({
     if (movieSynopsis !== undefined) {
       const syn = (movieSynopsis || '').trim();
       // Description must be >= 10 chars; fall back to a default
-      form.setValue('description', syn.length >= 10 ? syn : `${movieTitle || 'Movie'} — screening at House 6.`);
+      form.setValue('description', syn.length >= 10 ? syn : `\${movieTitle || 'Movie'} — screening at House 6.`);
     }
     if (showtimeDate) form.setValue('startDate', showtimeDate);
     if (showtimeTime) form.setValue('startTime', showtimeTime);
     if (showtimeDate && showtimeTime && movieDuration) {
-      const end = new Date(showtimeDate);
+      const end = new Date(showtimeDate); // This is now safe because getInitialValues converts it
       const [h, m] = showtimeTime.split(':').map(Number);
       end.setHours(h, m + movieDuration, 0, 0);
       form.setValue('endDate', end);
@@ -367,6 +397,13 @@ export const EventForm = ({
       const [endHours, endMinutes] = values.endTime.split(':').map(Number);
       endDateTime.setHours(endHours, endMinutes, 0, 0);
     }
+    
+    let ticketsAvailableOn: Date | undefined;
+    if (values.ticketsAvailableOnDate && values.ticketsAvailableOnTime) {
+      ticketsAvailableOn = new Date(values.ticketsAvailableOnDate);
+      const [hours, minutes] = values.ticketsAvailableOnTime.split(':').map(Number);
+      ticketsAvailableOn.setHours(hours, minutes, 0, 0);
+    }
 
     let showtime: Date | undefined;
     if (values.eventType === 'movie' && values.showtimeDate && values.showtimeTime) {
@@ -382,6 +419,7 @@ export const EventForm = ({
       coverImageUrl,
       startTime: startDateTime,
       endTime: endDateTime,
+      ticketsAvailableOn,
       location: {
         address: values.address,
         city: values.city,
@@ -449,7 +487,7 @@ export const EventForm = ({
       setNewPromoCode(null);
       toast({
         title: 'Promo code created',
-        description: `Code "${promoData.code}" has been added.`,
+        description: `Code "\${promoData.code}" has been added.`,
       });
     } catch (error) {
       console.error('Error adding promo code:', error);
@@ -752,7 +790,7 @@ export const EventForm = ({
                     </Button>
                   )}
                   <p className="text-sm text-muted-foreground">
-                    {coverImageFile ? `Selected: ${coverImageFile.name}` : 'PNG, JPG, or WEBP up to 5MB'}
+                    {coverImageFile ? `Selected: \${coverImageFile.name}` : 'PNG, JPG, or WEBP up to 5MB'}
                   </p>
                 </div>
               </CardContent>
@@ -978,6 +1016,74 @@ export const EventForm = ({
                         <FormLabel>End Time</FormLabel>
                         <FormControl>
                           <Input type="time" {...field} className="bg-muted" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <CardTitle className="text-lg">Ticket Sales Start Time</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="ticketsAvailableOnDate"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Start Selling On</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant={"outline"}
+                                className={cn(
+                                  "w-full pl-3 text-left font-normal bg-muted",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                              >
+                                {field.value ? (
+                                  format(field.value, "PPP")
+                                ) : (
+                                  <span>Pick a date</span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={field.value}
+                              onSelect={field.onChange}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormDescription>
+                          Optional: Leave blank to start selling tickets immediately.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="ticketsAvailableOnTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>At Time</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="time"
+                            {...field}
+                            className="bg-muted"
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1807,8 +1913,8 @@ export const EventForm = ({
                                       {promo.discountType === 'free' 
                                         ? '100% Free' 
                                         : promo.discountType === 'percent'
-                                          ? `${promo.discountValue}% off`
-                                          : `${promo.discountValue} off`}
+                                          ? `\${promo.discountValue}% off`
+                                          : `\${promo.discountValue} off`}
                                       {' · '}
                                       {promo.currentRedemptions}/{promo.maxRedemptions} used
                                     </p>
